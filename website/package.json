@@ -3,9 +3,8 @@
   "version": "0.1.1",
   "description": "",
   "homepage": "",
-  "dependencies": {},
   "devDependencies": {
-    "bower": "^1.8.8",
+    "bower": "^1.8.14",
     "browser-sync": "^2.26.12",
     "husky": "^4.2.5",
     "lint-staged": "^10.2.11",
@@ -23,7 +22,8 @@
     "test": "npm run build",
     "lint": "prettier-standard --check",
     "postinstall": "bower i",
-    "prestart": "npm i"
+    "prestart": "npm i",
+    "deploy": "gh-pages -d dist"
   },
   "engines": {
     "node": "^12.18.0",
@@ -42,5 +42,8 @@
     "**/*": [
       "git add"
     ]
+  },
+  "dependencies": {
+    "gh-pages": "^3.2.3"
   }
 }
