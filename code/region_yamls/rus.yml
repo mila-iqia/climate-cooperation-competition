@@ -1,0 +1,26 @@
+_RICE_CONSTANT:
+  xgamma: 0.3 # in CAP Eq 5 the capital elasticty
+  # updates
+  # # A
+  # xA_0: 6.448788869377218
+  # xg_A: 0.002321629983331664
+  # xdelta_A: 0.012000000000000026
+
+  # A rice data
+  xA_0: 4.87
+  xg_A: 0.15061692236485819
+  xdelta_A: 0.0062013605641761905
+
+  # L
+  xL_0: 144.406261 # in POP population at the staring point
+  xL_a: 104.858000 # in POP the expected population at convergence
+  xl_g: 0.007796930018913225 # in POP control the rate to converge
+  # K
+  xK_0: 19.335736
+
+  xa_1: 0
+  xa_2: 0.1151
+  xa_3: 2
+
+  # xsigma_0: 0.4021352345279335
+  xsigma_0: 0.17
