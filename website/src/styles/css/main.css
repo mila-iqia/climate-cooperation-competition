@@ -14,10 +14,11 @@
 }
 
 body {
-  /* font-family: BlinkMacSystemFont, -apple-system, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Helvetica,
-    Arial, sans-serif !important; */
-    font-family: "Times New Roman", Baskerville, "Baskerville Old Face", "Hoefler Text", Garamond, "Times New Roman", serif;
+  font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Helvetica,
+    Arial, sans-serif !important;
+  /* font-family: "Times New Roman", Baskerville, "Baskerville Old Face",
+    "Hoefler Text", Garamond, "Times New Roman", serif; */
 }
 
 h1,
@@ -47,8 +48,8 @@ header {
   --color-table: #118bee;
   --color-text: #000;
   --color-text-secondary: #999;
-  --font-family: BlinkMacSystemFont, -apple-system, 'Segoe UI', Ubuntu, Roboto,
-    Oxygen, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Helvetica,
+  --font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", Ubuntu, Roboto,
+    Oxygen, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Helvetica,
     Arial, sans-serif;
   --hover-brightness: 1.2;
   --justify-important: center;
@@ -61,7 +62,7 @@ header {
 }
 
 #image_header {
-  background: url('/images/nations-planet.jpeg') no-repeat center center;
+  background: url("/images/nations-planet.jpeg") no-repeat center center;
   /* background-repeat: no-repeat; */
   /* background-attachment: fixed; */
   background-size: contain;
