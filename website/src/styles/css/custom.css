@@ -45,8 +45,8 @@
 }
 
 .blogpost {
-  font-family: 'Times New Roman', Baskerville, 'Baskerville Old Face',
-    'Hoefler Text', Garamond, 'Times New Roman', serif;
+  font-family: "Times New Roman", Baskerville, "Baskerville Old Face",
+    "Hoefler Text", Garamond, "Times New Roman", serif;
   font-size: 1.25em;
   font-style: normal;
   font-variant: normal;
@@ -69,7 +69,7 @@ h1.resources-headline {
 }
 
 h1.resources-headline:after {
-  content: ' ';
+  content: " ";
   display: block;
   border: 1px solid gray;
 }
@@ -108,20 +108,19 @@ a.button1:hover {
 }
 
 @media all and (max-width: 992px) {
-
   .home-img {
     margin: auto;
     display: block;
   }
 }
 
-
 h1 {
-  color: #4582ec;
+  /* color: #4582ec; */
+  color: #777777;
   font-weight: bold;
   padding-bottom: 0.3em;
   margin: auto;
-  text-align:center
+  text-align: center;
 }
 
 .people-img {
@@ -137,8 +136,20 @@ h1 {
   overflow: hidden;
   width: 200px;
   height: 200px;
-  border-style:double;
-  border-color:sienna;
+  border-style: double;
+  border-color: sienna;
   position: relative;
   margin: 0 auto;
+}
+
+.green-highlight {
+  color: green !important;
+}
+
+.navbar-brand > li > a {
+  color: purple;
+}
+
+.navbar-nav > li > a {
+  color: purple;
 }

@@ -27,7 +27,7 @@
   <link rel="stylesheet" href="styles/css/bamos.css">
 
   <!-- Custom -->
-  <link rel="stylesheet" href="styles/css/pgupta.css">
+  <link rel="stylesheet" href="styles/css/custom.css">
 </head>
 
 <body>
@@ -38,10 +38,7 @@
         <div class="col-md-10 col-md-offset-1">
           <div class="navbar-header">
             <a href="/" class="navbar-brand">
-              <!-- <div>
-                <img src="images/sad-earth.png" class="img-circle"></img>
-                There is no Planet B
-              </div> -->
+              Climate Mitigation with AI
             </a>
             <button class="navbar-toggle" type="button" data-toggle="collapse" data-target="#navbar-main">
               <span class="icon-bar"></span>
@@ -65,10 +62,7 @@
                 <a href="#leaderboard">Leaderboard</a>
               </li>
               <li>
-                <a href="#participate">Participate</a>
-              </li>
-              <li>
-                <a href="#submit">Submit a Solution</a>
+                <a href="#participate" class="green-highlight">Participate</a>
               </li>
           </div>
         </div>
@@ -81,10 +75,6 @@
 
     <div class="row">
       <h1>Fostering Global Cooperation to Mitigate Climate Change</h1>
-    </div>
-    <div class="row">
-      Lorum ipsum dolor sit amet, consectetur adipiscing elit. Donec euismod, nisi vel consectetur interdum, nisl nunc
-      egestas nisi, euismod aliquam nisl nunc euismod nisl.
     </div>
 
 
@@ -120,13 +110,13 @@
 
     <!--  Block 2 -->
     <div class="row">
-      <div class="col-md-2 vcenter idxHdr home-img">
+      <!-- <div class="col-md-2 vcenter idxHdr home-img">
         <a href="images/natons.png">
           <img src="images/natons.png"
             style="border-radius: 20px; margin: 10px; max-width: none; width: 200px; height: auto"
             class="img-responsive" alt="Nations" />
         </a>
-      </div>
+      </div> -->
 
       <div class="col-md-7 col-md-offset-1 vcenter">
         <div>
@@ -162,13 +152,13 @@
         <br />
       </div>
 
-      <div class="col-md-2 vcenter idxHdr home-img">
+      <!-- <div class="col-md-2 vcenter idxHdr home-img">
         <a href="images/science-policy.png">
           <img src="images/science-policy.png"
             style="border-radius: 20px; margin: 10px; max-width: none; width: 200px; height: auto"
             class="img-responsive" alt="science-policy." />
         </a>
-      </div>
+      </div> -->
 
     </div>
 
@@ -178,6 +168,9 @@
   <div class="container" id="leaderboard">
     <div class="row">
       <h1>Leaderboard</h1>
+      <iframe src="http://34.111.184.174" style="width: 100%; height: 40em; border: 0">
+
+      </iframe>
     </div>
   </div>
 
@@ -187,12 +180,14 @@
 
     <div class="row">
       <h1>Get Started</h1>
-      Get the <a href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">starter kit on
-        Github</a>.
-
-
-      Our code repo provides simulation and reinforcement learning
-      code, tutorials, calibration details, evaluation and submission code, and more.
+      <p>
+        Get the <a href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">starter kit on
+          Github</a>.
+      </p>
+      <p>
+        Our code repo provides simulation and reinforcement learning
+        code, tutorials, calibration details, evaluation and submission code, and more.
+      </p>
     </div>
   </div>
 
@@ -204,65 +199,53 @@
   <!-- Structure of the competition -->
   <div class="container" id="about">
     <div class="row">
-      <h1>Structure</h1>
+      <h1>Competition Overview</h1>
+      <h2>What will you do?</h2>
+      <p>
+        The goal is to implement a negotiation strategy that will help regions to achieve their individual goals, but
+        also (indirectly) lead to better climate outcomes.
+      </p>
 
-      You will use a climate-economic simulation with fictitious regions as independent AI agents.
-
-      The simulator runs for 100 years.
-
-      Each region chooses how much to invest and mitigate climate change, sets international tariffs, limits exports,
-      and imports goods.
-
-      Regions also engage in multilateral negotiations.
-
-
-
-      The structural parameters are calibrated to real data.
-
-      To read more about the simulator, please refer to the <a href="TODO: ADD LINK">paper</a> and our <a
-        href="TODO: ADD LINK">Github repository</a>.
+      <p>
+        You will use a climate-economic simulation with fictitious regions as independent AI agents. Each agent chooses
+        how much to invest and mitigate climate change, sets international tariffs, limits exports, and imports goods.
+      </p>
+      <p>
+        The simulator runs for 100 years.
+      </p>
+      <p>
+        Regions also engage in multilateral negotiations.
+      </p>
+      <p>
+        The structural parameters are calibrated to real data.
+      </p>
+      <p>
+        To read more about the simulator, please refer to the <a href="TODO: ADD LINK">paper</a> and our <a
+          href="TODO: ADD LINK">Github repository</a>.
+      </p>
     </div>
-
 
     <div class="row">
       <h2>Track 1</h2>
-      The participants are tasked with the following:
+      <p>
+        You will:
       <ul>
         <li>propose and implement multilateral agreements to augment the simulator,</li>
         <li>train AI agents that negotiate with each other and optimize their utility, and</li>
         <li>evaluate the learned policies and resulting economic and climate change metrics, e.g., global equality,
           productivity, temperature increase.</li>
       </ul>
+      </p>
+      <p>
+        Scored by the number of other teams' best solutions are Pareto-dominated.
+        Ties are broken by climate index score (higher = better).
 
-      <h2>Track 2</h2>
-      In this track, we expect the participants to convey their findings in practically relevant context without going
-      too technical.
-      As we aim to bring the insights from the competition to the policymakers, we expect the entries in this track to
-      be written for policymakers.
+        Teams should argue why their solution is feasible, technically sound, and attractive.
+        For instance, from a game-theoretical perspective, good multilateral agreements might punish free-riders and
+        might
+        have to ensure that it’s difficult to “game” agreements with unrealistic behaviours.
 
-      <h2>Track 3</h2>
-      As with all the simulators, we don't expect it to be completely realistic.
-      However, we can strive to make it closely follow the real world dynamics.
-      Thus, we invite participants to point out potential developments and loopholes in the simulator that will be
-      included in the next rounds of this competition.
-    </div>
-  </div>
-
-  <!-- Evaluation of the competition -->
-  <div class="container">
-
-    <div class="row">
-      <h1>Evaluation of the submissions</h1>
-      <h2>Track 1</h2>
-      Scored by the number of other teams' best solutions are Pareto-dominated.
-      Ties are broken by climate index score (higher = better).
-
-      Teams should argue why their solution is feasible, technically sound, and attractive.
-      For instance, from a game-theoretical perspective, good multilateral agreements might punish free-riders and
-      might
-      have to ensure that it’s difficult to “game” agreements with unrealistic behaviours.
-
-      We expect the submissions to contain the following -
+        We expect the submissions to contain the following -
       <ul>
         <li>Modified code with negotiation protocol</li>
         <li>RL agents trained on that protocol</li>
@@ -271,15 +254,30 @@
 
       Please refer to the full <a href="TODO: ADD LINK">submission guidelines</a> for a full description of what is
       expected.
+      </p>
+
+
 
       <h2>Track 2</h2>
-      In addition to the requirements in the Track 1, we expect an additional submission
+      <p>
+        In this track, we expect the participants to convey their findings in practically relevant context without going
+        too technical.
+        As we aim to bring the insights from the competition to the policymakers, we expect the entries in this track to
+        be written for policymakers.
+      </p>
+      <p>
+        In addition to the requirements in the Track 1, we expect an additional submission
       <ul>
         <li>A 2500 word essay that summarizes the insights deliverable to policymaker jury </li>
       </ul>
+      </p>
 
       <h2>Track 3</h2>
-      ADD GUIDELINES HERE
+      <p>
+        We strive to closely simulate real-world dynamics.
+        But, no simulator is perfect.
+        Thus, we invite you to point out potential improvements and loopholes.
+      </p>
     </div>
   </div>
 
@@ -288,17 +286,17 @@
 
     <div class="row">
       <h1>Prizes</h1>
-      The winning entries will receive the following benefits
+      If you participate, you will:
       <ul>
-        <li>Getting feedback from policy experts.</li>
-        <li>Having your work in the proceedings of the competition.</li>
+        <li>get feedback from policy experts on your ideas, and</li>
+        <li>publish your work in the proceedings of the competition.</li>
       </ul>
     </div>
   </div>
 
 
 
-  <div class="container" id="submit">
+  <div class="container" id="participate">
     <div class="row">
       <h1>Submit a Solution</h1>
       <ul>
@@ -317,15 +315,23 @@
   <div class="container" id="faq">
     <div class="row">
       <h1>FAQ</h1>
-
-      Any questions?
-      <a href="https://groups.google.com/g/climate-cooperation-competition" target="blank">Google Groups</a>
-
-
-      How can I find other people interested in the competition?
-      <a href="https://join.slack.com/t/aieconomist/shared_invite/zt-g71ajic7-XaMygwNIup~CCzaR1T0wgA"
-        target="blank">Slack
-        Channel</a>
+      <p>
+        <b>
+          Where can I ask questions?
+        </b><br />
+        Check out our <a href="https://groups.google.com/g/climate-cooperation-competition" target="blank">Google
+          Group</a> and <a href="https://join.slack.com/t/aieconomist/shared_invite/zt-g71ajic7-XaMygwNIup~CCzaR1T0wgA"
+          target="blank">Slack
+          channel</a>.
+      </p>
+      <p>
+        <b>
+          How can I find other people interested in the competition?
+        </b><br />
+        Introduce yourself on Slack in <a
+          href="https://join.slack.com/t/aieconomist/shared_invite/zt-g71ajic7-XaMygwNIup~CCzaR1T0wgA"
+          target="blank">#looking-for-a-team</a>!
+      </p>
     </div>
   </div>
 
