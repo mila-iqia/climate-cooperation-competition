@@ -7,12 +7,14 @@
 """
 Regional Integrated model of Climate and the Economy (RICE)
 """
-import copy
 import logging
 import os
+import sys
 
 import numpy as np
 from gym.spaces import MultiDiscrete
+_ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+sys.path = [_ROOT_DIR] + sys.path
 
 from rice_helpers import (
     get_abatement_cost,
