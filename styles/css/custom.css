@@ -1,0 +1,226 @@
+#home {
+  background: #eeeeee;
+  /* height: 5em; */
+  /* position: relative; */
+  /* max-height: 5em; */
+  /* min-width: 100vw; */
+}
+
+.thumbnail {
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+body {
+  font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Helvetica,
+    Arial, sans-serif !important;
+  /* font-family: "Times New Roman", Baskerville, "Baskerville Old Face",
+    "Hoefler Text", Garamond, "Times New Roman", serif; */
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+}
+
+header {
+  background-color: #eeeeee;
+}
+
+:root {
+  --active-brightness: 0.85;
+  --border-radius: 5px;
+  --box-shadow: 2px 2px 10px;
+  --color: #118bee;
+  --color-accent: #118bee15;
+  --color-bg: #fff;
+  --color-bg-secondary: #e9e9e9;
+  --color-link: #118bee;
+  --color-secondary: #920de9;
+  --color-secondary-accent: #920de90b;
+  --color-shadow: #f4f4f4;
+  --color-table: #118bee;
+  --color-text: #000;
+  --color-text-secondary: #999;
+  --font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", Ubuntu, Roboto,
+    Oxygen, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Helvetica,
+    Arial, sans-serif;
+  --hover-brightness: 1.2;
+  --justify-important: center;
+  --justify-normal: left;
+  --line-height: 1.5;
+  --width-card: 285px;
+  --width-card-medium: 460px;
+  --width-card-wide: 800px;
+  --width-content: 1080px;
+}
+
+#image_header {
+  background: url("/images/nations-planet.jpeg") no-repeat center center;
+  /* background-repeat: no-repeat; */
+  /* background-attachment: fixed; */
+  background-size: contain;
+  /* background-size: 100% 100%; */
+}
+
+#footer-container {
+  background-color: white;
+  color: black;
+  padding: 25px;
+}
+
+.hidden-content {
+  overflow: hidden;
+  text-align: justify;
+  -webkit-transition: 0.15s ease;
+  -moz-transition: 0.15s ease;
+  -ms-transition: 0.15s ease;
+  -o-transition: 0.15s ease;
+  transition: all 0.15s ease;
+}
+
+.hidden-content pre {
+  font-size: 0.75em;
+  line-height: 1.4em;
+  padding: 10px;
+  white-space: pre-wrap;
+}
+
+/* icons */
+
+.fa-github {
+  color: #333 !important;
+}
+
+.fa-linkedin-square {
+  color: #2867b2 !important;
+}
+
+.fa-twitter {
+  color: #55acee !important;
+  background: transparent !important ;
+}
+
+.ai-google-scholar {
+  color: #4782e0 !important;
+}
+
+.fa-rss {
+  color: #ee802f !important;
+}
+
+.blogpost {
+  font-family: "Times New Roman", Baskerville, "Baskerville Old Face",
+    "Hoefler Text", Garamond, "Times New Roman", serif;
+  font-size: 1.25em;
+  font-style: normal;
+  font-variant: normal;
+  font-weight: 200;
+  line-height: 26.4px;
+}
+
+.designation {
+  font-size: 0.9em;
+  margin-top: 0.75rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  color: gray;
+}
+
+h1.resources-headline {
+  font-size: 20px;
+  line-height: 1em;
+  color: black;
+}
+
+h1.resources-headline:after {
+  content: " ";
+  display: block;
+  border: 1px solid gray;
+}
+
+h1.resources-headline span.h1-links {
+  font-size: 15px;
+  color: blue;
+  float: right;
+  padding: 0 1em 0 1em;
+}
+
+a.button1 {
+  display: inline-block;
+  padding: 0.35em 0.5em;
+  border: 0.1em solid #4582ec;
+  margin: 0 0em 0em 0;
+  border-radius: 0.12em;
+  box-sizing: border-box;
+  text-decoration: none;
+  font-weght: 300;
+  color: #4582ec;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+a.button1:hover {
+  color: #ffffff;
+  background-color: #4582ec;
+}
+
+@media all and (max-width: 30em) {
+  a.button1 {
+    display: block;
+    margin: 0.4em auto;
+  }
+}
+
+@media all and (max-width: 992px) {
+  .home-img {
+    margin: auto;
+    display: block;
+  }
+}
+
+h1 {
+  /* color: #4582ec; */
+  color: #444444;
+  font-weight: bold;
+  padding-bottom: 0.3em;
+  margin: auto;
+  text-align: center;
+}
+
+.people-img {
+  border: 0;
+  width: 200px;
+  height: auto;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.people-round-div {
+  border-radius: 50%;
+  overflow: hidden;
+  width: 200px;
+  height: 200px;
+  border-style: double;
+  border-color: sienna;
+  position: relative;
+  margin: 0 auto;
+}
+
+.navbar-brand {
+  color: #888888 !important;
+}
+
+.navbar-nav > li > a {
+  color: #888888 !important;
+}
+
+.navbar-nav > li > a.green-highlight {
+  color: green !important;
+}
