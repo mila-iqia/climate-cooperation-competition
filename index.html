@@ -26,6 +26,12 @@
 
   <!-- Custom -->
   <link rel="stylesheet" href="styles/css/custom.css">
+
+  <script>
+    function resizeIframe(obj) {
+      obj.style.height = obj.contentWindow.document.documentElement.scrollHeight + 'px';
+    }
+  </script>
 </head>
 
 <body>
@@ -33,40 +39,40 @@
   <!-- navbar-fixed-top -->
   <div class="navbar navbar-default">
     <div class="container">
-      <div class="row h-300">
-        <div class="col-md-10 col-md-offset-1">
-          <div class="navbar-header">
-            <a href="/" class="navbar-brand">
-              AI Climate Competition
-            </a>
-            <button class="navbar-toggle" type="button" data-toggle="collapse" data-target="#navbar-main">
-              <span class="icon-bar"></span>
-              <span class="icon-bar"></span>
-              <span class="icon-bar"></span>
-            </button>
-          </div>
-          <!-- <div class="navbar-collapse collapse" id="navbar-main"> -->
-          <div class="nav navbar-nav navbar-right" id="navbar-main">
-            <ul class="nav navbar-nav">
-              <li>
-                <a href="#about">About</a>
-              </li>
-              <li>
-                <a href="#faq">FAQ</a>
-              </li>
-              <li>
-                <a href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">Code</a>
-              </li>
-              <li>
-                <a href="#leaderboard">Leaderboard</a>
-              </li>
-              <li>
-                <a href="#submit" class="">Submit a solution</a>
-              </li>
-              <li>
-                <a href="#getstarted" class="green-highlight">Get started</a>
-              </li>
-          </div>
+      <div class="row">
+        <!--  h-300 -->
+
+        <div class="navbar-header">
+          <a href="/" class="navbar-brand">
+            AI Climate Competition
+          </a>
+          <button class="navbar-toggle" type="button" data-toggle="collapse" data-target="#navbar-main">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+        </div>
+        <!-- <div class="navbar-collapse collapse" id="navbar-main"> -->
+        <div class="nav navbar-nav navbar-right" id="navbar-main">
+          <ul class="nav navbar-nav">
+            <li>
+              <a href="#about">About</a>
+            </li>
+            <li>
+              <a href="#faq">FAQ</a>
+            </li>
+            <li>
+              <a href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">Code</a>
+            </li>
+            <li>
+              <a href="#leaderboard">Leaderboard</a>
+            </li>
+            <li>
+              <a href="#submit" class="">Submit a solution</a>
+            </li>
+            <li>
+              <a href="#getstarted" class="green-highlight">Get started</a>
+            </li>
         </div>
       </div>
     </div>
@@ -76,7 +82,7 @@
   <div class="container">
 
     <div class="row">
-      <h1>Fostering Global Cooperation on Climate Change</h1>
+      <h1>Using AI to Foster Global Cooperation on Climate Change</h1>
     </div>
 
     <!--  Block 1 -->
@@ -93,7 +99,7 @@
           win</a>, capping global temperature increase at 2 degrees Celsius.
 
       </p>
-      <h2>Join us and design international negotiation protocols and contracts.</h2>
+      <h2>Participate and use AI for social good.</h2>
       <p>
         To mitigate climate change, we need comprehensive long-term global cooperation.
 
@@ -129,9 +135,8 @@
     <div class="container" id="leaderboard">
       <div class="row">
         <h1>Leaderboard</h1>
-        <iframe src="http://34.111.184.174" style="width: 100%; height: 40em; border: 0">
-
-        </iframe>
+        <iframe src="http://34.111.184.174" style="width: 100%; height: 40em; border: 2" scrolling="no"
+          onload="resizeIframe(this)"></iframe>
       </div>
     </div>
 
@@ -154,7 +159,7 @@
               <td>
                 <p>Kick-off town hall.</p>
               </td>
-              <td>March 1, 2022</td>
+              <td>May 10, 2022</td>
               <td>4 pm PST</td>
               <td><a href="">Zoom</a></td>
             </tr>
@@ -286,6 +291,9 @@
           Each team's solution is scored by the number of other teams' best solutions are Pareto-dominated.
           Ties are broken by climate index score (higher = better).
         </p>
+        <p>
+          <a href="#submit">Submit your solution here!</a>
+        </p>
 
 
         <h2>Track 2</h2>
@@ -316,12 +324,18 @@
           An expert jury will review your submission and use a scoring rubric to evaluate your solution.
           They will also assess the real-world relevancy and impact of your proposed solution.
         </p>
+        <p>
+          <a href="#submit">Submit your solution here!</a>
+        </p>
 
         <h2>Track 3</h2>
         <p>
           We strive to closely simulate real-world dynamics.
           But, no simulator is perfect.
           Thus, we invite you to point out potential improvements and loopholes.
+        </p>
+        <p>
+          <a href="#submit">Submit your solution here!</a>
         </p>
       </div>
     </div>
