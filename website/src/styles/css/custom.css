@@ -1,18 +1,3 @@
-#home {
-  background: #eeeeee;
-  /* height: 5em; */
-  /* position: relative; */
-  /* max-height: 5em; */
-  /* min-width: 100vw; */
-}
-
-.thumbnail {
-  left: 50%;
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-
 body {
   /* font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", Roboto, Oxygen,
     Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Helvetica,
@@ -20,6 +5,13 @@ body {
   /* font-family: "Times New Roman", Baskerville, "Baskerville Old Face",
     "Hoefler Text", Garamond, "Times New Roman", serif; */
   font-family: 'PT Serif', sans-serif;
+  padding-top: 70px;
+  background-color: #033300;
+  color: white;
+}
+
+.navbar {
+  background-color: #033300;
 }
 
 h1,
@@ -29,22 +21,22 @@ h4,
 h5,
 h6 {
   font-family: 'PT Sans', sans-serif;
-  font-size: 2em;
+  font-size: 1.5em;
 }
 
 h1 {
-  font-size: 3em;
+  font-size: 2.5em;
+  /* color: #444444; */
+  /* font-weight: bold; */
+  /* padding-bottom: 0.3em; */
+  margin: auto;
+  text-align: center;
 }
 
 .navbar {
   font-family: 'PT Sans', sans-serif;
 }
 
-
-
-header {
-  background-color: #eeeeee;
-}
 
 :root {
   --active-brightness: 0.85;
@@ -146,7 +138,7 @@ header {
   color: gray;
 }
 
-h1.resources-headline {
+/* h1.resources-headline {
   font-size: 20px;
   line-height: 1em;
   color: black;
@@ -163,9 +155,9 @@ h1.resources-headline span.h1-links {
   color: blue;
   float: right;
   padding: 0 1em 0 1em;
-}
+} */
 
-a.button1 {
+/* a.button1 {
   display: inline-block;
   padding: 0.35em 0.5em;
   border: 0.1em solid #4582ec;
@@ -182,9 +174,9 @@ a.button1 {
 a.button1:hover {
   color: #ffffff;
   background-color: #4582ec;
-}
+} */
 
-@media all and (max-width: 30em) {
+/* @media all and (max-width: 30em) {
   a.button1 {
     display: block;
     margin: 0.4em auto;
@@ -196,16 +188,7 @@ a.button1:hover {
     margin: auto;
     display: block;
   }
-}
-
-h1 {
-  /* color: #4582ec; */
-  color: #444444;
-  font-weight: bold;
-  padding-bottom: 0.3em;
-  margin: auto;
-  text-align: center;
-}
+} */
 
 .people-img {
   border: 0;
@@ -236,4 +219,11 @@ h1 {
 
 .navbar-nav > li > a.green-highlight {
   color: green !important;
+}
+
+.thumbnail {
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
