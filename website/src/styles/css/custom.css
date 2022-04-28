@@ -14,11 +14,12 @@
 }
 
 body {
-  font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", Roboto, Oxygen,
+  /* font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", Roboto, Oxygen,
     Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Helvetica,
-    Arial, sans-serif !important;
+    Arial, sans-serif !important; */
   /* font-family: "Times New Roman", Baskerville, "Baskerville Old Face",
     "Hoefler Text", Garamond, "Times New Roman", serif; */
+  font-family: 'PT Serif', sans-serif;
 }
 
 h1,
@@ -27,7 +28,19 @@ h3,
 h4,
 h5,
 h6 {
+  font-family: 'PT Sans', sans-serif;
+  font-size: 2em;
 }
+
+h1 {
+  font-size: 3em;
+}
+
+.navbar {
+  font-family: 'PT Sans', sans-serif;
+}
+
+
 
 header {
   background-color: #eeeeee;
