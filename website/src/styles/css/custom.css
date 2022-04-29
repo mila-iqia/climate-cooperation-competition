@@ -7,8 +7,8 @@ body {
   font-family: "Source Sans Pro", sans-serif;
   padding-top: 70px;
   /* background-color: #0b5481; */
-  background: url("../../images/stock/AdobeStock_94039131.png") no-repeat center
-    bottom;
+  /* background: url("../../images/stock/AdobeStock_94039131.png") no-repeat center
+    bottom; */
   /* background: url("../../images/stock/AdobeStock_94039131.png") no-repeat center
     bottom; */
   background-size: 100% auto;
@@ -21,7 +21,7 @@ body {
 }
 
 .alpha-white-background {
-  background-color: rgb(255, 255, 255, 0.75);
+  /* background-color: rgb(255, 255, 255, 0.75); */
 }
 
 h2,
