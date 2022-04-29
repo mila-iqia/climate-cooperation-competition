@@ -6,12 +6,22 @@ body {
     "Hoefler Text", Garamond, "Times New Roman", serif; */
   font-family: "Source Sans Pro", sans-serif;
   padding-top: 70px;
-  background-color: #0b5481;
-  color: white;
+  /* background-color: #0b5481; */
+  background: url("../../images/stock/AdobeStock_94039131.png") no-repeat center
+    bottom;
+  /* background: url("../../images/stock/AdobeStock_94039131.png") no-repeat center
+    bottom; */
+  background-size: 100% auto;
+  background-attachment: fixed;
+  color: #222;
 }
 
 .navbar {
-  background-color: #0b5481;
+  background-color: #fff;
+}
+
+.alpha-white-background {
+  background-color: rgb(255, 255, 255, 0.75);
 }
 
 h2,
@@ -30,8 +40,6 @@ h6 {
 h1 {
   font-family: "Rubik", sans-serif;
   font-size: 2em;
-  /* color: #444444; */
-  /* font-weight: bold; */
   padding-top: 2em;
   padding-bottom: 0.3em;
   margin: auto;
@@ -39,23 +47,28 @@ h1 {
 }
 
 a {
-  color: #aef6c7;
+  color: #00812d;
 }
 
 a:hover {
-  color: #aef6c7;
+  color: #00812d;
 }
 
 .navbar-brand {
-  color: white !important;
+  color: #222 !important;
 }
 
 .navbar-nav > li > a {
-  color: white !important;
+  color: #222 !important;
 }
 
 .navbar-nav > li > a.green-highlight {
-  color: #aef6c7 !important;
+  color: #00812d !important;
+}
+
+#footer-container {
+  padding: 0;
+  color: white;
 }
 
 :root {
@@ -86,19 +99,14 @@ a:hover {
   --width-content: 1080px;
 }
 
-#image_header {
+/* #image_header {
   background: url("/images/nations-planet.jpeg") no-repeat center center;
-  /* background-repeat: no-repeat; */
-  /* background-attachment: fixed; */
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   background-size: contain;
-  /* background-size: 100% 100%; */
+  background-size: 100% 100%;
 }
-
-#footer-container {
-  background-color: white;
-  color: black;
-  padding: 25px;
-}
+*/
 
 .hidden-content {
   overflow: hidden;
@@ -117,27 +125,13 @@ a:hover {
   white-space: pre-wrap;
 }
 
-/* icons */
-
 .fa-github {
   color: #333 !important;
-}
-
-.fa-linkedin-square {
-  color: #2867b2 !important;
 }
 
 .fa-twitter {
   color: #55acee !important;
   background: transparent !important ;
-}
-
-.ai-google-scholar {
-  color: #4782e0 !important;
-}
-
-.fa-rss {
-  color: #ee802f !important;
 }
 
 .blogpost {
@@ -171,7 +165,7 @@ a:hover {
   width: 200px;
   height: 200px;
   border-style: double;
-  border-color: white;
+  border-color: #222;
   position: relative;
   margin: 0 auto;
 }

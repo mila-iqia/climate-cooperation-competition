@@ -28,11 +28,6 @@
   <!-- Custom -->
   <link rel="stylesheet" href="styles/css/custom.css">
 
-  <script>
-    function resizeIframe(obj) {
-      obj.style.height = obj.contentWindow.document.documentElement.scrollHeight + 'px';
-    }
-  </script>
 </head>
 
 <body>
@@ -79,7 +74,7 @@
   </div>
 
   <!--  Main content -->
-  <div class="container">
+  <div class="container alpha-white-background">
 
     <!--  Block 1 -->
     <div class="row">
@@ -127,457 +122,420 @@
       </p>
     </div>
 
-
-    <div class="container" id="leaderboard">
-      <div class="row">
-        <h1>LEADERBOARD</h1>
-        <iframe src="http://34.111.184.174" style="width: 100%; border: 0; border-radius: 0.5em;" scrolling="no"
-          onload="resizeIframe(this)"></iframe>
-      </div>
+    <div class="row" id="leaderboard">
+      <h1>LEADERBOARD</h1>
+      <iframe src="http://34.111.184.174" style="width: 100%; height: 10em; border: 0; border-radius: 0.5em;"
+        scrolling="no"></iframe>
     </div>
-
 
     <!-- Schedule of the competition -->
-    <div class="container">
+    <div class="row">
+      <h1>SCHEDULE</h1>
+      <div style="display: flex; justify-content:center">
+        <table>
+          <thead>
+            <th></th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Link</th>
+          </thead>
 
-      <div class="row">
-        <h1>SCHEDULE</h1>
-        <div style="display: flex; justify-content:center">
-          <table>
-            <thead>
-              <th></th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Link</th>
-            </thead>
+          <tr>
+            <td>
+              <p>Kick-off town hall.</p>
+            </td>
+            <td>May 10, 2022</td>
+            <td>4 pm PST</td>
+            <td><a href="">Zoom</a></td>
+          </tr>
+          <tr>
+            <td>
+              <p>Submission deadline</p>
+            </td>
+            <td>July 31, 2022</td>
+            <td></td>
+            <td><a href="">Slack</a></td>
+          </tr>
+          <tr>
+            <td>
+              <p>Results Event</p>
+            </td>
+            <td>August 14, 2022</td>
+            <td>12 pm PST</td>
+            <td><a href="">Slack</a></td>
+          </tr>
+          <tr>
+            <td>
+              <p>Release of feedback</p>
+            </td>
+            <td>August 15, 2022</td>
+            <td>12 pm PST</td>
+            <td><a href="">Slack</a></td>
+          </tr>
+        </table>
 
-            <tr>
-              <td>
-                <p>Kick-off town hall.</p>
-              </td>
-              <td>May 10, 2022</td>
-              <td>4 pm PST</td>
-              <td><a href="">Zoom</a></td>
-            </tr>
-            <tr>
-              <td>
-                <p>Submission deadline</p>
-              </td>
-              <td>July 31, 2022</td>
-              <td></td>
-              <td><a href="">Slack</a></td>
-            </tr>
-            <tr>
-              <td>
-                <p>Results Event</p>
-              </td>
-              <td>August 14, 2022</td>
-              <td>12 pm PST</td>
-              <td><a href="">Slack</a></td>
-            </tr>
-            <tr>
-              <td>
-                <p>Release of feedback</p>
-              </td>
-              <td>August 15, 2022</td>
-              <td>12 pm PST</td>
-              <td><a href="">Slack</a></td>
-            </tr>
-          </table>
-
-        </div>
       </div>
     </div>
-
-
 
     <!--Get started competition -->
-    <div class="container" id="getstarted">
-      <div class="row">
-        <h1>GET STARTED</h1>
-        <ol>
-          <li>
-            <a href="#register">Register here.</a>
-          </li>
-          <li>
-            Get the <a href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">starter kit
-              on
-              Github</a>.
-            Our code repo provides simulation and reinforcement learning
-            code, tutorials, calibration details, evaluation and submission code, and more.
-          </li>
-          <li>
-            Read the <a href="LINK-TO-PAPER" target="blank">technical white paper</a> that explains the structure of the
-            simulation, the mathematical background, and
-            calibration details.
-          </li>
-          <li>
-            <a href="#submit">Submit your solutions</a>.
-          </li>
-        </ol>
-      </div>
+    <div class="row" id="getstarted">
+      <h1>GET STARTED</h1>
+      <ol>
+        <li>
+          <a href="#register">Register here.</a>
+        </li>
+        <li>
+          Get the <a href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">starter kit
+            on
+            Github</a>.
+          Our code repo provides simulation and reinforcement learning
+          code, tutorials, calibration details, evaluation and submission code, and more.
+        </li>
+        <li>
+          Read the <a href="LINK-TO-PAPER" target="blank">technical white paper</a> that explains the structure of the
+          simulation, the mathematical background, and
+          calibration details.
+        </li>
+        <li>
+          <a href="#submit">Submit your solutions</a>.
+        </li>
+      </ol>
     </div>
 
-
-
-
-
-
     <!-- Structure of the competition -->
-    <div class="container" id="about">
-      <div class="row">
-        <h1>COMPETITION OVERVIEW</h1>
-        <h2>What will you do?</h2>
-        <p>
-          The goal is to implement a negotiation strategy that will help regions to achieve their individual goals,
-          but
-          also (indirectly) lead to better climate outcomes.
-        </p>
+    <div class="row" id="about">
+      <h1>COMPETITION OVERVIEW</h1>
+      <h2>What will you do?</h2>
+      <p>
+        The goal is to implement a negotiation strategy that will help regions to achieve their individual goals,
+        but
+        also (indirectly) lead to better climate outcomes.
+      </p>
 
-        <p>
-          You will use a climate-economic simulation with fictitious regions as independent AI agents. Each agent
-          chooses
-          how much to invest and mitigate climate change, sets international tariffs, limits exports, and imports
-          goods.
-        </p>
-        <p>
-          The simulator runs for 100 years.
-        </p>
-        <p>
-          Regions also engage in multilateral negotiations.
-        </p>
-        <p>
-          The structural parameters are calibrated to real data.
-        </p>
-        <p>
-          To read more about the simulator, please refer to the <a href="TODO: ADD LINK" target="blank">paper</a> and
-          our <a href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">Github
-            repository</a>.
-        </p>
-      </div>
+      <p>
+        You will use a climate-economic simulation with fictitious regions as independent AI agents. Each agent
+        chooses
+        how much to invest and mitigate climate change, sets international tariffs, limits exports, and imports
+        goods.
+      </p>
+      <p>
+        The simulator runs for 100 years.
+      </p>
+      <p>
+        Regions also engage in multilateral negotiations.
+      </p>
+      <p>
+        The structural parameters are calibrated to real data.
+      </p>
+      <p>
+        To read more about the simulator, please refer to the <a href="TODO: ADD LINK" target="blank">paper</a> and
+        our <a href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">Github
+          repository</a>.
+      </p>
+    </div>
 
-      <div class="row">
-        <h2>Track 1</h2>
-        <p>
-          <b>What you do:</b>
-        <ul>
-          <li>propose and implement multilateral agreements to augment the simulator,</li>
-          <li>train AI agents that negotiate with each other and optimize their utility, and</li>
-          <li>evaluate the learned policies and resulting economic and climate change metrics, e.g., global
-            equality,
-            productivity, temperature increase.</li>
-        </ul>
-        </p>
-        <p>
-          <b>How to submit:</b>
+    <div class="row">
+      <h2>Track 1</h2>
+      <p>
+        <b>What you do:</b>
+      <ul>
+        <li>propose and implement multilateral agreements to augment the simulator,</li>
+        <li>train AI agents that negotiate with each other and optimize their utility, and</li>
+        <li>evaluate the learned policies and resulting economic and climate change metrics, e.g., global
+          equality,
+          productivity, temperature increase.</li>
+      </ul>
+      </p>
+      <p>
+        <b>How to submit:</b>
 
-          Each submission should have the following:
-        <ul>
-          <li>Modified code with negotiation protocol</li>
-          <li>RL agents trained on that protocol</li>
-          <li>A short technical report containing plots and accompanying justification of suggested negotiation strategy
-          </li>
-        </ul>
-        For all details, please refer to the <a
+        Each submission should have the following:
+      <ul>
+        <li>Modified code with negotiation protocol</li>
+        <li>RL agents trained on that protocol</li>
+        <li>A short technical report containing plots and accompanying justification of suggested negotiation strategy
+        </li>
+      </ul>
+      For all details, please refer to the <a
+        href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing">submission
+        guidelines</a>.
+      </p>
+      <p>
+        <b>How do we evaluate:</b>
+        Each team's solution is scored by the number of other teams' best solutions are Pareto-dominated.
+        Ties are broken by climate index score (higher = better).
+      </p>
+      <p>
+        <a href="#submit">Submit your solution here!</a>
+      </p>
+
+
+      <h2>Track 2</h2>
+      <p>
+        <b>What you do:</b>
+        In this track, you will argue why your solution is practically relevant and usable in the real world.
+
+        As we aim to bring the insights from the competition to policymakers, we expect the entries in this track to
+        contain a high-level summary for policymakers.
+      </p>
+      <p>
+        <b>How to submit:</b>
+        In addition to the requirements in Track 1, you should also submit a written summary, justification, and
+        explanation of your solution and insights.
+
+        Your write-up should argue why your solution is feasible, technically sound, and attractive.
+        For instance, from a game-theoretical perspective, good multilateral agreements might punish free-riders
+        and
+        might
+        have to ensure that it’s difficult to “game” agreements with unrealistic behaviours.
+
+        Please see the <a
           href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing">submission
-          guidelines</a>.
-        </p>
-        <p>
-          <b>How do we evaluate:</b>
-          Each team's solution is scored by the number of other teams' best solutions are Pareto-dominated.
-          Ties are broken by climate index score (higher = better).
-        </p>
-        <p>
-          <a href="#submit">Submit your solution here!</a>
-        </p>
+          guidelines</a> for a template submission with suggestions for aspects to discuss.
+      </p>
+      <p>
+        <b>How do we evaluate:</b>
+        An expert jury will review your submission and use a scoring rubric to evaluate your solution.
+        They will also assess the real-world relevancy and impact of your proposed solution.
+      </p>
+      <p>
+        <a href="#submit">Submit your solution here!</a>
+      </p>
 
-
-        <h2>Track 2</h2>
-        <p>
-          <b>What you do:</b>
-          In this track, you will argue why your solution is practically relevant and usable in the real world.
-
-          As we aim to bring the insights from the competition to policymakers, we expect the entries in this track to
-          contain a high-level summary for policymakers.
-        </p>
-        <p>
-          <b>How to submit:</b>
-          In addition to the requirements in Track 1, you should also submit a written summary, justification, and
-          explanation of your solution and insights.
-
-          Your write-up should argue why your solution is feasible, technically sound, and attractive.
-          For instance, from a game-theoretical perspective, good multilateral agreements might punish free-riders
-          and
-          might
-          have to ensure that it’s difficult to “game” agreements with unrealistic behaviours.
-
-          Please see the <a
-            href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing">submission
-            guidelines</a> for a template submission with suggestions for aspects to discuss.
-        </p>
-        <p>
-          <b>How do we evaluate:</b>
-          An expert jury will review your submission and use a scoring rubric to evaluate your solution.
-          They will also assess the real-world relevancy and impact of your proposed solution.
-        </p>
-        <p>
-          <a href="#submit">Submit your solution here!</a>
-        </p>
-
-        <h2>Track 3</h2>
-        <p>
-          We strive to closely simulate real-world dynamics.
-          But, no simulator is perfect.
-          Thus, we invite you to point out potential improvements and loopholes.
-        </p>
-        <p>
-          <a href="#submit">Submit your solution here!</a>
-        </p>
-      </div>
+      <h2>Track 3</h2>
+      <p>
+        We strive to closely simulate real-world dynamics.
+        But, no simulator is perfect.
+        Thus, we invite you to point out potential improvements and loopholes.
+      </p>
+      <p>
+        <a href="#submit">Submit your solution here!</a>
+      </p>
     </div>
 
     <!-- Outcome of the competition -->
-    <div class="container">
+    <div class="row">
+      <h1>PRIZES</h1>
+      If you participate, you will:
+      <ul>
+        <li>get feedback from policy experts on your ideas, and</li>
+        <li>publish your work in the proceedings of the competition.</li>
+      </ul>
+    </div>
 
-      <div class="row">
-        <h1>PRIZES</h1>
-        If you participate, you will:
-        <ul>
-          <li>get feedback from policy experts on your ideas, and</li>
-          <li>publish your work in the proceedings of the competition.</li>
-        </ul>
+    <div class="row" id="participate">
+      <h1>REGISTER</h1>
+      <a
+        href="https://docs.google.com/forms/d/17rF3REYs57XSFeE7xyCcl1HgG0Hwrc0vHmLSwUoJ6Nc/viewform?ts=626861a8&edit_requested=true">Register
+        here</a>.
+    </div>
+
+    <div class="row" id="submit">
+      <h1>SUBMIT A SOLUTION</h1>
+      <ul>
+        <li>Track 1: <a
+            href="https://docs.google.com/forms/d/1QtIOvEBt19aHi0Yreh4c5dPKObpwEkoy-NfAB7D2qEo/viewform?ts=624b50d2&edit_requested=true">Google
+            Form</a></li>
+        <li>Track 2: <a
+            href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing">
+            Submission and Review Template
+          </a></li>
+      </ul>
+    </div>
+
+    <div class="row" id="faq">
+      <h1>FAQ</h1>
+      <p>
+        <b>
+          Where can I ask questions?
+        </b><br />
+        Check out our <a href="https://groups.google.com/g/climate-cooperation-competition" target="blank">Google
+          Group</a> and <a href="https://join.slack.com/t/aieconomist/shared_invite/zt-g71ajic7-XaMygwNIup~CCzaR1T0wgA"
+          target="blank">Slack
+          channel</a>.
+      </p>
+      <p>
+        <b>
+          How can I find other people interested in the competition?
+        </b><br />
+        Introduce yourself on Slack in <a
+          href="https://join.slack.com/t/aieconomist/shared_invite/zt-g71ajic7-XaMygwNIup~CCzaR1T0wgA"
+          target="blank">#looking-for-a-team</a>!
+      </p>
+    </div>
+
+    <div class="row">
+
+      <h1>TEAM</h1>
+
+      <h2>Jury</h2>
+
+      <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="people-round-div">
+              <img src="images/people/mark-carney-pic.png" class="img-responsive people-img"></img>
+            </div>
+            <div class="designation">
+              <strong>Mark Carney</strong><br>UN Envoy for Climate Action<br>Former Governor of the Bank of
+              England<br>Former Governor of the Bank of Canada
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="people-round-div">
+              <img src="/images/people/gillian.png" class="img-responsive people-img"></img>
+            </div>
+            <div class="designation">
+              <strong>Gillian Hadfield</strong><br>Professor<br>???
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="container" id="participate">
-      <div class="row">
-        <h1>REGISTER</h1>
-        <a
-          href="https://docs.google.com/forms/d/17rF3REYs57XSFeE7xyCcl1HgG0Hwrc0vHmLSwUoJ6Nc/viewform?ts=626861a8&edit_requested=true">Register
-          here</a>.
+    <div class="row">
+
+      <h2>Advisors</h2>
+
+      <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="people-round-div">
+              <img src="images/people/vincent.png" class="img-responsive people-img"></img>
+            </div>
+            <div class="designation">
+              <strong>Vincent Conitzer</strong><br>Professor of Computer Science<br>Duke University
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
+    <div class="row">
 
-    <div class="container" id="submit">
-      <div class="row">
-        <h1>SUBMIT A SOLUTION</h1>
-        <ul>
-          <li>Track 1: <a
-              href="https://docs.google.com/forms/d/1QtIOvEBt19aHi0Yreh4c5dPKObpwEkoy-NfAB7D2qEo/viewform?ts=624b50d2&edit_requested=true">Google
-              Form</a></li>
-          <li>Track 2: <a
-              href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing">
-              Submission and Review Template
-            </a></li>
-        </ul>
+      <h2>Organizers</h2>
+
+      <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="people-round-div">
+              <img src="/images/people/tianyu.png" class="img-responsive people-img"></img>
+            </div>
+            <div class="designation">
+              <strong>Tianyu Zhang</strong><br>PhD Student<br>Université de Montréal, Mila
+            </div>
+          </div>
+        </div>
       </div>
+
+      <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="people-round-div">
+              <img src="images/people/andrew.png" class="img-responsive people-img"></img>
+            </div>
+            <div class="designation">
+              <strong>Andrew Williams</strong><br>Student<br>Université de Montréal, Mila
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="people-round-div">
+              <img src="images/people/soham.png" class="img-responsive people-img"></img>
+            </div>
+            <div class="designation">
+              <strong>Soham Phade</strong><br>Research Scientist<br>Salesforce
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="people-round-div">
+              <img src="images/people/sunil.png" class="img-responsive people-img"></img>
+            </div>
+            <div class="designation">
+              <strong>Sunil Srinivas</strong><br>Research Engineer<br>Salesforce
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="people-round-div">
+              <img src="images/people/yang.png" class="img-responsive people-img"></img>
+            </div>
+            <div class="designation">
+              <strong>Yang Zhang</strong><br>Part-time Researcher<br>Bank of Canada, Mila
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="people-round-div">
+              <img src="images/people/prateek.png" class="img-responsive people-img" style=""></img>
+            </div>
+            <div class="designation">
+              <strong>Prateek Gupta</strong><br>PhD Student<br>University of Oxford<br>The Alan Turing Institute
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="people-round-div">
+              <img src="images/people/stephan.png" class="img-responsive people-img"></img>
+            </div>
+            <div class="designation">
+              <strong>Stephan Zheng</strong><br>AI Economist Team Lead<br>Salesforce Research
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="people-round-div">
+              <img src="images/people/yoshua.jpeg" class="img-responsive people-img"></img>
+            </div>
+            <div class="designation">
+              <strong>Yoshua Bengio</strong><br>CIFAR AI Chair, Fellow and Program Director<br>Scientific Director
+              of
+              Mila and IVADO<br>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
+  </div>
 
-
-    <div class="container" id="faq">
+  <footer class="fixed-bottom-footer">
+    <div class="container" id="footer-container">
       <div class="row">
-        <h1>FAQ</h1>
-        <p>
-          <b>
-            Where can I ask questions?
-          </b><br />
-          Check out our <a href="https://groups.google.com/g/climate-cooperation-competition" target="blank">Google
-            Group</a> and <a
-            href="https://join.slack.com/t/aieconomist/shared_invite/zt-g71ajic7-XaMygwNIup~CCzaR1T0wgA"
-            target="blank">Slack
-            channel</a>.
-        </p>
-        <p>
-          <b>
-            How can I find other people interested in the competition?
-          </b><br />
-          Introduce yourself on Slack in <a
-            href="https://join.slack.com/t/aieconomist/shared_invite/zt-g71ajic7-XaMygwNIup~CCzaR1T0wgA"
-            target="blank">#looking-for-a-team</a>!
-        </p>
-      </div>
-    </div>
-
-
-
-
-
-
-
-
-    <!--Jury -->
-    <div class="container">
-
-      <div class="row">
-
-        <h1>TEAM</h1>
-
-        <h2>Jury</h2>
-
-        <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
-          <div class="row">
-            <div class="col-md-12">
-              <div class="people-round-div">
-                <img src="images/people/mark-carney-pic.png" class="img-responsive people-img"></img>
-              </div>
-              <div class="designation">
-                <strong>Mark Carney</strong><br>UN Envoy for Climate Action<br>Former Governor of the Bank of
-                England<br>Former Governor of the Bank of Canada
-              </div>
-
-            </div>
-          </div>
-        </div>
-
-        <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
-          <div class="row">
-            <div class="col-md-12">
-              <div class="people-round-div">
-                <img src="/images/people/gillian.png" class="img-responsive people-img"></img>
-              </div>
-              <div class="designation">
-                <strong>Gillian Hadfield</strong><br>Professor<br>???
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="row">
-
-        <h2>Advisors</h2>
-
-        <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
-          <div class="row">
-            <div class="col-md-12">
-              <div class="people-round-div">
-                <img src="images/people/vincent.png" class="img-responsive people-img"></img>
-              </div>
-              <div class="designation">
-                <strong>Vincent Conitzer</strong><br>Professor of Computer Science<br>Duke University
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="row">
-
-        <h2>Organizers</h2>
-
-        <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
-          <div class="row">
-            <div class="col-md-12">
-              <div class="people-round-div">
-                <img src="/images/people/tianyu.png" class="img-responsive people-img"></img>
-              </div>
-              <div class="designation">
-                <strong>Tianyu Zhang</strong><br>PhD Student<br>Université de Montréal, Mila
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
-          <div class="row">
-            <div class="col-md-12">
-              <div class="people-round-div">
-                <img src="images/people/andrew.png" class="img-responsive people-img"></img>
-              </div>
-              <div class="designation">
-                <strong>Andrew Williams</strong><br>Student<br>Université de Montréal, Mila
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
-          <div class="row">
-            <div class="col-md-12">
-              <div class="people-round-div">
-                <img src="images/people/soham.png" class="img-responsive people-img"></img>
-              </div>
-              <div class="designation">
-                <strong>Soham Phade</strong><br>Research Scientist<br>Salesforce
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
-          <div class="row">
-            <div class="col-md-12">
-              <div class="people-round-div">
-                <img src="images/people/sunil.png" class="img-responsive people-img"></img>
-              </div>
-              <div class="designation">
-                <strong>Sunil Srinivas</strong><br>Research Engineer<br>Salesforce
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
-          <div class="row">
-            <div class="col-md-12">
-              <div class="people-round-div">
-                <img src="images/people/yang.png" class="img-responsive people-img"></img>
-              </div>
-              <div class="designation">
-                <strong>Yang Zhang</strong><br>Part-time Researcher<br>Bank of Canada, Mila
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
-          <div class="row">
-            <div class="col-md-12">
-              <div class="people-round-div">
-                <img src="images/people/prateek.png" class="img-responsive people-img" style=""></img>
-              </div>
-              <div class="designation">
-                <strong>Prateek Gupta</strong><br>PhD Student<br>University of Oxford<br>The Alan Turing Institute
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
-          <div class="row">
-            <div class="col-md-12">
-              <div class="people-round-div">
-                <img src="images/people/stephan.png" class="img-responsive people-img"></img>
-              </div>
-              <div class="designation">
-                <strong>Stephan Zheng</strong><br>AI Economist Team Lead<br>Salesforce Research
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-xs-12 col-sm-4 col-md-3 mb-2">
-          <div class="row">
-            <div class="col-md-12">
-              <div class="people-round-div">
-                <img src="images/people/yoshua.jpeg" class="img-responsive people-img"></img>
-              </div>
-              <div class="designation">
-                <strong>Yoshua Bengio</strong><br>CIFAR AI Chair, Fellow and Program Director<br>Scientific Director
-                of
-                Mila and IVADO<br>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <footer class="fixed-bottom-footer">
-
-      <div class="jumbotron mt-0" id="footer-container">
         Website powered by <a href="http://jekyllrb.com">Jekyll</a>.
       </div>
-    </footer>
+    </div>
+  </footer>
 
 </html>
