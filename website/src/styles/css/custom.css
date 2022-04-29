@@ -4,39 +4,59 @@ body {
     Arial, sans-serif !important; */
   /* font-family: "Times New Roman", Baskerville, "Baskerville Old Face",
     "Hoefler Text", Garamond, "Times New Roman", serif; */
-  font-family: 'PT Serif', sans-serif;
+  font-family: "Source Sans Pro", sans-serif;
   padding-top: 70px;
-  background-color: #033300;
+  background-color: #0b5481;
   color: white;
 }
 
 .navbar {
-  background-color: #033300;
+  background-color: #0b5481;
 }
 
-h1,
 h2,
 h3,
 h4,
 h5,
 h6 {
-  font-family: 'PT Sans', sans-serif;
+  font-family: "Spectral", serif;
   font-size: 1.5em;
 }
 
+.navbar {
+  font-family: "Source Sans Pro", sans-serif;
+}
+
 h1 {
-  font-size: 2.5em;
+  font-family: "Rubik", sans-serif;
+  font-size: 2em;
   /* color: #444444; */
   /* font-weight: bold; */
-  /* padding-bottom: 0.3em; */
+  padding-top: 2em;
+  padding-bottom: 0.3em;
   margin: auto;
   text-align: center;
 }
 
-.navbar {
-  font-family: 'PT Sans', sans-serif;
+a {
+  color: #aef6c7;
 }
 
+a:hover {
+  color: #aef6c7;
+}
+
+.navbar-brand {
+  color: white !important;
+}
+
+.navbar-nav > li > a {
+  color: white !important;
+}
+
+.navbar-nav > li > a.green-highlight {
+  color: #aef6c7 !important;
+}
 
 :root {
   --active-brightness: 0.85;
@@ -135,60 +155,7 @@ h1 {
   margin-top: 0.75rem;
   margin-bottom: 1.5rem;
   text-align: center;
-  color: gray;
 }
-
-/* h1.resources-headline {
-  font-size: 20px;
-  line-height: 1em;
-  color: black;
-}
-
-h1.resources-headline:after {
-  content: " ";
-  display: block;
-  border: 1px solid gray;
-}
-
-h1.resources-headline span.h1-links {
-  font-size: 15px;
-  color: blue;
-  float: right;
-  padding: 0 1em 0 1em;
-} */
-
-/* a.button1 {
-  display: inline-block;
-  padding: 0.35em 0.5em;
-  border: 0.1em solid #4582ec;
-  margin: 0 0em 0em 0;
-  border-radius: 0.12em;
-  box-sizing: border-box;
-  text-decoration: none;
-  font-weght: 300;
-  color: #4582ec;
-  text-align: center;
-  transition: all 0.2s;
-}
-
-a.button1:hover {
-  color: #ffffff;
-  background-color: #4582ec;
-} */
-
-/* @media all and (max-width: 30em) {
-  a.button1 {
-    display: block;
-    margin: 0.4em auto;
-  }
-}
-
-@media all and (max-width: 992px) {
-  .home-img {
-    margin: auto;
-    display: block;
-  }
-} */
 
 .people-img {
   border: 0;
@@ -204,21 +171,9 @@ a.button1:hover {
   width: 200px;
   height: 200px;
   border-style: double;
-  border-color: sienna;
+  border-color: white;
   position: relative;
   margin: 0 auto;
-}
-
-.navbar-brand {
-  color: #888888 !important;
-}
-
-.navbar-nav > li > a {
-  color: #888888 !important;
-}
-
-.navbar-nav > li > a.green-highlight {
-  color: green !important;
 }
 
 .thumbnail {
