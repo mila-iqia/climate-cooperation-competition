@@ -16,6 +16,7 @@ body {
   background-attachment: fixed; */
   background-color: rgb(255, 255, 255, 1);
   height: 40px;
+  line-height: 40px;
 }
 
 .alpha-white-background {
@@ -49,11 +50,11 @@ h1 {
   text-align: center;
 }
 
-a {
+.content-wrapper a {
   color: #00812d;
 }
 
-a:hover {
+.content-wrapper a:hover {
   color: #00812d;
 }
 
@@ -61,12 +62,9 @@ a:hover {
   color: #222 !important;
 }
 
-.navbar-nav > li > a {
-  color: #222 !important;
-}
-
-.navbar-nav > li > a.green-highlight {
+.green-highlight {
   color: #00812d !important;
+  font-weight: 900;
 }
 
 /* :root {
