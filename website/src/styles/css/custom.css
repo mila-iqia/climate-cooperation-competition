@@ -172,3 +172,18 @@ h1 {
   top: 50%;
   transform: translate(-50%, -50%);
 }
+
+
+b {
+  font-size: larger;
+  font-weight: 900;
+}
+
+td, th, tr {
+  padding: 0 15px;
+}
+
+
+tr {
+  padding: 0 30px;
+}
