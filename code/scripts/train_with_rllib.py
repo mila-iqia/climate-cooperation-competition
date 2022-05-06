@@ -137,8 +137,14 @@ class EnvWrapper(MultiAgentEnv):
     def __init__(self, env_config=None):
         if env_config is None:
             env_config = {}
+        source_dir = env_config.get("source_dir", None)
+        # Remove source_dir key in env_config if it exists
+        if source_dir in env_config:
+            del env_config["source_dir"]
+        if source_dir is None:
+            source_dir = _ROOT_DIR
         assert isinstance(env_config, dict)
-        self.env = import_class_from_path("Rice", os.path.join(_ROOT_DIR, "rice.py"))(
+        self.env = import_class_from_path("Rice", os.path.join(source_dir, "rice.py"))(
             **env_config
         )
 
@@ -159,15 +165,19 @@ class EnvWrapper(MultiAgentEnv):
         return recursive_list_to_np_array(obs), rew, done, info
 
 
-def get_rllib_config(exp_run_config=None, seed=None):
+def get_rllib_config(exp_run_config=None, env_class=None, seed=None):
     """
     Reference: https://docs.ray.io/en/latest/rllib-training.html
     """
 
     assert exp_run_config is not None
+    assert env_class is not None
 
     env_config = exp_run_config["env"]
     assert isinstance(env_config, dict)
+    # Remove source_dir key in env_config
+    if "source_dir" in env_config:
+        del env_config["source_dir"]
     env_object = EnvWrapper(env_config=env_config)
 
     # Define all the policies here
@@ -205,7 +215,7 @@ def get_rllib_config(exp_run_config=None, seed=None):
         # Arguments dict passed to the env creator as an EnvContext object (which
         # is a dict plus the properties: num_workers, worker_index, vector_index,
         # and remote).
-        "env_config": env_config,
+        "env_config": exp_run_config["env"],
         "framework": train_config["framework"],
         "multiagent": multiagent_config,
         "num_workers": train_config["num_workers"],
@@ -265,11 +275,12 @@ def load_model_checkpoints(trainer_obj=None, save_directory=None, ckpt_idx=-1):
         sorted_policy_models = sorted(policy_models, key=os.path.getmtime)
         policy_model_file = sorted_policy_models[ckpt_idx]
         model_params[policy] = torch.load(policy_model_file)
+        logging.info(f"Loaded model checkpoints {policy_model_file}.")
 
     trainer_obj.set_weights(model_params)
 
 
-def create_trainer(exp_run_config=None, results_dir=None, seed=None):
+def create_trainer(exp_run_config=None, source_dir=None, results_dir=None, seed=None):
     """
     Create the RLlib trainer.
     """
@@ -289,10 +300,14 @@ def create_trainer(exp_run_config=None, results_dir=None, seed=None):
     )
 
     ray.init(ignore_reinit_error=True)
+
     # Create the A2C trainer.
+    exp_run_config["env"]["source_dir"] = source_dir
     rllib_trainer = A2CTrainer(
         env=EnvWrapper,
-        config=get_rllib_config(exp_run_config=exp_run_config, seed=seed),
+        config=get_rllib_config(
+            exp_run_config=exp_run_config, env_class=EnvWrapper, seed=seed
+        ),
     )
     return rllib_trainer, results_save_dir
 
@@ -366,6 +381,7 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
 
 if __name__ == "__main__":
     print("Training with RLlib...")
+
     # Read the run configurations specific to the environment.
     # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
     # -----------------------------------------------------------------------------
@@ -422,6 +438,7 @@ if __name__ == "__main__":
             or iteration == num_iters - 1
         ):
             save_model_checkpoint(trainer, save_dir, total_timesteps)
+            logging.info(result)
         print(f"""episode_reward_mean: {result.get('episode_reward_mean')}""")
 
     # Create a (zipped) submission file

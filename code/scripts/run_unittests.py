@@ -16,16 +16,22 @@ import sys
 import unittest
 
 import numpy as np
-from evaluate_submission import get_results_dir
+from evaluate_submission import _ROOT_DIR, get_results_dir
 
-_ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.append(_ROOT_DIR)
+
 _REGION_YAMLS = "region_yamls"
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.ERROR)
 
-_BASE_FILE_PATH = "<ADD_PATH_TO_THE_OPEN_SOURCE_CODE_HERE>"
+_BASE_CODE_PATH = "https://raw.githubusercontent.com/mila-iqia/climate-cooperation-competition/code/code/"
+_BASE_RICE_PATH = _BASE_CODE_PATH + "rice.py"
+_BASE_RICE_HELPERS_PATH = _BASE_CODE_PATH + "rice_helpers.py"
+_BASE_RICE_BUILD_PATH = _BASE_CODE_PATH + "rice_build.cu"
+_BASE_CONSISTENCY_CHECKER_PATH = (
+    _BASE_CODE_PATH + "scripts/run_cpu_gpu_env_consistency_checks.py"
+)
 
 
 def import_class_from_path(class_name=None, path=None):
@@ -54,7 +60,8 @@ def fetch_base_env(base_folder="/tmp/_base"):
     )
     prev_dir = os.getcwd()
     os.chdir(base_folder)
-    subprocess.call(["wget", "-O", "rice.py", _BASE_FILE_PATH])
+    subprocess.call(["sudo", "wget", "-O", "rice.py", _BASE_RICE_PATH])
+    subprocess.call(["sudo", "wget", "-O", "rice_helpers.py", _BASE_RICE_HELPERS_PATH])
     shutil.copytree(
         os.path.join(_ROOT_DIR, "region_yamls"),
         os.path.join(base_folder, "region_yamls"),
@@ -76,8 +83,47 @@ class TestEnv(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set-up"""
-
+        # Initialization
         cls.framework = "rllib"
+        assert cls.results_dir is not None
+
+        # Note: results_dir attributed set in __main__.
+        if _REGION_YAMLS not in os.listdir(cls.results_dir):
+            shutil.copytree(
+                os.path.join(_ROOT_DIR, "region_yamls"),
+                os.path.join(cls.results_dir, "region_yamls"),
+            )
+
+        if ".warpdrive" in os.listdir(cls.results_dir):
+            cls.framework = "warpdrive"
+            # Copy the consistency checker file into the results_dir
+            prev_dir = os.getcwd()
+            os.chdir(cls.results_dir)
+            subprocess.call(
+                [
+                    "sudo",
+                    "wget",
+                    "-O",
+                    "run_cpu_gpu_env_consistency_checks.py",
+                    _BASE_CONSISTENCY_CHECKER_PATH,
+                ]
+            )
+            subprocess.call(
+                [
+                    "sudo",
+                    "wget",
+                    "-O",
+                    "rice_build.cu",
+                    _BASE_RICE_BUILD_PATH,
+                ]
+            )
+            os.chdir(prev_dir)
+        else:
+            assert ".rllib" in os.listdir(cls.results_dir), (
+                f"Missing identifier file! "
+                f"Either the .rllib or the .warpdrive "
+                f"file must be present in the results directory: {cls.results_dir}"
+            )
 
         cls.base_env = fetch_base_env()  # Fetch the base version from GitHub
         try:
@@ -88,8 +134,6 @@ class TestEnv(unittest.TestCase):
             raise ValueError(
                 "The Rice environment could not be instantiated !"
             ) from err
-
-        cls.results_dir = None
 
         base_env_action_nvec = np.array(cls.base_env.action_space[0].nvec)
         cls.base_env_random_actions = {
@@ -210,31 +254,18 @@ class TestEnv(unittest.TestCase):
         """
         if self.framework == "warpdrive":
             # Execute the CPU-GPU consistency checks
-            subprocess.call(["python", "run_cpu_gpu_env_consistency_checks.py"])
+            os.chdir(self.results_dir)
+            subprocess.check_output(["python", "run_cpu_gpu_env_consistency_checks.py"])
 
 
 if __name__ == "__main__":
     logging.info("Running env unit tests...")
 
+    # Set the results directory
     results_dir, parser = get_results_dir()
     parser.add_argument("unittest_args", nargs="*")
     args = parser.parse_args()
     sys.argv[1:] = args.unittest_args
-
     TestEnv.results_dir = results_dir
-    if _REGION_YAMLS not in os.listdir(results_dir):
-        shutil.copytree(
-            os.path.join(_ROOT_DIR, "region_yamls"),
-            os.path.join(results_dir, "region_yamls"),
-        )
-
-    if ".warpdrive" in os.listdir(results_dir):
-        TestEnv.framework = "warpdrive"
-    else:
-        assert ".rllib" in os.listdir(results_dir), (
-            f"Missing identifier file! "
-            f"Either the .rllib or the .warpdrive "
-            f"file must be present in the results directory: {results_dir}"
-        )
 
     unittest.main()

@@ -10,11 +10,15 @@ This subclasses the python version of the model and also the CUDAEnvironmentCont
 for running with WarpDrive (https://github.com/salesforce/warp-drive)
 """
 
+import os
+import sys
 import numpy as np
 from warp_drive.utils.constants import Constants
 from warp_drive.utils.data_feed import DataFeed
 from warp_drive.utils.gpu_environment_context import CUDAEnvironmentContext
 
+_ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+sys.path = [_ROOT_DIR] + sys.path
 from rice import Rice
 
 _OBSERVATIONS = Constants.OBSERVATIONS

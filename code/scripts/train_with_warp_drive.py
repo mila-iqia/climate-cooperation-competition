@@ -14,12 +14,13 @@ import os
 import shutil
 import subprocess
 import sys
-import time
 
 import yaml
+from evaluate_submission import _ROOT_DIR
 
-_ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.append(_ROOT_DIR)
+
+from scripts.run_unittests import import_class_from_path
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.ERROR)
@@ -38,9 +39,7 @@ def perform_other_imports():
     from warp_drive.training.trainer import Trainer
     from warp_drive.utils.env_registrar import EnvironmentRegistrar
 
-    from rice_cuda import RiceCuda
-
-    return torch, EnvWrapper, Trainer, EnvironmentRegistrar, RiceCuda
+    return torch, EnvWrapper, Trainer, EnvironmentRegistrar
 
 
 try:
@@ -51,20 +50,18 @@ except ImportError:
 
     other_imports = perform_other_imports()
 
-torch, EnvWrapper, Trainer, EnvironmentRegistrar, RiceCuda = other_imports
+torch, EnvWrapper, Trainer, EnvironmentRegistrar = other_imports
 
 
-def create_trainer(run_config=None, results_dir=None, seed=None):
+def create_trainer(run_config=None, source_dir=None, seed=None):
     """
     Create the WarpDrive trainer.
     """
     torch.cuda.FloatTensor(8)  # add this line for successful cuda_init
 
     assert run_config is not None
-    if results_dir is None:
-        # Use the current time as the name for the results directory.
-        results_dir = f"{time.time():10.0f}"
-
+    if source_dir is None:
+        source_dir = _ROOT_DIR
     if seed is not None:
         run_config["trainer"]["seed"] = seed
 
@@ -74,12 +71,16 @@ def create_trainer(run_config=None, results_dir=None, seed=None):
     # Register the environment
     env_registrar = EnvironmentRegistrar()
 
+    rice_cuda_class = import_class_from_path(
+        "RiceCuda", os.path.join(source_dir, "rice_cuda.py")
+    )
+
     env_registrar.add_cuda_env_src_path(
-        RiceCuda.name, os.path.join(_ROOT_DIR, "rice_build.cu")
+        rice_cuda_class.name, os.path.join(source_dir, "rice_build.cu")
     )
 
     env_wrapper = EnvWrapper(
-        RiceCuda(**run_config["env"]),
+        rice_cuda_class(**run_config["env"]),
         num_envs=run_config["trainer"]["num_envs"],
         use_cuda=True,
         env_registrar=env_registrar,
@@ -125,6 +126,7 @@ def load_model_checkpoints(trainer=None, save_directory=None, ckpt_idx=-1):
         assert ckpt_idx < len(policy_models)
         sorted_policy_models = sorted(policy_models, key=os.path.getmtime)
         policy_model_file = sorted_policy_models[ckpt_idx]
+        logging.info(f"Loaded model checkpoints {policy_model_file}.")
 
         ckpts_dict.update({policy: policy_model_file})
     trainer.load_model_checkpoint(ckpts_dict)
@@ -142,7 +144,7 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
     return trainer_obj.fetch_episode_states(episode_states)
 
 
-def copy_source_files():
+def copy_source_files(trainer):
     """
     Copy source files to the saving directory.
     """
@@ -182,19 +184,19 @@ if __name__ == "__main__":
         )
 
     with open(config_path, "r", encoding="utf8") as fp:
-        run_config = yaml.safe_load(fp)
+        run_configuration = yaml.safe_load(fp)
 
     # Create trainer
     # --------------
-    trainer, _ = create_trainer(run_config=run_config)
+    trainer_object, _ = create_trainer(run_config=run_configuration)
 
     # Copy the source files into the results directory
     # ------------------------------------------------
-    copy_source_files()
+    copy_source_files(trainer_object)
 
     # Perform training!
     # -----------------
-    trainer.train()
+    trainer_object.train()
 
     # Create a (zipped) submission file
     # ---------------------------------
@@ -203,10 +205,10 @@ if __name__ == "__main__":
             "python",
             os.path.join(_ROOT_DIR, "scripts", "create_submission_zip.py"),
             "--results_dir",
-            trainer.save_dir,
+            trainer_object.save_dir,
         ]
     )
 
     # Shut off the trainer gracefully
     # -------------------------------
-    trainer.graceful_close()
+    trainer_object.graceful_close()

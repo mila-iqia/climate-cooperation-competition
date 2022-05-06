@@ -920,9 +920,6 @@ class Rice:
             gross_output = self.get_global_state(
                 "gross_output_all_regions", region_id=region_id
             )
-            gross_output = self.get_global_state(
-                "gross_output_all_regions", region_id=region_id
-            )
             labor = self.get_global_state(
                 "labor_all_regions",
                 timestep=self.timestep - 1,

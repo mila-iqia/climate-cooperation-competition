@@ -11,9 +11,8 @@ import os
 import shutil
 import sys
 
-from evaluate_submission import get_results_dir, validate_dir
+from evaluate_submission import _ROOT_DIR, get_results_dir, validate_dir
 
-_ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.append(_ROOT_DIR)
 
 

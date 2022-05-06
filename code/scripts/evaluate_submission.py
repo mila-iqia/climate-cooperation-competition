@@ -22,24 +22,26 @@ import yaml
 
 _ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.append(os.path.join(_ROOT_DIR, "scripts"))
+sys.path.append(os.path.join(_ROOT_DIR, "backend"))
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
-logging.getLogger().setLevel(logging.INFO)
+logging.getLogger().setLevel(logging.ERROR)
 
-_NUM_ROLLOUT_EPISODES = 5
-_SEED = 123456
+_SEED = 1234567890  # seed used for evaluation
+
+_INDEXES_FILENAME = "climate_economic_min_max_indices.txt"
 
 _METRICS_TO_LABEL_DICT = OrderedDict()
 # Read the dict values below as
 # (label, decimal points used to round off value: 0 becomes an integer)
-_METRICS_TO_LABEL_DICT["reward_all_regions"] = ("Total Episode Reward", 2)
-_METRICS_TO_LABEL_DICT["global_temperature"] = ("Global Temperature Rise", 2)
-_METRICS_TO_LABEL_DICT["global_carbon_mass"] = ("Global Carbon Mass", 0)
-_METRICS_TO_LABEL_DICT["capital_all_regions"] = ("Total Capital", 0)
-_METRICS_TO_LABEL_DICT["production_all_regions"] = ("Total Production", 0)
-_METRICS_TO_LABEL_DICT["gross_output_all_regions"] = ("Total Gross Output", 0)
-_METRICS_TO_LABEL_DICT["investment_all_regions"] = ("Total Investment", 0)
-_METRICS_TO_LABEL_DICT["abatement_cost_all_regions"] = ("Total Abatement Cost", 2)
+_METRICS_TO_LABEL_DICT["reward_all_regions"] = ("Episode Reward", 2)
+_METRICS_TO_LABEL_DICT["global_temperature"] = ("Temperature Rise", 2)
+_METRICS_TO_LABEL_DICT["global_carbon_mass"] = ("Carbon Mass", 0)
+_METRICS_TO_LABEL_DICT["capital_all_regions"] = ("Capital", 0)
+_METRICS_TO_LABEL_DICT["production_all_regions"] = ("Production", 0)
+_METRICS_TO_LABEL_DICT["gross_output_all_regions"] = ("Gross Output", 0)
+_METRICS_TO_LABEL_DICT["investment_all_regions"] = ("Investment", 0)
+_METRICS_TO_LABEL_DICT["abatement_cost_all_regions"] = ("Abatement Cost", 2)
 
 
 def get_imports(framework=None):
@@ -74,7 +76,8 @@ def get_results_dir():
         "-r",
         type=str,
         default=".",
-        help="the directory where all the training files were saved.",
+        help="the directory where all the submission files are saved. Can also be "
+        "the zipped file containing all the submission files.",
     )
     args = parser.parse_args()
 
@@ -88,7 +91,14 @@ def get_results_dir():
             "is specified!"
         )
     try:
-        return args.results_dir, parser
+        results_dir = args.results_dir
+
+        # Also handle a zipped file
+        if results_dir.endswith(".zip"):
+            unzipped_results_dir = os.path.join("/tmp", str(time.time()))
+            shutil.unpack_archive(results_dir, unzipped_results_dir)
+            results_dir = unzipped_results_dir
+        return results_dir, parser
     except Exception as err:
         raise ValueError("Cannot obtain the results directory") from err
 
@@ -145,7 +155,7 @@ def validate_dir(results_dir=None):
     return framework, success, comment
 
 
-def compute_metrics(fetch_episode_states, trainer, framework, num_episodes=5):
+def compute_metrics(fetch_episode_states, trainer, framework, num_episodes=1):
     """
     Generate episode rollouts and compute metrics.
     """
@@ -158,6 +168,7 @@ def compute_metrics(fetch_episode_states, trainer, framework, num_episodes=5):
 
     # Fetch all the desired outputs to compute various metrics.
     desired_outputs = list(_METRICS_TO_LABEL_DICT.keys())
+
     episode_states = {}
     eval_metrics = {}
     try:
@@ -192,6 +203,7 @@ def compute_metrics(fetch_episode_states, trainer, framework, num_episodes=5):
 
             # Formatting the values
             metrics_to_label_dict = _METRICS_TO_LABEL_DICT[feature]
+
             eval_metrics[metrics_to_label_dict[0]] = perform_format(
                 mean_feature_value, metrics_to_label_dict[1]
             )
@@ -211,6 +223,8 @@ def perform_format(val, num_decimal_places):
     """
     Format value to the number of desired decimal points.
     """
+    if np.isnan(val):
+        return val
     assert num_decimal_places >= 0
     rounded_val = np.round(val, num_decimal_places)
     if num_decimal_places == 0:
@@ -219,88 +233,95 @@ def perform_format(val, num_decimal_places):
 
 
 def perform_evaluation(
-    results_dir=None,
-    num_episodes=5,
+    results_directory=None,
+    num_episodes=1,
     eval_seed=None,
 ):
     """
     Create the trainer and compute metrics.
     """
-    assert results_dir is not None
+    assert results_directory is not None
     eval_metrics = {}
     assert num_episodes > 0
 
-    framework, success, comment = validate_dir(results_dir)
+    framework, success, comment = validate_dir(results_directory)
     if success:
-        try:
-            logging.info("Running unit tests...")
-            this_file_dir = os.path.dirname(os.path.abspath(__file__))
+        logging.info("Running unit tests...")
+        this_file_dir = os.path.dirname(os.path.abspath(__file__))
 
-            subprocess.run(
+        try:
+            subprocess.check_output(
                 [
                     "python",
                     os.path.join(this_file_dir, "run_unittests.py"),
                     "--results_dir",
-                    results_dir,
+                    results_directory,
                 ],
-                check=True,
             )
             logging.info("DONE")
 
-            create_trainer, load_model_checkpoints, fetch_episode_states = get_imports(
-                framework=framework
-            )
+            if success:
+                (
+                    create_trainer,
+                    load_model_checkpoints,
+                    fetch_episode_states,
+                ) = get_imports(framework=framework)
 
-            logging.info("Performing eval...")
+                logging.info("Performing eval...")
 
-            # Load a run configuration
-            config_file = os.path.join(results_dir, f"rice_{framework}.yaml")
+                # Load a run configuration
+                config_file = os.path.join(results_directory, f"rice_{framework}.yaml")
 
-            if not os.path.exists(config_file):
-                success = False
-                comment = f"The run configuration is missing in {results_dir}."
+                if not os.path.exists(config_file):
+                    success = False
+                    comment = (
+                        f"The run configuration is missing in {results_directory}."
+                    )
 
-            else:
-                with open(config_file, "r", encoding="utf8") as file_ptr:
-                    run_config = yaml.safe_load(file_ptr)
+                else:
+                    with open(config_file, "r", encoding="utf-8") as file_ptr:
+                        run_config = yaml.safe_load(file_ptr)
 
-                # Create trainer object
-                try:
-                    trainer, _ = create_trainer(run_config, seed=eval_seed)
-
-                    # Load model checkpoints
+                    # Create trainer object
                     try:
-                        load_model_checkpoints(trainer, results_dir)
+                        trainer, _ = create_trainer(
+                            run_config, source_dir=results_directory, seed=eval_seed
+                        )
 
-                        # Compute metrics
+                        # Load model checkpoints
                         try:
-                            success, comment, eval_metrics = compute_metrics(
-                                fetch_episode_states,
-                                trainer,
-                                framework,
-                                num_episodes=num_episodes,
-                            )
+                            load_model_checkpoints(trainer, results_directory)
 
-                            if framework == "warpdrive":
-                                trainer.graceful_close()
-                            logging.info("DONE!")
+                            # Compute metrics
+                            try:
+                                success, comment, eval_metrics = compute_metrics(
+                                    fetch_episode_states,
+                                    trainer,
+                                    framework,
+                                    num_episodes=num_episodes,
+                                )
+
+                                if framework == "warpdrive":
+                                    trainer.graceful_close()
+                                logging.info("DONE!")
+
+                            except Exception as err:
+                                logging.error(err)
+                                success = False
+                                comment = "Count not fetch episode and compute metrics."
 
                         except Exception as err:
                             logging.error(err)
                             success = False
-                            comment = "Count not fetch episode and compute metrics."
+                            comment = "Could not load model checkpoints."
 
                     except Exception as err:
                         logging.error(err)
                         success = False
-                        comment = "Could not load model checkpoints."
-
-                except Exception as err:
-                    logging.error(err)
-                    success = False
-                    comment = "Could not create trainer with the run_config provided."
-
-        except Exception as err:
+                        comment = (
+                            "Could not create trainer with the run_config provided."
+                        )
+        except subprocess.CalledProcessError as err:
             logging.error(err)
             success = False
             comment = "Unit tests were not successful."
@@ -312,16 +333,10 @@ if __name__ == "__main__":
     logging.info("This script performs evaluation of your code.")
     results_dir = get_results_dir()[0]
 
-    # Also handle a zipped results_dir
-    if results_dir.endswith(".zip"):
-        unzipped_results_dir = os.path.join("/tmp", str(time.time()))
-        shutil.unpack_archive(results_dir, unzipped_results_dir)
-        results_dir = unzipped_results_dir
-
     framework_used, succeeded, metrics, comments = perform_evaluation(
-        results_dir, eval_seed=_SEED, num_episodes=_NUM_ROLLOUT_EPISODES
+        results_dir, eval_seed=_SEED
     )
-    logging.info("Framework Used: %s", framework_used)
-    logging.info("Succeeded: %s", succeeded)
-    logging.info("Metrics: %f", metrics)
-    logging.info("Comments: %s", comments)
+    print(f"Framework used: {framework_used}")
+    print(f"Succeeded: {succeeded}")
+    print(f"Metrics: {metrics}")
+    print(f"Comments: {comments}")

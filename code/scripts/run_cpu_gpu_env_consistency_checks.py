@@ -27,7 +27,7 @@ this_file_dir = os.path.dirname(os.path.abspath(__file__))
 
 env_registrar.add_cuda_env_src_path(
     Rice.name,
-    os.path.join(this_file_dir, "rice_build.cu")
+    os.path.join(this_file_dir, "../rice_build.cu")
 )
 env_configs = {
     "no_negotiation": {
