@@ -12,7 +12,7 @@ import os
 import sys
 import torch
 
-from evaluate_submission import _ROOT_DIR
+_ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.append(_ROOT_DIR)
 
 from rice import Rice
