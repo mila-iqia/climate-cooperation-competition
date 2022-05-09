@@ -21,7 +21,7 @@ trainer:
 # Environment configuration
 env:
     num_discrete_action_levels: 10 # number of discrete levels for the saving and mitigation actions
-    negotiation_on: True # flag to indicate whether negotiation is allowed or not
+    negotiation_on: False # flag to indicate whether negotiation is allowed or not
 
 # Policy network settings
 policy:

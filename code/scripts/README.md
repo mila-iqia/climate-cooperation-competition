@@ -1,14 +1,20 @@
 # Competition Submission FAQ
 
-## Useful Links:
+## Quick Links:
 
 [Competition registration form](https://docs.google.com/forms/d/e/1FAIpQLSe2SWnhJaRpjcCa3idq7zIFubRoH0pATLOP7c1Y0kMXOV6U4w/viewform)
 
-[Submission form](https://docs.google.com/forms/d/e/1FAIpQLSdATpPMnhjXNFAnGNRU2kuufwD5HFilGxgIXFK9QKsqrDbkog/viewform)
+Submission forms
 
-[Leaderboard](http://34.111.184.174/)
+- [Track 1](https://docs.google.com/forms/d/e/1FAIpQLSdATpPMnhjXNFAnGNRU2kuufwD5HFilGxgIXFK9QKsqrDbkog/viewform)
+
+- [Track 2](https://docs.google.com/forms/d/e/1FAIpQLSeoc4oLBU4c8EoumkocSyhRaxGW0JoEVcBgeuo-U9fSfNOyrQ/viewform)
+
+- [Track 3](https://docs.google.com/forms/d/e/1FAIpQLSed0seSYt8LKywVrE7BARxAPPsO6WYmPUMeIezD7FTV176QvQ/viewform)
 
 [Competition website](https://mila-iqia.github.io/climate-cooperation-competition/)
+
+[Leaderboard](http://34.111.184.174/)
 
 [Contact email](TODO: ADD EMAIL)
 
@@ -20,9 +26,18 @@ After you submit your registration form, we will register it internally. You wil
 ## Where can I submit my solution?
 NOTE: Please register for the competition (see the steps above), if you have not done so. Your team must be registered before you can submit your solutions.
 
-In order to submit your solution, you need to fill out the Google form [here](https://docs.google.com/forms/d/e/1FAIpQLSdATpPMnhjXNFAnGNRU2kuufwD5HFilGxgIXFK9QKsqrDbkog/viewform).
+The AI climate competition comprises 3 tracks.
 
-Please select your registered team name from the drop-down menu, and upload a zip file containing the submission files - we will be providing scripts to help you create the zip file. You will also need to be willing to make your submission open-source (after the competition).
+In Track 1, you will propose and implement multilateral agreements to augment the simulator, and train the AI agents in the simulator. We evaluate the learned policies and resulting economic and climate change metrics.
+The submission form for Track 1 is [here](https://docs.google.com/forms/d/e/1FAIpQLSdATpPMnhjXNFAnGNRU2kuufwD5HFilGxgIXFK9QKsqrDbkog/viewform).
+Please select your registered team name from the drop-down menu, and upload a zip file containing the submission files - we will be providing scripts to help you create the zip file.
+
+In Track 2, you will argue why your solution is practically relevant and usable in the real world. We expect the entries in this track to contain a high-level summary for policymakers
+The submission form for Track 2 is [here](https://docs.google.com/forms/d/e/1FAIpQLSeoc4oLBU4c8EoumkocSyhRaxGW0JoEVcBgeuo-U9fSfNOyrQ/viewform).
+
+
+In Track 3, we invite you to point out potential simulation loopholes and improvements.
+The submission form for Track 3 is [here](https://docs.google.com/forms/d/e/1FAIpQLSed0seSYt8LKywVrE7BARxAPPsO6WYmPUMeIezD7FTV176QvQ/viewform).
 
 If you do not see your team name in the drop-down menu, please contact us (TODO: add contact email), and we will resolve that for you.
 
@@ -67,7 +82,12 @@ ROOT_DIR
 
 
 - `rice_step.cu`
-This is the CUDA C version of the step() function that is required for use with WarpDrive. To get started with WarpDrive, we recommend following these [tutorials](https://github.com/salesforce/warp-drive/tree/master/tutorials). While WarpDrive requires writing the simulation in CUDA C, it also offers orders-of-magnitude speedups for end-to-end training, since it performs rollouts and training all on the GPU. `rice_cuda.py` nd `rice_build.cu` are necessary files for copying simulation data to the GPU and compiling the CUDA code.  
+This is the CUDA C version of the step() function that is required for use with WarpDrive. To get started with WarpDrive, we recommend following these [tutorials](https://github.com/salesforce/warp-drive/tree/master/tutorials). While WarpDrive requires writing the simulation in CUDA C, it also offers orders-of-magnitude speedups for end-to-end training, since it performs rollouts and training all on the GPU. `rice_cuda.py` nd `rice_build.cu` are necessary files for copying simulation data to the GPU and compiling the CUDA code.
+
+While implementing the simulation in CUDA C on the GPU offers significantly faster simulations, it requires careful memory management. To make sure that everything works properly, one approach is to first implement your simulation logic in Python. You can then implement the same logic in CUDA C and check the simulation behaviors are the same. To help with this process, we provide an environment consistency checker method to do consistency tests between Python and CUDA C simulations. Before training your CUDA C code, please run the consistency checker to ensure the Python and CUDA C implementations are consistent.
+```commandline
+python scripts/run_env_cpu_gpu_consistency_checks.py
+```
 
 
 ### Scripts for performing training

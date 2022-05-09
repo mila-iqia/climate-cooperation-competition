@@ -135,17 +135,18 @@ class EnvWrapper(MultiAgentEnv):
     """
 
     def __init__(self, env_config=None):
-        if env_config is None:
-            env_config = {}
-        source_dir = env_config.get("source_dir", None)
+        env_config_copy = env_config.copy()
+        if env_config_copy is None:
+            env_config_copy = {}
+        source_dir = env_config_copy.get("source_dir", None)
         # Remove source_dir key in env_config if it exists
-        if source_dir in env_config:
-            del env_config["source_dir"]
+        if "source_dir" in env_config_copy:
+            del env_config_copy["source_dir"]
         if source_dir is None:
             source_dir = _ROOT_DIR
-        assert isinstance(env_config, dict)
+        assert isinstance(env_config_copy, dict)
         self.env = import_class_from_path("Rice", os.path.join(source_dir, "rice.py"))(
-            **env_config
+            **env_config_copy
         )
 
         self.action_space = self.env.action_space
@@ -175,9 +176,6 @@ def get_rllib_config(exp_run_config=None, env_class=None, seed=None):
 
     env_config = exp_run_config["env"]
     assert isinstance(env_config, dict)
-    # Remove source_dir key in env_config
-    if "source_dir" in env_config:
-        del env_config["source_dir"]
     env_object = EnvWrapper(env_config=env_config)
 
     # Define all the policies here

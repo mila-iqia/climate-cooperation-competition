@@ -9,7 +9,11 @@
 
 import logging
 import os
+import sys
 import torch
+
+from evaluate_submission import _ROOT_DIR
+sys.path.append(_ROOT_DIR)
 
 from rice import Rice
 from rice_cuda import RiceCuda
@@ -23,11 +27,10 @@ _NUM_GPUS_AVAILABLE = torch.cuda.device_count()
 assert _NUM_GPUS_AVAILABLE > 0, "This script needs a GPU to run!"
 
 env_registrar = EnvironmentRegistrar()
-this_file_dir = os.path.dirname(os.path.abspath(__file__))
 
 env_registrar.add_cuda_env_src_path(
     Rice.name,
-    os.path.join(this_file_dir, "../rice_build.cu")
+    os.path.join(_ROOT_DIR, "rice_build.cu")
 )
 env_configs = {
     "no_negotiation": {

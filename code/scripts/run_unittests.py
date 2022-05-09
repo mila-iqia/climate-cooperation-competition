@@ -25,7 +25,7 @@ _REGION_YAMLS = "region_yamls"
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.ERROR)
 
-_BASE_CODE_PATH = "https://raw.githubusercontent.com/mila-iqia/climate-cooperation-competition/code/code/"
+_BASE_CODE_PATH = "https://raw.githubusercontent.com/mila-iqia/climate-cooperation-competition/main/code/"
 _BASE_RICE_PATH = _BASE_CODE_PATH + "rice.py"
 _BASE_RICE_HELPERS_PATH = _BASE_CODE_PATH + "rice_helpers.py"
 _BASE_RICE_BUILD_PATH = _BASE_CODE_PATH + "rice_build.cu"
@@ -99,12 +99,13 @@ class TestEnv(unittest.TestCase):
             # Copy the consistency checker file into the results_dir
             prev_dir = os.getcwd()
             os.chdir(cls.results_dir)
+            os.makedirs("scripts")
             subprocess.call(
                 [
                     "sudo",
                     "wget",
                     "-O",
-                    "run_cpu_gpu_env_consistency_checks.py",
+                    "scripts/run_cpu_gpu_env_consistency_checks.py",
                     _BASE_CONSISTENCY_CHECKER_PATH,
                 ]
             )
@@ -255,7 +256,7 @@ class TestEnv(unittest.TestCase):
         if self.framework == "warpdrive":
             # Execute the CPU-GPU consistency checks
             os.chdir(self.results_dir)
-            subprocess.check_output(["python", "run_cpu_gpu_env_consistency_checks.py"])
+            subprocess.check_output(["python", "scripts/run_cpu_gpu_env_consistency_checks.py"])
 
 
 if __name__ == "__main__":
