@@ -99,7 +99,7 @@ class TestEnv(unittest.TestCase):
             # Copy the consistency checker file into the results_dir
             prev_dir = os.getcwd()
             os.chdir(cls.results_dir)
-            os.makedirs("scripts")
+            os.makedirs("scripts", exist_ok=True)
             subprocess.call(
                 [
                     "sudo",
