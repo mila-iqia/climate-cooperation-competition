@@ -46,7 +46,7 @@ try:
     other_imports = perform_other_imports()
 except ImportError:
     print("Installing requirements...")
-    subprocess.call(["pip", "install", "rl-warp-drive==1.5.1"])
+    subprocess.call(["pip", "install", "rl-warp-drive>=1.6.5"])
 
     other_imports = perform_other_imports()
 

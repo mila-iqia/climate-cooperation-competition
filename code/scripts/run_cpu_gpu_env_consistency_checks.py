@@ -10,16 +10,17 @@
 import logging
 import os
 import sys
+
 import torch
 
 _ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.append(_ROOT_DIR)
 
-from rice import Rice
-from rice_cuda import RiceCuda
-
 from warp_drive.env_cpu_gpu_consistency_checker import EnvironmentCPUvsGPU
 from warp_drive.utils.env_registrar import EnvironmentRegistrar
+
+from rice import Rice
+from rice_cuda import RiceCuda
 
 logging.getLogger().setLevel(logging.ERROR)
 
@@ -28,20 +29,16 @@ assert _NUM_GPUS_AVAILABLE > 0, "This script needs a GPU to run!"
 
 env_registrar = EnvironmentRegistrar()
 
-env_registrar.add_cuda_env_src_path(
-    Rice.name,
-    os.path.join(_ROOT_DIR, "rice_build.cu")
-)
+env_registrar.add_cuda_env_src_path(Rice.name, os.path.join(_ROOT_DIR, "rice_build.cu"))
 env_configs = {
     "no_negotiation": {
         "num_discrete_action_levels": 100,
-        "negotiation_on": False
-        ,
+        "negotiation_on": False,
     },
     "with_negotiation": {
         "num_discrete_action_levels": 100,
         "negotiation_on": True,
-    }
+    },
 }
 testing_class = EnvironmentCPUvsGPU(
     cpu_env_class=Rice,

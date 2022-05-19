@@ -158,6 +158,11 @@ An "invalid submission" may refer to a submission wherein some or all of the sub
 There is no limit on the number of submissions per team. Feel free to submit as many solutions as you would like. We will only be using your submission with the highest evaluation score towards the leaderboard.
 
 ## Requirements
+For training with RLlib, `rllib (1.0.0)`, `torch (1.10)` and `gym (0.21)` packages are required.
 
+For training with WarpDrive, the `rl-warp-drive (>=1.6.5)` package is needed.
+
+Note that these requirements are automatically installed (or updated) when you run the corresponding training scripts.
 
 ## Docker image
+We have also provided a sample dockerfile for your reference. It mainly uses a Nvidia PyTorch base image, and installs the `pycuda` package as well. Note: `pycuda` is only required if you would like to train using WarpDrive.

@@ -256,7 +256,9 @@ class TestEnv(unittest.TestCase):
         if self.framework == "warpdrive":
             # Execute the CPU-GPU consistency checks
             os.chdir(self.results_dir)
-            subprocess.check_output(["python", "scripts/run_cpu_gpu_env_consistency_checks.py"])
+            subprocess.check_output(
+                ["python", "scripts/run_cpu_gpu_env_consistency_checks.py"]
+            )
 
 
 if __name__ == "__main__":

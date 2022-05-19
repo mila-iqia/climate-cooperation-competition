@@ -19,7 +19,6 @@ import time
 import numpy as np
 import yaml
 from run_unittests import import_class_from_path
-from torch_models import TorchLinear
 
 _ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.append(_ROOT_DIR)
@@ -47,16 +46,18 @@ try:
 except ImportError:
     print("Installing requirements...")
 
+    # Install gym
+    subprocess.call(["pip", "install", "gym==0.21"])
     # Install RLlib v1.10.0
     subprocess.call(["pip", "install", "ray[rllib]==1.0.0"])
     # Install PyTorch
-    subprocess.call(["pip3", "install", "torch"])
-    # Install gym
-    subprocess.call(["pip", "install", "gym==0.21"])
+    subprocess.call(["pip3", "install", "torch==1.10"])
 
     other_imports = perform_other_imports()
 
 ray, torch, Box, Dict, MultiAgentEnv, A2CTrainer, NoopLogger = other_imports
+
+from torch_models import TorchLinear
 
 _BIG_NUMBER = 1e20
 
@@ -347,6 +348,8 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
             outputs[state][timestep] = env.global_state[state]["value"][timestep]
 
         actions = {}
+        # TODO: Consider using the `compute_actions` (instead of `compute_action`)
+        # API below for speed-up when there are many agents.
         for region_id in range(env.num_agents):
             if (
                 len(agent_states[region_id]) == 0
@@ -356,7 +359,7 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
                     agent_states[region_id],
                     policy_id=policy_ids[region_id],
                 )
-            else:
+            else:  # stateful
                 (
                     actions[region_id],
                     agent_states[region_id],
@@ -386,7 +389,7 @@ if __name__ == "__main__":
     config_path = os.path.join(_ROOT_DIR, "scripts", "rice_rllib.yaml")
     if not os.path.exists(config_path):
         raise ValueError(
-            "The run configuration is missing. Please make sure the correct path"
+            "The run configuration is missing. Please make sure the correct path "
             "is specified."
         )
 
