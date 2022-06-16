@@ -21,8 +21,13 @@
   <link rel="icon" href="images/favicon.ico" />
 
   <!-- Boilerplate -->
-  <link rel="stylesheet" href="styles/css/bootstrap.min.css">
+  <!-- <link rel="stylesheet" href="styles/css/bootstrap.min.css"> -->
   <!-- <link rel="stylesheet" href="https://unpkg.com/mvp.css" /> -->
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+  <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 
   <!-- Custom -->
   <link rel="stylesheet" href="styles/css/custom.css">
@@ -30,39 +35,37 @@
 </head>
 
 <body>
+  <!--  NAVBAR -->
+  <!--  position-sticky fixed-top -->
+  <nav class="navbar navbar-expand-sm navbar-light bg-light">        
+    <a class="navbar-brand" href="#">AI for Global Climate Cooperation</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav mr-auto">
+        <li class="nav-item active"><a class="nav-link" href="#">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
+        <li class="nav-item"><a class="nav-link" href="#faq">FAQ</a></li>
+        <li class="nav-item"><a class="nav-link" href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">Code</a></li>
+        <li class="nav-item"><a class="nav-link" href="#leaderboard">Leaderboard</a></li>
+        <li class="nav-item"><a class="nav-link" href="https://docs.google.com/forms/d/17rF3REYs57XSFeE7xyCcl1HgG0Hwrc0vHmLSwUoJ6Nc/viewform?ts=626861a8&edit_requested=true">Register</a></li>
+        <li class="nav-item"><a class="nav-link" href="#submit" class="">Submit a solution</a></li>
+        <li class="nav-item"><a class="nav-link green-highlight" href="#getstarted">Get started</a></li>
+      </ul>
+    </div>
+  </nav>
 
   <!--  Main content -->
   <div class="wrapper">
     <div class="container">
 
-      <!--  NAVBAR -->
-      <nav class="navbar navbar-expand-lg navbar-light bg-light position-sticky fixed-top">
-
-        <a class="navbar-brand" href="#">AI for Global Climate Cooperation</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
-          aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-          <ul class=" nav navbar-nav">
-            <li><a class="nav-item nav-link" href="#about">About</a></li>
-            <li><a class="nav-item nav-link" href="#faq">FAQ</a></li>
-            <li><a class="nav-item nav-link" href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">Code</a></li>
-            <li><a class="nav-item nav-link" href="#leaderboard">Leaderboard</a></li>
-            <li><a class="nav-item nav-link" href="https://docs.google.com/forms/d/17rF3REYs57XSFeE7xyCcl1HgG0Hwrc0vHmLSwUoJ6Nc/viewform?ts=626861a8&edit_requested=true">Register</a></li>
-            <li><a class="nav-item nav-link" href="#submit" class="">Submit a solution</a></li>
-            <li><a class="nav-item nav-link green-highlight" href="#getstarted" class="green-highlight">Get started</a></li>
-          </ul>
-        </div>
-      </nav>
-
-
       <!--  Block 1 -->
       <div class="content-wrapper">
         <div class="row pt-5">
           <div class="col-8">
-            <h2>We need global cooperation to mitigate climate change.</h2>
+            <h2>We need global cooperation to mitigate climate change</h2>
             <p>
               Climate change is happening quicker than we have feared.
 
@@ -72,8 +75,7 @@
               However, it is still <a href="https://www.un.org/en/un75/climate-crisis-race-we-can-win">a race we can
                 win</a>, capping global temperature increase at 2 degrees Celsius.
 
-            </p>
-            <h2>Participate in this competition to design a cooperation mechanism using AI.</h2>
+            </p>            
             <p>
               To mitigate climate change, we need comprehensive long-term global cooperation.
 
@@ -82,20 +84,31 @@
               There is no central entity that forces regions to adhere to climate
               agreements, while regions have individual
               policy objectives that are often misaligned.
-
+            </p>
+            <p>
+              This challenges sits in the intersection of machine learning, game theory, economics, and climate modeling. This is an underexplored area of research that is highly relevant to real-world policymaking. 
             </p>
 
+            <h2>Develop, design, and compete with your solution!</h2>
             <p>
-              <b>This competition aims to develop realistic and effective solutions to this challenging problem
-                and connect AI
-                researchers with economists and policy experts.
-              </b>
-              Specifically, the goal is to design multilateral negotiation protocols and agreements that incentivize
+              The goal is to design multilateral negotiation protocols and agreements that incentivize
               cooperation
               on climate change. These solutions will be tested in a simulation with AI agents that is calibrated to
               real-world
               data.
             </p>
+            <p>
+              We call on computer scientists, economists, climate scientists, and policy experts to collaborate on designing negotiation protocols between (fictitous) regions and evaluating their impact on climate change using climate-economic simulations (provided by us) with AI agents.
+
+
+            </p>
+            <h2>Join and get started!</h2>
+            <p>
+              Learn more at our kick-off event on Jul 31, 2022! 
+            </p>
+            <p>
+              Find team members on Slack and through our <a href="https://docs.google.com/spreadsheets/d/11cS8U19OpCu1_ASyaKMPTMHpySAxW3_KS1WvLVNTwps/edit">public spreadsheet</a>. 
+            </p>`
             <p>
               <a href="#getstarted">Get started here!</a>
             </p>
@@ -105,6 +118,41 @@
             <img src="images/ai-head.png" style="width: auto">
           </div>
         </div>
+
+
+        <!-- Outcome of the competition -->
+        <div class="row">
+          <div class="col">
+            <h1>WHY PARTICIPATE?</h1>
+
+            <p>
+              First of all, come learn. 
+
+              We want to motivate you to do original research in this scientific area.
+
+              Our jury will also provide feedback on your solutions and ideas.
+            </p>
+
+            <p>
+              After the submission period has ended, we will organize a workshop in December 2022. 
+              
+              Top performing teams will be invited to present their work there. We also invite all teams to submit a workshop-style paper to document their findings, which will be peer-reviewed and published in the competition proceedings.
+            </p>
+
+            <p>
+              We plan to write a research paper based on the findings in the competition, coauthored with selected teams whose findings are of sufficient scientific or policymaking novelty. This work will be submitted to a peer-reviewed journal. 
+            </p>
+            <p>
+              Following this, we intend to write a policy brief with actionable insights for policymakers, which will be distributed and promoted through our partners. We also plan to organize a marketing campaign, e.g., through blogs, press releases, around the findings of the competition.
+            </p>
+
+            <p>
+              Finally, we're looking for interested poeple to join the organization!
+            </p>
+            
+          </div>
+        </div>
+
 
         <div class="row" id="leaderboard">
           <div class="col">
@@ -348,17 +396,6 @@
           </div>
         </div>
 
-        <!-- Outcome of the competition -->
-        <div class="row">
-          <div class="col">
-            <h1>PRIZES</h1>
-            If you participate, you will:
-            <ul>
-              <li>get feedback from policy experts on your ideas, and</li>
-              <li>publish your work in the proceedings of the competition.</li>
-            </ul>
-          </div>
-        </div>
 
         <div class="row" id="submit">
           <div class="col">
@@ -366,9 +403,9 @@
 
 
             <ul>
-              <li>Track 1: Read the submission FAQs. Submit your code here:<a href="https://docs.google.com/forms/d/1QtIOvEBt19aHi0Yreh4c5dPKObpwEkoy-NfAB7D2qEo/viewform?ts=624b50d2&edit_requested=true">[Google Form 1]</a></li>
-              <li>Track 2: Read the <a href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing" target="blank">submission essay guidelines and jury review template</a>. Submit your code in <a href="https://docs.google.com/forms/d/1QtIOvEBt19aHi0Yreh4c5dPKObpwEkoy-NfAB7D2qEo/viewform?ts=624b50d2&edit_requested=true">[Google Form 1]</a> and submit your essay in <a href="https://docs.google.com/forms/d/1QtIOvEBt19aHi0Yreh4c5dPKObpwEkoy-NfAB7D2qEo/viewform?ts=624b50d2&edit_requested=true">[Google Form 2]</a></li>
-              <li>Track 3: Read the submission essay guidelines. Submit your code and essay here: <a href="https://docs.google.com/forms/d/1QtIOvEBt19aHi0Yreh4c5dPKObpwEkoy-NfAB7D2qEo/viewform?ts=624b50d2&edit_requested=true">[Google Form 3]</a></li>
+              <li>Track 1: Read the submission FAQs. Submit your code here:<a href="https://forms.gle/RQzxpBjDPASq9Gqj8">[Google Form 1]</a></li>
+              <li>Track 2: Read the <a href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing" target="blank">submission essay guidelines and jury review template</a>. Submit your code in <a href="https://forms.gle/RQzxpBjDPASq9Gqj8">[Google Form 1]</a> and submit your essay in <a href="https://forms.gle/LFyAMZ7fQZDagBRF6">[Google Form 2]</a></li>
+              <li>Track 3: Read the submission essay guidelines. Submit your code and essay here: <a href="https://forms.gle/2agxvK6adph1LwrT7">[Google Form 3]</a></li>
             </ul>
           </div>
         </div>
