@@ -6,9 +6,12 @@ body {
   color: #222;
 }
 
-.navbar {
+/* .navbar {
   background-color: #fff;
-}
+} */
+/* .navbar {
+  font-family: "Source Sans Pro", sans-serif;
+} */
 
 #bottom-bar {
   /* background: url("../../images/bg.png") no-repeat center bottom;
@@ -36,9 +39,7 @@ h6 {
   font-weight: 700;
 }
 
-.navbar {
-  font-family: "Source Sans Pro", sans-serif;
-}
+
 
 h1 {
   font-family: "Source Sans Pro", serif;
