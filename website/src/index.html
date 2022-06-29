@@ -51,6 +51,7 @@
           <li class="nav-item"><a class="nav-link" href="#leaderboard">Leaderboard</a></li>
           <li class="nav-item"><a class="nav-link" href="#schedule">Schedule</a></li>
           <li class="nav-item"><a class="nav-link" href="#faq">FAQ</a></li>
+          <li class="nav-item"><a class="nav-link" href="#resources">Resources</a></li>
           <li class="nav-item"><a class="nav-link" href="#ethics">Ethics</a></li>
           <!-- <li class="nav-item"><a class="nav-link" href="https://docs.google.com/forms/d/17rF3REYs57XSFeE7xyCcl1HgG0Hwrc0vHmLSwUoJ6Nc/viewform?ts=626861a8&edit_requested=true">Register</a></li> -->
           <li class="nav-item"><a class="nav-link" href="#submit" class="">Submit a solution</a></li>
@@ -156,7 +157,7 @@
                 code, tutorials, calibration details, evaluation and submission code, and more.
               </li>
               <li>
-                Read the <a href="LINK-TO-PAPER" target="blank">technical white paper</a> that explains the structure
+                Read the <a href="#resources">technical white paper</a> that explains the structure
                 of
                 the
                 simulation, the mathematical background, and
@@ -272,33 +273,22 @@
             <h1>COMPETITION OVERVIEW</h1>
             <!-- <h2>What will you do?</h2> -->
             <p>
-              The goal is to implement a negotiation strategy that will help regions to achieve their individual
-              goals, but also (indirectly) lead to better climate outcomes.
+              The challenge is to implement a negotiation strategy that aligns the incentives for regions to achieve their individual
+              goals and also (indirectly) lead to better climate outcomes in the next 100 years.
             </p>
 
             <p>
               You will use a climate-economic simulation with fictitious regions as independent AI agents. Each agent
               chooses how much to invest and mitigate climate change, sets international tariffs, limits exports, and imports
-              goods.
+              goods. Each agent also negotiates with other agents.
             </p>
             <p>
-              The simulator runs for 100 years.
+              The base simulation is open-source in our <a href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">Github
+                repository</a>, with structural parameters that are calibrated to real data.
             </p>
             <p>
-              Regions also engage in multilateral negotiations.
+              All the technical details of the simulation and evaluation protocol are in our <a href="#resources">technical white paper</a>.
             </p>
-            <p>
-              The structural parameters are calibrated to real data.
-            </p>
-            <p>
-              To read more about the simulator, please refer to the <a href="TODO: ADD LINK" target="blank">paper</a>
-              and
-              our <a href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">Github
-                repository</a>.
-            </p>
-
-            <p>We are accepting submissions in three tracks.</p>
-
           </div>
         </div>
 
@@ -407,9 +397,9 @@
             </p>
 
             <ul>
-              <li>Track 1: Read the <a href="#faq">submission FAQ</a>. Submit your code here:<a href="https://forms.gle/RQzxpBjDPASq9Gqj8">[Google Form 1]</a></li>
+              <li>Track 1: Submit your code here:<a href="https://forms.gle/RQzxpBjDPASq9Gqj8">[Google Form 1]</a>. Read the <a href="#faq">FAQ</a> for technical details and support.</li>
               <li>Track 2: Read the <a href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing" target="blank">submission essay guidelines and jury review template</a>. Submit your code in <a href="https://forms.gle/RQzxpBjDPASq9Gqj8">[Google Form 1]</a> and submit your essay in <a href="https://forms.gle/LFyAMZ7fQZDagBRF6">[Google Form 2]</a></li>
-              <li>Track 3: Read the submission essay guidelines. Submit your code and essay here: <a href="https://forms.gle/2agxvK6adph1LwrT7">[Google Form 3]</a></li>
+              <li>Track 3: Read the <a href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing" target="blank">submission essay guidelines</a>. Submit your code and essay here: <a href="https://forms.gle/2agxvK6adph1LwrT7">[Google Form 3]</a></li>
             </ul>
           </div>
         </div>
@@ -420,7 +410,7 @@
             <p>
               <b>How do I customize the simulation and submit solutions?</b><br />
               Check out the 
-              <a href="https://github.com/mila-iqia/climate-cooperation-competition/blob/main/README.md" target="_blank">technical FAQ on Github</a>.
+              <a href="https://github.com/mila-iqia/climate-cooperation-competition/blob/main/README.md" target="blank">technical FAQ on Github</a>.
             </p>
             <p>
               <b>
@@ -430,7 +420,7 @@
                 our Google Group <a href="https://groups.google.com/g/climate-cooperation-competition" target="blank">Google
                 Group</a> and <a
                 href="https://join.slack.com/t/aieconomist/shared_invite/zt-g71ajic7-XaMygwNIup~CCzaR1T0wgA"
-                target="blank">Slack</a> (channel: <a href="https://aieconomist.slack.com/archives/C03NBD0G1NC" target="_blank">#ai-for-global-climate-cooperation-competition</a>).
+                target="blank">Slack</a> (channel: <a href="https://aieconomist.slack.com/archives/C03NBD0G1NC" target="blank">#ai-for-global-climate-cooperation-competition</a>).
                 
             </p>
             <p>
@@ -444,9 +434,21 @@
           </div>
         </div>
 
+        <div class="row" id="resources">
+          <div class="col">
+            <h1>RESOURCES</h1>
+            <ul>
+              <li><a href="">White paper</a></li>
+              <li><a href="">Code</a></li>
+              <li><a href="https://github.com/mila-iqia/climate-cooperation-competition/blob/main/README.md">Submission FAQ</a></li>
+              <li><a href="https://join.slack.com/t/aieconomist/shared_invite/zt-g71ajic7-XaMygwNIup~CCzaR1T0wgA"
+                target="blank">Slack</a></li>
+            </ul>
+          </div>
+        </div>
         <div class="row" id="ethics">
           <div class="col">
-            <h1>Ethical Considerations</h1>
+            <h1>ETHICS</h1>
             <p>
               While the intention of this paper and the corresponding challenge is to stimulate innovative solutions to climate change, there are some unintended consequences that we would like to acknowledge and address here. These include the carbon footprint of running the simulation itself, the economic disparities that can exist with climate negotiations, and the potential extensibility of this simulation to the real world.
             </p>
@@ -463,22 +465,8 @@
         </div>
 
         <div class="row">
-          <div class="col">
-            <!-- <h1>Jury Members</h1> -->
-
-              <!-- <h2>Policymaker Jury</h2>
-              <div class="row">
-                <div class="col">
-                  <div class="people-round-div">
-                    <img src="images/people/mark-carney-pic.png" class="img-responsive people-img">
-                  </div>
-                  <div class="designation">
-                    <strong>Mark Carney</strong><br>UN Envoy for Climate Action<br>Former Governor of the Bank of
-                    England<br>Former Governor of the Bank of Canada
-                  </div>
-                </div>
-              </div> -->
-              <h1>Jury</h1>
+          <div class="col">            
+              <h1>JURY</h1>
               <hr>
               <div class="row">
 
@@ -543,7 +531,7 @@
         <div class="row">
           <div class="col">
 
-            <h1>Advisors</h1>
+            <h1>ADVISORS</h1>
             <hr>
             <div class="row">
 
@@ -585,7 +573,7 @@
 
         <div class="row">
           <div class="col">
-            <h1>Organizers</h1>
+            <h1>ORGANIZERS</h1>
             <hr>
             <div class="row">
 
