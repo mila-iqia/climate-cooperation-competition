@@ -175,10 +175,10 @@ h1 {
 }
 
 
-b {
-  font-size: 1.2em;
-  font-weight: 900;
-}
+/* b { */
+  /* font-size: 1.2em; */
+  /* font-weight: 800; */
+/* } */
 
 td, th, tr {
   padding: 0 15px;
@@ -187,4 +187,9 @@ td, th, tr {
 
 tr {
   padding: 0 30px;
+}
+
+.navbar-logo {
+  height: 1.5em;
+  margin-right: 10px;
 }
