@@ -1,0 +1,50 @@
+# Copyright (c) 2022, salesforce.com, inc and MILA.
+# All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# For full license text, see the LICENSE file in the repo root
+# or https://opensource.org/licenses/BSD-3-Clause
+
+
+# Checkpoint saving setting
+saving:
+    metrics_log_freq: 100 # how often (in iterations) to log (and print) the metrics
+    model_params_save_freq: 1000 # how often (in iterations) to save the model parameters
+    basedir: "/tmp" # base folder used for saving
+    name: "rice" # experiment name
+    tag: "experiments" # experiment tag
+
+# Trainer settings
+trainer:
+    num_envs: 20 # number of environment replicas
+    rollout_fragment_length: 100 # divide episodes into fragments of this many steps each during rollouts.
+    train_batch_size: 2000 # total batch size used for training per iteration (across all the environments)
+    num_episodes: 100 # number of episodes to run the training for
+    framework: torch # framework setting.
+    # Note: RLlib supports TF as well, but our end-to-end pipeline is built for Pytorch only.
+    # === Hardware Settings ===
+    num_workers: 4 # number of rollout worker actors to create for parallel sampling.
+    # Note: Setting the num_workers to 0 will force rollouts to be done in the trainer actor.
+    num_gpus: 0 # number of GPUs to allocate to the trainer process. This can also be fractional (e.g., 0.3 GPUs).
+
+# Environment configuration
+env:
+    num_discrete_action_levels: 10 # number of discrete levels for the saving and mitigation actions
+    negotiation_on: False # flag to indicate whether negotiation is allowed or not
+
+# Policy network settings
+policy:
+    regions:
+        vf_loss_coeff: 0.1 # loss coefficient schedule for the value function loss
+        entropy_coeff_schedule: # loss coefficient schedule for the entropy loss
+        # piecewise linear, specified as (timestep, value)
+            - [0, 0.5]
+            - [1000000, 0.1]
+            - [5000000, 0.05]
+        clip_grad_norm: True # flag indicating whether to clip the gradient norm or not
+        max_grad_norm: 0.5 # when clip_grad_norm is True, the clip level
+        gamma: 0.92 # discount factor
+        lr: 0.0005 # learning rate
+        model:
+            custom_model: torch_linear
+            custom_model_config:
+                fc_dims: [256, 256]

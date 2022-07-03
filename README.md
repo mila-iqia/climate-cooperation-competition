@@ -1,97 +1,93 @@
-# Competition Submission FAQ
+# Competition: Fostering Global Cooperation to Mitigate Climate Change
 
-## Quick Links:
+This is the code respository for the competition on modeling global cooperation in the RICE-N Integrated Assessment Model. This competition is co-organized by MILA and Salesforce Research.
 
-[Competition registration form](https://docs.google.com/forms/d/e/1FAIpQLSe2SWnhJaRpjcCa3idq7zIFubRoH0pATLOP7c1Y0kMXOV6U4w/viewform)
+The RICE-N IAM is an agent-based model that incorporates DICE climate-economic dynamics and multi-lateral negotiation protocols between several fictitious nations.
 
-Submission forms
-
-- [Track 1](https://docs.google.com/forms/d/e/1FAIpQLSdATpPMnhjXNFAnGNRU2kuufwD5HFilGxgIXFK9QKsqrDbkog/viewform)
-
-- [Track 2](https://docs.google.com/forms/d/e/1FAIpQLSeoc4oLBU4c8EoumkocSyhRaxGW0JoEVcBgeuo-U9fSfNOyrQ/viewform)
-
-- [Track 3](https://docs.google.com/forms/d/e/1FAIpQLSed0seSYt8LKywVrE7BARxAPPsO6WYmPUMeIezD7FTV176QvQ/viewform)
-
-[Competition website](https://mila-iqia.github.io/climate-cooperation-competition/)
-
-[Leaderboard](http://34.111.184.174/)
-
-[Contact email](TODO: ADD EMAIL)
-
-## How can I register for the competition?
-Please fill out [this](https://docs.google.com/forms/d/e/1FAIpQLSe2SWnhJaRpjcCa3idq7zIFubRoH0pATLOP7c1Y0kMXOV6U4w/viewform) Google form in order to register for the competition. You will only need to provide an email address and a team name. You will also need to be willing to open-source your code after the competition.
-
-After you submit your registration form, we will register it internally. You will need your team name in order to make submissions towards the competition.
-
-## Where can I submit my solution?
-NOTE: Please register for the competition (see the steps above), if you have not done so. Your team must be registered before you can submit your solutions.
-
-The AI climate competition comprises 3 tracks.
-
-In Track 1, you will propose and implement multilateral agreements to augment the simulator, and train the AI agents in the simulator. We evaluate the learned policies and resulting economic and climate change metrics.
-The submission form for Track 1 is [here](https://docs.google.com/forms/d/e/1FAIpQLSdATpPMnhjXNFAnGNRU2kuufwD5HFilGxgIXFK9QKsqrDbkog/viewform).
-Please select your registered team name from the drop-down menu, and upload a zip file containing the submission files - we will be providing scripts to help you create the zip file.
-
-In Track 2, you will argue why your solution is practically relevant and usable in the real world. We expect the entries in this track to contain a high-level summary for policymakers
-The submission form for Track 2 is [here](https://docs.google.com/forms/d/e/1FAIpQLSeoc4oLBU4c8EoumkocSyhRaxGW0JoEVcBgeuo-U9fSfNOyrQ/viewform).
+In this competition, you will design negotiation protocols and contracts between nations. You will use the simulation and agents to evaluate their impact on the climate and the economy. 
 
 
-In Track 3, we invite you to point out potential simulation loopholes and improvements.
-The submission form for Track 3 is [here](https://docs.google.com/forms/d/e/1FAIpQLSed0seSYt8LKywVrE7BARxAPPsO6WYmPUMeIezD7FTV176QvQ/viewform).
+## Resources
 
-If you do not see your team name in the drop-down menu, please contact us (TODO: add contact email), and we will resolve that for you.
+- For all information and the leaderboard, see [https://mila-iqia.github.io/climate-cooperation-competition](https://mila-iqia.github.io/climate-cooperation-competition).
+- [Registration and submitting instructions and FAQ](README-submissions.md)
+- [Overview of the code](README-code-overview.md)
+- For the mathematical background and scientific references, please see [the white paper](https://github.com/mila-iqia/climate-cooperation-competition/blob/website/website/src/pdf/ai-for-global-climate-cooperation-competition_white-paper.pdf).
 
-## What are the files provided?
-We provide the base version of the RICE (regional integrated climate environment) simulation environment written in Python (`rice.py`).
 
-The RICE simulation may be trained only using one of these two frameworks:
+
+## Installation
+
+You can get a copy of the code by cloning the repo using Git: 
+
+```
+git clone https://github.com/mila-iqia/climate-cooperation-competition
+cd climate-cooperation-competition
+```
+
+We recommend using a virtual environment (such as provided by ```virtualenv``` or Anaconda).
+
+You can install the dependencies using pip:
+
+```
+pip install -r requirements.txt
+```
+
+Then run the tutorial in the tutorial Jupyter notebook, by starting Jupyter:
+
+```
+jupyter notebook
+``` 
+
+and then navigating to ```Tutorial.ipynb```.
+
+The tutorial has a walkthrough of how to train RL agents with the simulation code and how to visualize results from the simulation after running it with a set of agents.
+
+## Training with reinforcement learning
+
+RL agents can be trained using the RICE-N simulation using one of these two frameworks:
+
 1. [RLlib](https://docs.ray.io/en/latest/rllib/index.html#:~:text=RLlib%20is%20an%20open%2Dsource,large%20variety%20of%20industry%20applications): The pythonic environment can be trained on your local CPU machine using open-source RL framework, RLlib.
 2. [WarpDrive](https://github.com/salesforce/warp-drive): WarpDrive is a GPU-based framework that allows for [over 10x faster training](https://arxiv.org/pdf/2108.13976.pdf) compared to CPU-based training. It requires the simulation to be written out in CUDA C, and we also provide a starter version of the simulation environment written in CUDA C (`rice_step.cu`)
 
 We also provide starter scripts to train the simulation you build with either of the above frameworks.
+
 Note that we only allow these two options, since our backend submission evaluation process only supports these at the moment.
 
-### File Structure
-Below is the detailed file tree, and file descriptions.
-```commandline
-ROOT_DIR
-├── rice.py
-├── rice_helpers.py
-├── region_yamls
 
-├── rice_step.cu
-├── rice_cuda.py
-├── rice_build.cu
+For training with RLlib, `rllib (1.0.0)`, `torch (1.10)` and `gym (0.21)` packages are required.
 
-└── scripts
-    ├── train_with_rllib.py
-    ├── rice_rllib.yaml
-    ├── torch_models.py
-    
-    ├── train_with_warp_drive.py
-    ├── rice_warpdrive.yaml
-    ├── run_cpu_gpu_env_consistency_checks.py
-    
-    ├── run_unittests.py    
-    ├── create_submission_zip.py
-    └── evaluate_submission.py   
-```
+For training with WarpDrive, the `rl-warp-drive (>=1.6.5)` package is needed.
 
-### Environment files
-- `rice.py`: This python script contains the base Rice class. This is written in [OpenAI Gym](https://gym.openai.com/) style with the `reset()` and `step()` functionalities. The step() function comprises an implementation of the `climate_and_economy_simulation_step` which dictate the dynamics of the climate and economy simulation, and should not be altered by the user. We have also provided a simple implementation of bilateral negotiation between regions via the `proposal_step()` and `evaluation_step()` methods. Users can extend the simulation by adding additional proposal strategies, for example, and incorporating them in the `step()` function. However, please do not modify any of the equations dictating the environment dynamics in the `climate_and_economy_simulation_step()`. All the helper functions related to modeling the climate and economic simulation are located in `rice_helpers.py`. Region-specific environment parameters are provided in the `region_yamls` directory.
+Note that these requirements are automatically installed (or updated) when you run the corresponding training scripts.
 
 
-- `rice_step.cu`
-This is the CUDA C version of the step() function that is required for use with WarpDrive. To get started with WarpDrive, we recommend following these [tutorials](https://github.com/salesforce/warp-drive/tree/master/tutorials). While WarpDrive requires writing the simulation in CUDA C, it also offers orders-of-magnitude speedups for end-to-end training, since it performs rollouts and training all on the GPU. `rice_cuda.py` nd `rice_build.cu` are necessary files for copying simulation data to the GPU and compiling the CUDA code.
+## Docker image (for GPU training)
 
-While implementing the simulation in CUDA C on the GPU offers significantly faster simulations, it requires careful memory management. To make sure that everything works properly, one approach is to first implement your simulation logic in Python. You can then implement the same logic in CUDA C and check the simulation behaviors are the same. To help with this process, we provide an environment consistency checker method to do consistency tests between Python and CUDA C simulations. Before training your CUDA C code, please run the consistency checker to ensure the Python and CUDA C implementations are consistent.
-```commandline
-python scripts/run_env_cpu_gpu_consistency_checks.py
-```
+We have also provided a sample dockerfile for your reference. It mainly uses a Nvidia PyTorch base image, and installs the `pycuda` package as well. Note: `pycuda` is only required if you would like to train using WarpDrive.
 
 
-### Scripts for performing training
+# Customizing and running the simulation
+
+
+## How to change the contract space?
+
+*TBC: Explain where the code for the contract space is and how to change it.*
+
+## How to change the negotiation protocol?
+
+*TBC: Explain where the negotiation protocols are.*
+
+
+## Running a simple heuristic agent policy
+
+*TBC: Point out a simple heuristic contract (e.g., code file where we have coded that heuristic). Just give a simple command that can run that and a final command that can spit out various plots for someone to look at.*
+
+
+# Training RL agents in your simulation
+
 Once you build your simulation, you can use either of the following scripts to perform training.
+
 - `train_with_rllib.py`: this script performs end-to-end training with RLlib. The experiment run configuration will be read in from `rice_rllib.yaml`, which contains the environment configuration, logging and saving settings and the trainer and policy network parameters. The duration of training can be set via the `num_episodes` parameter. We have also provided an initial implementation of a linear PyTorch policy model in `torch_models.py`. You can [add other policy models](https://docs.ray.io/en/latest/rllib/rllib-concepts.html) you wish to use into that file.
 
 USAGE: The training script (with RLlib) is invoked using (from the root directory)
@@ -114,55 +110,23 @@ As training progresses, some key metrics (such as the mean episode reward) are p
 - PyTorch policy model(s) (of type ".state_dict") containing the trained weights for the policy network(s). Only the trained policy model for the final timestep will be copied over into the submission zip. If you would like to instead submit the trained policy model at a different timestep, please see the section below on creating your submission file.
 - For submissions using WarpDrive, the submission will also contain CUDA-specific files `rice_step.cu` and `rice_cuda.py` that were used for training.
 
-### Scripts for creating the zipped submission file
-As mentioned above, the zipped file required for submission is automatically created post-training. However, for any reason (for example, for providing a trained policy model at a different timestep), you can create the zipped submission yourself using the `create_submizzion_zip.py` script. Accordingly, create a new directory (say `submission_dir`) with all the relevant files (see the section above), and you can then simply invoke
-```commandline
-python scripts/create_submission_zip.py -r <PATH-TO-SUBMISSION-DIR>
+
+# Contributing
+
+We are always looking for contributors from various domains to help us make this simulation more realistic. 
+
+If there are bugs or corner cases, please open a PR detailing the issue and consider submitting to Track 3!
+
+
+# Citation
+
+To cite this code, please use the information in ```CITATION.cff``` and the following bibtex entry:
+
 ```
 
-That will first validate that the submission directory contains all the required files, and then provide you a zipped file that can you use towards your submission.
-
-### Scripts for unit testing
-In order to make sure that all the submissions are consistent in that they comply within the rules of the competition, we have also added unit tests. These are automatically run also when the evaluation is performed. The script currently performs the following tests
-
-- Test that the environment attributes (such as the RICE and DICE constants, the simulation period and the number of regions) are consistent with the base environment class that we also provide.
-- Test that the `climate_and_economy_simulation_step()` is consistent with the base class. As aforementioned, users are free to add different negotiation strategies such as multi-lateral negotiations or climate clubs, but should not modify the equations underlying the climate and economic dynamics in the world.
-- Test that the environment resetting and stepping yield outputs in the desired format (for instance, observations are a dictionary keyed by region id, and so are rewards.)
-- If the user used WarpDrive, we also perform consistency checks to verify that the CUDA implementation of the rice environment is consistent with the pythonic version.
-
-USAGE: You may invoke the unit tests on a submission file via
-```commandline
-python scripts/run_unittests.py -r <PATH-TO-ZIP-FILE>
 ```
 
-### Scripts for performance evaluation
-Before you actually upload your submission files, you can also evaluate and score your submission on your end using this script. The evaluation script essentially validates the submission files, performs unit testing and computes the metrics for evaluation. To compute the metrics, we first instantiate a trainer, load the policy model with the saved parameters, and then generate several episode rollouts to measure the impact of the policy on the environment.
 
-USAGE: You may evaluate the submission file using
-```commandline
-python scripts/evaluate_submission.py -r <PATH-TO-ZIP-FILE>
-```
-Please verify that you can indeed evaluate your submission, before actually uploading it.
+# License
 
-## What is the evaluation process?
-After you submit your solution, we will be using the same evaluation script that is provided to you, to score your submissions, but using several rollout episodes to average the metrics such as the average rewards, the global temperature rise, capital, production, and many more. We will then rank the submissions based on the various metrics.The score computed by the evaluation process should be similar to the score computed on your end, since they use the same scripts.
-
-## Where can I see the leaderboard?
-The competition leaderboard is displayed [here](http://34.111.184.174/). After you submit your valid submission, please give it a few minutes to perform an evaluation of your submission and refresh the leaderboard.
-
-## What happens when I make an invalid submission?
-An "invalid submission" may refer to a submission wherein some or all of the submission files are missing, or the submission files are inconsistent with the base version, basically anything that fails in the evaluation process. Any invalid solution cannot be evaluated, and hence will not feature in the leaderboard. While we can let you know if your submission is invalid, the process is not automated, so we may not be able to do it promptly. To avoid any issues, please use the `create_submission_zip` script to create your zipped submission file.
-
-
-## How many submissions are allowed per team?
-There is no limit on the number of submissions per team. Feel free to submit as many solutions as you would like. We will only be using your submission with the highest evaluation score towards the leaderboard.
-
-## Requirements
-For training with RLlib, `rllib (1.0.0)`, `torch (1.10)` and `gym (0.21)` packages are required.
-
-For training with WarpDrive, the `rl-warp-drive (>=1.6.5)` package is needed.
-
-Note that these requirements are automatically installed (or updated) when you run the corresponding training scripts.
-
-## Docker image
-We have also provided a sample dockerfile for your reference. It mainly uses a Nvidia PyTorch base image, and installs the `pycuda` package as well. Note: `pycuda` is only required if you would like to train using WarpDrive.
+For license information, see ```LICENSE.txt```.
