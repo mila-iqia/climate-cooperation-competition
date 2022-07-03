@@ -123,7 +123,14 @@ If there are bugs or corner cases, please open a PR detailing the issue and cons
 To cite this code, please use the information in ```CITATION.cff``` and the following bibtex entry:
 
 ```
-
+@software{Zhang_RICE-N_2022,
+author = {Zhang, Tianyu and Srinivasa, Sunil and Wiliams, Andrew and Phade, Soham and Zhang, Yang and Gupta, Prateek and Bengio, Yoshua and Zheng, Stephan},
+month = {7},
+title = {{RICE-N}},
+url = {https://github.com/mila-iqia/climate-cooperation-competition},
+version = {1.0.0},
+year = {2022}
+}
 ```
 
 
