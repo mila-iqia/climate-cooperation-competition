@@ -1,4 +1,4 @@
-# Submission instructions and FAQ: 
+# Submission instructions and FAQ
 
 For the most up-to-date instructions, see the [competition website](https://mila-iqia.github.io/climate-cooperation-competition).
 
