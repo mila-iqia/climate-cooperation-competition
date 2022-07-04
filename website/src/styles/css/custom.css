@@ -113,30 +113,13 @@ h6 {
   line-height: 26.4px;
 }
 
-.designation {
-  font-size: 0.9em;
-  margin-top: 0.75rem;
-  margin-bottom: 1.5rem;
-  text-align: center;
-}
 
 .people-img {
   border: 0;
-  width: 200px;
-  height: auto;
+  width: 100%;
+  aspect-ratio: 1 / 1;
   margin: 0 auto;
   padding: 0;
-}
-
-.people-round-div {
-  border-radius: 50%;
-  overflow: hidden;
-  width: 200px;
-  height: 200px;
-  border-style: double;
-  border-color: #222;
-  position: relative;
-  margin: 0 auto;
 }
 
 .thumbnail {
@@ -144,14 +127,6 @@ h6 {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-}
-
-td, th, tr {
-  padding: 0 15px;
-}
-
-tr {
-  padding: 0 30px;
 }
 
 .navbar-logo {
