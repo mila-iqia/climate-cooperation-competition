@@ -1,0 +1,8 @@
+flask==2.1.1
+gym==0.23.1
+pandas==1.3.5
+waitress==2.1.1
+jupyterlab>=3.4.0
+# optional: RLlib and WarpDrive for training
+# ray[rllib]==1.0.0
+# rl-warp-drive==1.6.5
