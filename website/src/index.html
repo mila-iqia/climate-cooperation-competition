@@ -29,7 +29,7 @@
 
 </head>
 
-<body>
+<body data-bs-offset="50">
 
   <!--  NAVBAR -->
   <nav class="navbar navbar-expand-xl navbar-light bg-light position-sticky fixed-top">
@@ -46,13 +46,15 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <div class="navbar-nav">
-          <a class="nav-item nav-link" href="#overview">About</a>
+          <a class="nav-item nav-link" href="#about">About</a>
           <a class="nav-item nav-link" href="#leaderboard">Leaderboard</a>
           <a class="nav-item nav-link" href="#schedule">Schedule</a>
+          <a class="nav-item nav-link" href="#tracks">Tracks</a>
           <a class="nav-item nav-link" href="#faq">FAQ</a>
           <a class="nav-item nav-link" href="#resources">Resources</a>
-          <a class="nav-item nav-link" href="#ethics">Ethics</a>          
-          <a class="nav-item nav-link" href="#submit" class="">Submit</a>
+          <a class="nav-item nav-link" href="#ethics">Ethics</a>
+          <a class="nav-item nav-link" href="#register">Register</a>
+          <a class="nav-item nav-link" href="#submit">Submit</a>
           <a class="nav-item nav-link" href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">Code</a>
           <a class="nav-item nav-link green-highlight" href="#getstarted">Get started</a>
         </div>  
@@ -70,25 +72,34 @@
     <symbol id="exclamation-triangle-fill" fill="currentColor" viewBox="0 0 16 16">
       <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
     </symbol>
-  </svg>
+  </svg>  
   <div class="alert alert-primary d-flex align-items-center" role="alert">
     <div class="container">
-      <svg class="bi flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Info:"><use xlink:href="#info-fill"/></svg>    
-      <b>
-        Learn more at our <a href="#schedule">kick-off event on July 12 on Zoom</a>!
-      </b>    
+      <svg class="bi flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Info:"><use xlink:href="#info-fill"/></svg>
+      Learn more at our <a href="#schedule">kick-off event on July 12 on Zoom</a>!
     </div>  
   </div>
+
+  <div class="alert alert-success" role="alert">
+    <div class="container">
+      We're looking for interested poeple to join the organization! Message us on <a href="#resources">Slack</a> if you're interested!
+    </div>
+  </div>
+
+
 
 
   <div class="h-100 p-5 bg-light border rounded-3">
     <div class="container">
       <h1 class="display-5 fw-bold">Competition: AI for Global Climate Cooperation</h1>
-      <p class="col-md-8 fs-4">Join our competition to design incentives for global cooperation on climate change.</p>
-      <p class="col-md-8 fs-4">
+      <p class="col-md-12 fs-4">Join our competition to design incentives for global cooperation on climate change.</p>
+      <p class="col-md-12 fs-4">
         We call on computer scientists, economists, climate scientists, and policy experts to collaborate and participate!
       </p>
-      <button class="btn btn-outline-secondary" type="button">Example button</button>
+      <!-- <button class="btn btn-outline-secondary" type="button">Learn more!</button> -->
+      <a href="#about" class="btn btn-primary" tabindex="-1" role="button" aria-disabled="true">Learn more</a>
+      <a href="#getstarted" class="btn btn-info" tabindex="-1" role="button" aria-disabled="true">Get started</a>
+      <a href="#submit" class="btn btn-success" tabindex="-1" role="button" aria-disabled="true">Submit your solutions</a>
     </div>
   </div>
 
@@ -96,9 +107,9 @@
   <div class="container">
 
     <!--  Block 1 -->
-    <div class="row pt-5">
+    <div class="row pt-10" id="about">
       <div class="col-12">
-        <h2>We need global cooperation on climate change</h2>
+        <h1 class="display-3">We need global cooperation on climate change</h1>
         <p>
           Climate change is happening fast.
 
@@ -117,15 +128,21 @@
           agreements, while regions have individual
           policy objectives that are often misaligned.
         </p>
+
+        <h1 class="display-3">Will your solutions lead to better climate outcomes?</h1>
         <p>
-          We challenge you to design multilateral negotiation protocols and agreements that incentivize
-          cooperation on climate change.               
-          Your solutions will be developed and tested in a simulation with AI agents that has been calibrated to
-          real-world data.
+          We challenge you to design multilateral negotiation protocols and agreements that incentivize cooperation on climate change.               
+          Your solutions will be developed and tested in a simulation with AI agents that has been calibrated to real-world data.
+        </p>
+
+        <p>
+          You will use a climate-economic simulation with fictitious regions as independent AI agents. Each agent chooses how much to invest and mitigate climate change, sets international tariffs, limits exports, and imports goods. Each agent also negotiates with other agents.
+        </p>
+
+        <p>
+          The base simulation is open-source in our <a href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">Github repository</a>, with structural parameters that have been calibrated to real data. All the technical details of the simulation and evaluation protocol are in our <a href="#resources">technical white paper</a>. To learn more, check out the <a href="#resources">resources</a>!
         </p>
         
-
-        <h2>Collaborate and participate!</h2>
         <p>          
           This challenge sits in the intersection of machine learning, game theory, economics, and climate modeling. 
           
@@ -134,7 +151,7 @@
           Hence, we hope to that computer scientists, economists, climate scientists, and policy experts will collaborate and participate!
         </p>
       
-        <h2>Why participate?</h2>
+        <h1 class="display-3">Why participate?</h1>
 
         <p>
           First of all, come learn.
@@ -156,20 +173,14 @@
         <p>
           <b>Given sufficient findings, we intend to write a policy brief with actionable insights for policymakers.</b> 
           This brief will be distributed and promoted through our partners. We also plan to organize a marketing campaign, e.g., through blogs, press releases, around the findings of the competition.
-        </p>
-
-        <p>
-          Finally, we're looking for interested poeple to join the organization!
-        </p>
-
+        </p>        
       </div>
+
     </div>
-
-
-      <!--Get started competition -->
+      
     <div class="row" id="getstarted">
       <div class="col">
-        <h1>JOIN AND GET STARTED!</h1>
+        <h1 class="display-3 text-uppercase">Join And Get Started</h1>
         <ol>
           <li>
             Find team members on <a
@@ -206,230 +217,245 @@
 
     <div class="row" id="leaderboard">
       <div class="col">
-        <h1>LEADERBOARD</h1>
+        <h1 class="display-3 text-uppercase">Leaderboard</h1>
         <iframe src="https://cc-backend.salesforceresearch.ai/" style="width: 100%; height: 10em; border: 0; border-radius: 0.5em;"
           scrolling="no"></iframe>
       </div>
     </div>
 
-    <!-- Schedule of the competition -->
+    <!-- Schedule -->
     <div class="row" id="schedule">
       <div class="col">
 
-        <h1>SCHEDULE</h1>
+        <h1 class="display-3 text-uppercase">Schedule</h1>
+        
         <div style="display: flex; justify-content:center">
-          <table>
-            <thead>
+
+          <table class="table table-hover table-striped">
+            <thead class="table-light">
               <th></th>
               <th>Date</th>
               <th>Time</th>
               <th>Link</th>
             </thead>
+            <tbody class="table-group-divider">
 
-            <tr>
-              <td>
-                Competition launch
-              </td>
-              <td>June 28, 2022</td>
-              <td>4 pm PST</td>
-              <td><a href="">Online</a></td>
-            </tr>
-            <tr>
-              <td>
-                Kick-off event
-              </td>
-              <td>July 12, 2022</td>
-              <td></td>
-              <td><a href="">Zoom</a></td>
-            </tr>
-            <tr>
-              <td>
-                Last date for submissions
-              </td>
-              <td>October 31, 2022</td>
-              <td>12 pm PST</td>
-              <td><a href="">Online</a></td>
-            </tr>
-            <tr>
-              <td>
-                Peer review begins
-              </td>
-              <td>November 1, 2022</td>
-              <td>12 pm PST</td>
-              <td><a href="">Online</a></td>
-            </tr>
-            <tr>
-              <td>
-                Peer review ends
-              </td>
-              <td>November 22, 2022</td>
-              <td>12 pm PST</td>
-              <td><a href="">Online</a></td>
-            </tr>
-            <tr>
-              <td>
-                Announcement of the competition results
-              </td>
-              <td>December 1, 2022</td>
-              <td>12 pm PST</td>
-              <td><a href="">Online</a></td>
-            </tr>
-
-            <tr>
-              <td>
-                Closing event (invited talks, presentation by winners, future work)
-              </td>
-              <td>December 16, 2022</td>
-              <td>12 pm PST</td>
-              <td><a href="">Online</a></td>
-            </tr>
+              <tr>
+                <td>
+                  Competition launch
+                </td>
+                <td>June 28, 2022</td>
+                <td>4 pm PST</td>
+                <td><a href="">Online</a></td>
+              </tr>
+              <tr>
+                <td>
+                  Kick-off event
+                </td>
+                <td>July 12, 2022</td>
+                <td></td>
+                <td><a href="">Zoom</a></td>
+              </tr>
+              <tr>
+                <td>
+                  Last date for submissions
+                </td>
+                <td>October 31, 2022</td>
+                <td>12 pm PST</td>
+                <td><a href="">Online</a></td>
+              </tr>
+              <tr>
+                <td>
+                  Peer review begins
+                </td>
+                <td>November 1, 2022</td>
+                <td>12 pm PST</td>
+                <td><a href="">Online</a></td>
+              </tr>
+              <tr>
+                <td>
+                  Peer review ends
+                </td>
+                <td>November 22, 2022</td>
+                <td>12 pm PST</td>
+                <td><a href="">Online</a></td>
+              </tr>
+              <tr>
+                <td>
+                  Announcement of the competition results
+                </td>
+                <td>December 1, 2022</td>
+                <td>12 pm PST</td>
+                <td><a href="">Online</a></td>
+              </tr>
+  
+              <tr>
+                <td>
+                  Closing event (invited talks, presentation by winners, future work)
+                </td>
+                <td>December 16, 2022</td>
+                <td>12 pm PST</td>
+                <td><a href="">Online</a></td>
+              </tr>
+            </tbody>
           </table>
         </div>
       </div>
     </div>
 
-    
-
-    <!-- Structure of the competition -->
-    <div class="row" id="overview">
+    <div class="row" id="register">
       <div class="col">
-        <h1>COMPETITION OVERVIEW</h1>
-        <!-- <h2>What will you do?</h2> -->
-        <p>
-          The challenge is to implement a negotiation strategy that aligns the incentives for regions to achieve their individual
-          goals and also (indirectly) lead to better climate outcomes in the next 100 years.
-        </p>
-
-        <p>
-          You will use a climate-economic simulation with fictitious regions as independent AI agents. Each agent
-          chooses how much to invest and mitigate climate change, sets international tariffs, limits exports, and imports
-          goods. Each agent also negotiates with other agents.
-        </p>
-        <p>
-          The base simulation is open-source in our <a href="https://github.com/mila-iqia/climate-cooperation-competition" target="blank">Github
-            repository</a>, with structural parameters that have been calibrated to real data.
-        </p>
-        <p>
-          All the technical details of the simulation and evaluation protocol are in our <a href="#resources">technical white paper</a>.
-        </p>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="col">
-        <h2>Track 1</h2>
-        <p>
-          <b>What you do:</b>
-        </p>
-        <ul>
-          <li>propose and implement multilateral agreements to augment the simulator,</li>
-          <li>train AI agents that negotiate with each other and optimize their utility, and</li>
-          <li>evaluate the learned policies and resulting economic and climate change metrics, e.g., global
-            equality,
-            productivity, temperature increase.</li>
-        </ul>
+        <h1 class="display-3 text-uppercase">Register</h1>
         
-        <p>
-          <b>How to submit:</b>
-        </p>
-
-          Each submission should have the following:
-        <ul>
-          <li>Modified code with negotiation protocol</li>
-          <li>RL agents trained on that protocol</li>
-        </ul>
-        <p>
-          For details regarding which files to submit, please refer to <a href="" target="blank">Submission FAQs</a>.
-        </p>
-        
-        <p>
-          <b>How do we evaluate:</b><br>
-          Each team's solution is scored by the number of other teams' best solutions are Pareto-dominated.
-          Ties are broken by climate index score (higher = better).
-        </p>
-
-        <p>
-        Participants in Track 1 are not required to submit a technical report. However, we will invite the top scorers in Track 1 to write a technical report to be published in the Proceedings.
-        Please refer to the <a
-          href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing">submission
-          guidelines</a> for the technical report.
-        </p>
-
-        <p>
-          <a href="#submit">Submit your solution here!</a>
-        </p>
-
-
-        <h2>Track 2</h2>
-        <p>
-          <b>What you do:</b><br>
-          In this track, you will argue why your solution is practically relevant and usable in the real world.
-
-          As we aim to bring the insights from the competition to policymakers, we expect the entries in this
-          track to contain a high-level summary for policymakers.
-        </p>
-        <p>
-          <b>How to submit:</b><br>
-          In addition to the requirements in Track 1, you should also submit a written summary, justification, and
-          explanation of your solution and insights.
-
-          Your write-up should argue why your solution is feasible, technically sound, and attractive.
-          For instance, from a game-theoretical perspective, good multilateral agreements might punish free-riders
-          and might have to ensure that it’s difficult to “game” agreements with unrealistic behaviours.
-
-          Please see the <a
-            href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing"
-            target="blank">submission
-            guidelines</a> for a template submission with suggestions for aspects to discuss.
-        </p>
-        <p>
-          <b>How do we evaluate:</b><br>
-          An expert jury will review your submission and use a scoring rubric to evaluate your solution.
-          They will also assess the real-world relevancy and impact of your proposed solution. Check out the <a
-            href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing"
-            target="blank">submission
-            guidelines</a> to see the rubrics and suggested discussion topics.
-        </p>
-        <p>
-          <a href="#submit">Submit your solution here!</a>
-        </p>
-
-        <h2>Track 3</h2>
-        <p>
-          We strive to closely simulate real-world dynamics.
-          But, no simulator is perfect.
-          Thus, we invite you to point out potential improvements and loopholes.
-          Please see the <a
-            href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing">submission
-            guidelines</a> for suggestions on what aspects to discuss.
-
-        </p>
-        <p>
-          <a href="#submit">Submit your solution here!</a>
-        </p>
-      </div>
-    </div>
-
-
-    <div class="row" id="submit">
-      <div class="col">
-        <h1>SUBMIT A SOLUTION</h1>
-        
-        <p>
+        <p class="lead">
           <b>For all tracks, first <a href="https://docs.google.com/forms/d/17rF3REYs57XSFeE7xyCcl1HgG0Hwrc0vHmLSwUoJ6Nc/viewform?ts=626861a8&edit_requested=true">register your team here</a>. You only have to register your team <i>once</i>, even if you plan to submit to multiple tracks.</b>
-        </p>
-
-        <ul>
-          <li>Track 1: Submit your code here:<a href="https://forms.gle/RQzxpBjDPASq9Gqj8">[Google Form 1]</a>. Read the <a href="#faq">FAQ</a> for technical details and support.</li>
-          <li>Track 2: Read the <a href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing" target="blank">submission essay guidelines and jury review template</a>. Submit your code in <a href="https://forms.gle/RQzxpBjDPASq9Gqj8">[Google Form 1]</a> and submit your essay in <a href="https://forms.gle/LFyAMZ7fQZDagBRF6">[Google Form 2]</a></li>
-          <li>Track 3: Read the <a href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing" target="blank">submission essay guidelines</a>. Submit your code and essay here: <a href="https://forms.gle/2agxvK6adph1LwrT7">[Google Form 3]</a></li>
-        </ul>
+        </p>        
       </div>
     </div>
 
+    <div class="row" id="tracks">
+
+      <div class="col">
+
+        <h1 class="display-3 text-uppercase">Tracks</h1>
+
+        <table class="table table-hover table-striped" id="submit">
+          <thead class="table-light">
+            <tr>
+              <th scope="row"></th>
+              <th>Track 1: Score-based</th>
+              <th>Track 2: Score and real-world relevance essay</th>
+              <th>Track 3: Critiques and improvements</th>
+            </tr>
+          </thead>
+          <tbody class="table-group-divider">
+            <tr>
+              <th scope="row">What do you do?</th>
+              <td>
+                <ul>
+                  <li>propose and implement multilateral agreements to augment the simulator,</li>
+                  <li>train AI agents that negotiate with each other and optimize their utility, and</li>
+                  <li>evaluate the learned policies and resulting economic and climate change metrics, e.g., global
+                    equality,
+                    productivity, temperature increase.</li>
+                </ul>
+              </td>
+              <td>
+                <p>
+                  In this track, you will argue why your solution is practically relevant and usable in the real world.
+        
+                  As we aim to bring the insights from the competition to policymakers, we expect the entries in this
+                  track to contain a high-level summary for policymakers.
+                </p>
+              </td>
+              <td>
+                <p>
+                  We strive to closely simulate real-world dynamics.
+                  But, no simulator is perfect.
+                  Thus, we invite you to point out potential improvements and loopholes.                     
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">What do you submit?</th>
+              <td>
+                <p>
+                  Each submission should have the following:
+                </p>
+                <ul>
+                  <li>Modified code with negotiation protocol</li>
+                  <li>RL agents trained on that protocol</li>
+                </ul>                  
+              </td>
+              <td>
+                <p>
+                  In addition to the requirements in Track 1, you should also submit a written summary, justification, and
+                  explanation of your solution and insights.
+        
+                  Your write-up should argue why your solution is feasible, technically sound, and attractive.
+                  For instance, from a game-theoretical perspective, good multilateral agreements might punish free-riders
+                  and might have to ensure that it’s difficult to “game” agreements with unrealistic behaviours.
+        
+                  Please see the <a
+                    href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing"
+                    target="blank">submission
+                    guidelines</a> for a template submission with suggestions for aspects to discuss.
+                </p>
+              </td>
+              <td>
+                <p>
+                  This is a free-form submission: you may include a write-up, example code, or other ways to demonstrate your insights.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">How do we evaluate?</th>
+              <td>
+                <p>
+                  Each team's solution is scored by computing the hypervolume enclosed by your 10 most recent solutions. This is an lower-bound approximation of the area under the Pareto curve defined by your submitted solutions.
+                </p>
+                <p>
+                  Participants in Track 1 are not required to submit a technical report. However, we will invite the top scorers in Track 1 to write a technical report to be published in the Proceedings.                    
+                  </p>
+                </p>
+              </td>
+              <td>
+                <p>
+                  An expert jury will review your submission and use a scoring rubric to evaluate your solution.
+                  They will also assess the real-world relevancy and impact of your proposed solution.                                       
+                </p>
+              </td>
+              <td>
+                An expert jury will review your submission and evaluate the significance of your suggested improvements and/or discoveries.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Guidelines</th>
+              <td>
+                <p>
+                  <a href="https://github.com/mila-iqia/climate-cooperation-competition">Code, documentation, and technical instructions</a>.                  
+                </p>
+              </td>
+              <td>
+                <p>
+                  <a
+                    href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing">Submission
+                    guidelines, evaluation rubrics, and suggested discussion topics</a>.
+                </p>
+              </td>
+              <td>
+                <a
+                    href="https://docs.google.com/document/d/1ojtd5r42Jl_zNl79BdEilQaM3wt9OWoZLQWXQhInq-Q/edit?usp=sharing">Submission
+                    guidelines and suggested topics to investigate</a>.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Submit here!</th>
+              <td>
+                <p>
+                  <a href="https://docs.google.com/forms/d/e/1FAIpQLSdATpPMnhjXNFAnGNRU2kuufwD5HFilGxgIXFK9QKsqrDbkog/viewform">Submission form</a>
+                </p>
+              </td>
+              <td>
+                <p>
+                  <a href="https://docs.google.com/forms/d/e/1FAIpQLSeoc4oLBU4c8EoumkocSyhRaxGW0JoEVcBgeuo-U9fSfNOyrQ/viewform">Submission form</a>
+                </p>
+              </td>
+              <td>
+                <p>
+                  <a href="https://docs.google.com/forms/d/e/1FAIpQLSed0seSYt8LKywVrE7BARxAPPsO6WYmPUMeIezD7FTV176QvQ/viewform">Submission form</a>
+                </p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+      </div>
+    </div>
+    
     <div class="row" id="faq">
       <div class="col">
-        <h1>FAQ</h1>
+        <h1 class="display-3 text-uppercase">FAQ</h1>
         <p>
           <b>How do I customize the simulation and submit solutions?</b><br />
           Check out the 
@@ -459,19 +485,20 @@
 
     <div class="row" id="resources">
       <div class="col">
-        <h1>RESOURCES</h1>
+        <h1 class="display-3 text-uppercase">Resources</h1>
         <ul>
           <li><a href="pdf/ai-for-global-climate-cooperation-competition_white-paper.pdf">White paper</a></li>
           <li><a href="https://github.com/mila-iqia/climate-cooperation-competition">Code</a></li>
-          <li><a href="https://github.com/mila-iqia/climate-cooperation-competition/blob/main/README.md">Submission FAQ</a></li>
+          <li><a href="https://github.com/mila-iqia/climate-cooperation-competition/blob/main/README.md">Code documentation and submission preparation instructions</a></li>
           <li><a href="https://join.slack.com/t/aieconomist/shared_invite/zt-g71ajic7-XaMygwNIup~CCzaR1T0wgA"
             target="blank">Slack</a></li>
         </ul>
       </div>
     </div>
+
     <div class="row" id="ethics">
       <div class="col">
-        <h1>ETHICS</h1>
+        <h1 class="display-3 text-uppercase">Ethics</h1>
         <p>
           While the intention of this paper and the corresponding challenge is to stimulate innovative solutions to climate change, there are some unintended consequences that we would like to acknowledge and address here. These include the carbon footprint of running the simulation itself, the economic disparities that can exist with climate negotiations, and the potential extensibility of this simulation to the real world.
         </p>
@@ -489,7 +516,7 @@
 
     <div class="row">
       <div class="col">            
-          <h1>JURY</h1>
+        <h1 class="display-3 text-uppercase">Jury</h1>
           <hr>
           <div class="row">
 
@@ -554,7 +581,7 @@
     <div class="row">
       <div class="col">
 
-        <h1>ADVISORS</h1>
+        <h1 class="display-3 text-uppercase">Advisors</h1>
         <hr>
         <div class="row">
 
@@ -593,7 +620,7 @@
 
     <div class="row">
       <div class="col">
-        <h1>ORGANIZERS</h1>
+        <h1 class="display-3 text-uppercase">Organizers</h1>
         <hr>
         <div class="row">
 
