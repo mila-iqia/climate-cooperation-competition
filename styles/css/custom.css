@@ -1,35 +1,18 @@
-body {
-  /* font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", Roboto, Oxygen,
-    Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Helvetica,
-    Arial, sans-serif !important; */
-  font-family: "Source Sans Pro", sans-serif;
-  color: #222;
+html {
+  /* To offset scrolling for navbar */
+  scroll-padding-top: 70px;
 }
 
-/* .navbar {
-  background-color: #fff;
-} */
-/* .navbar {
-  font-family: "Source Sans Pro", sans-serif;
-} */
-
-#bottom-bar {
-  /* background: url("../../images/bg.png") no-repeat center bottom;
-  background-size: 100% auto;
-  background-attachment: fixed; */
-  background-color: rgb(255, 255, 255, 1);
-  height: 40px;
-  line-height: 40px;
+body {
+  /* font-family: "Source Sans Pro", sans-serif; */
 }
 
 .alpha-white-background {
   /* background-color: rgb(255, 255, 255, 0.75); */
 }
 
-.wrapper {
-}
 
-h2,
+/* h2,
 h3,
 h4,
 h5,
@@ -37,11 +20,11 @@ h6 {
   font-family: "Spectral", serif;
   font-size: 1.5em;
   font-weight: 700;
-}
+} */
 
 
 
-h1 {
+/* h1 {
   font-family: "Source Sans Pro", serif;
   font-size: 1.5em;
   font-weight: 900;
@@ -49,15 +32,12 @@ h1 {
   padding-bottom: 0.3em;
   margin: auto;
   text-align: center;
-}
+} */
 
-.navbar-brand {
-  color: #222 !important;
-}
 
 .green-highlight {
   color: #00812d !important;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 /* :root {
@@ -166,16 +146,9 @@ h1 {
   transform: translate(-50%, -50%);
 }
 
-
-/* b { */
-  /* font-size: 1.2em; */
-  /* font-weight: 800; */
-/* } */
-
 td, th, tr {
   padding: 0 15px;
 }
-
 
 tr {
   padding: 0 30px;
