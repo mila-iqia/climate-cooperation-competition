@@ -87,9 +87,21 @@ extern "C"
 
     __device__ float get_consumption(
         float savings,
-        float gross_output)
+        float gross_output,
+        float *exports=scaled_imports,
+        const int kEnvId,
+        const int kAgentId,
+        const int kNumAgents)
     {
-        return gross_output * (1 - savings);
+        int export_index_offset = kEnvId * kNumAgents * kNumAgents + kAgentId;
+        
+        float exports_total = 0.0;
+        for (int region_id = 0; region_id < kNumAgents; region_id++)
+        {
+            exports_total += exports[export_index_offset + region_id * kNumAgents]
+        }
+      float consumption = (1 - savings) * gross_output - exports_total
+      return consumption
     }
 
     __device__ float get_max_potential_exports(
