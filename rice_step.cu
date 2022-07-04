@@ -88,7 +88,7 @@ extern "C"
     __device__ float get_consumption(
         float savings,
         float gross_output,
-        float *exports=scaled_imports,
+        float *exports,
         const int kEnvId,
         const int kAgentId,
         const int kNumAgents)
@@ -1565,7 +1565,11 @@ extern "C"
 
             float domestic_consumption = get_consumption(
                 savings_all_regions[kAgentArrayIdx],
-                gross_output_all_regions[kAgentArrayIdx]);
+                gross_output_all_regions[kAgentArrayIdx],
+                scaled_imports,
+                kEnvId,
+                kAgentId,
+                kNumAgents);
 
             consumption_all_regions[kAgentArrayIdx] = get_armington_agg(
                 domestic_consumption,
