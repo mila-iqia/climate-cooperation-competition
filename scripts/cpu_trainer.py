@@ -475,4 +475,4 @@ def trainer(
     # Close Ray gracefully after completion
     outputs_ts = fetch_episode_states(trainer, desired_outputs)
     ray.shutdown()
-    return train, outputs_ts
+    return trainer, outputs_ts
