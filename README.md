@@ -11,7 +11,7 @@ In this competition, you will design negotiation protocols and contracts between
 
 - For all information and the leaderboard, see [https://mila-iqia.github.io/climate-cooperation-competition](https://mila-iqia.github.io/climate-cooperation-competition).
 - [Getting Started Jupyter Notebook](getting_started.ipynb)
-- [Colab Tutorial Notebook](https://colab.research.google.com/drive/1ifcYaczxy4eHM986fyFeSXarGAKmPLt5#scrollTo=vrIIciaAlHSl)
+- [Colab Tutorial Notebook](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb)
 - For the mathematical background and scientific references, please see [the white paper](https://github.com/mila-iqia/climate-cooperation-competition/blob/website/website/src/pdf/ai-for-global-climate-cooperation-competition_white-paper.pdf).
 
 
@@ -70,7 +70,7 @@ We have also provided a sample dockerfile for your reference. It mainly uses a N
 
 # Customizing and running the simulation
 
-See the [Colab Tutorial Notebook](https://colab.research.google.com/drive/1ifcYaczxy4eHM986fyFeSXarGAKmPLt5#scrollTo=vrIIciaAlHSl) for details. 
+See the ```Tutorial.ipynb```. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb) for details. 
 
 It provides examples on modifying the code to implement different negotiation protocols. It describes ways of changing the agent observations and action spaces corresponding to the proposed negotiation protocols and implementing the negotiation logic in the provided code. 
 
