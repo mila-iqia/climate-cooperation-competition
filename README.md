@@ -39,7 +39,7 @@ Then run the tutorial in the tutorial Jupyter notebook, by starting Jupyter:
 jupyter notebook
 ``` 
 
-and then navigating to ```Tutorial.ipynb```.
+and then navigating to ```Tutorial.ipynb```. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb]
 
 The tutorial has a walkthrough of how to train RL agents with the simulation code and how to visualize results from the simulation after running it with a set of agents.
 
