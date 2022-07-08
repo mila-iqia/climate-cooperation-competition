@@ -89,16 +89,14 @@ extern "C"
         float savings,
         float gross_output,
         float *exports,
-        const int kEnvId,
         const int kAgentId,
         const int kNumAgents)
     {
-        int export_index_offset = kEnvId * kNumAgents * kNumAgents + kAgentId;
         
         float exports_total = 0.0;
         for (int region_id = 0; region_id < kNumAgents; region_id++)
         {
-            exports_total += exports[export_index_offset + region_id * kNumAgents]
+            exports_total += exports[kAgentId + region_id * kNumAgents]
         }
       float consumption = (1 - savings) * gross_output - exports_total
       return consumption
@@ -1567,7 +1565,6 @@ extern "C"
                 savings_all_regions[kAgentArrayIdx],
                 gross_output_all_regions[kAgentArrayIdx],
                 scaled_imports,
-                kEnvId,
                 kAgentId,
                 kNumAgents);
 
