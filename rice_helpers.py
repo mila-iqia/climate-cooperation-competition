@@ -97,7 +97,7 @@ def get_investment(savings, gross_output):
 
 def get_consumption(savings, gross_output, exports):
     """Obtain the consumption cost."""
-    return gross_output * (1 - savings) - np.sum(exports)
+    return max(gross_output * (1 - savings) - np.sum(exports),0.0)
 
 
 def get_max_potential_exports(x_max, gross_output, investment):

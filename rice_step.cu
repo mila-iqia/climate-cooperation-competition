@@ -92,14 +92,21 @@ extern "C"
         const int kAgentId,
         const int kNumAgents)
     {
-        
         float exports_total = 0.0;
         for (int region_id = 0; region_id < kNumAgents; region_id++)
         {
-            exports_total += exports[kAgentId + region_id * kNumAgents]
+            exports_total += exports[kAgentId + region_id * kNumAgents];
         }
-        float consumption = (1 - savings) * gross_output - exports_total
-        return consumption
+        float consumption = gross_output * (1 - savings) - exports_total;
+
+        if (consumption >= 0.0)
+        {
+            return consumption;
+        }
+        else
+        {
+            return 0.0;
+        }
     }
 
     __device__ float get_max_potential_exports(
