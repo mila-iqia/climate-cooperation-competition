@@ -12,7 +12,7 @@ In this competition, you will design negotiation protocols and contracts between
 - For all information and the leaderboard, see [https://mila-iqia.github.io/climate-cooperation-competition](https://mila-iqia.github.io/climate-cooperation-competition).
 - [Getting Started Jupyter Notebook](getting_started.ipynb)
 - [Colab Tutorial Notebook](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb)
-- For the mathematical background and scientific references, please see [the white paper](https://github.com/mila-iqia/climate-cooperation-competition/blob/website/website/src/pdf/ai-for-global-climate-cooperation-competition_white-paper.pdf).
+- For the mathematical background and scientific references, please see [the white paper](https://github.com/mila-iqia/climate-cooperation-competition/blob/main/White_Paper.pdf).
 
 
 
