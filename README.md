@@ -10,9 +10,9 @@ In this competition, you will design negotiation protocols and contracts between
 ## Resources
 
 - For all information and the leaderboard, see [https://mila-iqia.github.io/climate-cooperation-competition](https://mila-iqia.github.io/climate-cooperation-competition).
-- [Registration and submitting instructions and FAQ](README-submissions.md)
-- [Overview of the code](README-code-overview.md)
-- For the mathematical background and scientific references, please see [the white paper](https://github.com/mila-iqia/climate-cooperation-competition/blob/website/website/src/pdf/ai-for-global-climate-cooperation-competition_white-paper.pdf).
+- [Getting Started Jupyter Notebook](getting_started.ipynb)
+- [Colab Tutorial Notebook](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb)
+- For the mathematical background and scientific references, please see [the white paper](https://github.com/mila-iqia/climate-cooperation-competition/blob/main/White_Paper.pdf).
 
 
 
@@ -33,15 +33,16 @@ You can install the dependencies using pip:
 pip install -r requirements.txt
 ```
 
-Then run the tutorial in the tutorial Jupyter notebook, by starting Jupyter:
+Then run the getting started Jupyter notebook, by starting Jupyter:
 
 ```
 jupyter notebook
 ``` 
 
-and then navigating to ```Tutorial.ipynb```.
+and then navigating to ```getting_started.ipynb```.
 
-The tutorial has a walkthrough of how to train RL agents with the simulation code and how to visualize results from the simulation after running it with a set of agents.
+It provides a quick walkthrough for registering for the competition and creating a valid submission.
+
 
 ## Training with reinforcement learning
 
@@ -69,19 +70,11 @@ We have also provided a sample dockerfile for your reference. It mainly uses a N
 
 # Customizing and running the simulation
 
+See the ```Tutorial.ipynb```. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb) for details. 
 
-## How to change the contract space?
+It provides examples on modifying the code to implement different negotiation protocols. It describes ways of changing the agent observations and action spaces corresponding to the proposed negotiation protocols and implementing the negotiation logic in the provided code. 
 
-*TBC: Explain where the code for the contract space is and how to change it.*
-
-## How to change the negotiation protocol?
-
-*TBC: Explain where the negotiation protocols are.*
-
-
-## Running a simple heuristic agent policy
-
-*TBC: Point out a simple heuristic contract (e.g., code file where we have coded that heuristic). Just give a simple command that can run that and a final command that can spit out various plots for someone to look at.*
+The notebook has a walkthrough of how to train RL agents with the simulation code and how to visualize results from the simulation after running it with a set of agents.
 
 
 # Training RL agents in your simulation
