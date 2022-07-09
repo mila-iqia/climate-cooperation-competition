@@ -98,8 +98,8 @@ extern "C"
         {
             exports_total += exports[kAgentId + region_id * kNumAgents]
         }
-      float consumption = (1 - savings) * gross_output - exports_total
-      return consumption
+        float consumption = (1 - savings) * gross_output - exports_total
+        return consumption
     }
 
     __device__ float get_max_potential_exports(
