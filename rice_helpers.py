@@ -98,8 +98,8 @@ def get_investment(savings, gross_output):
 def get_consumption(gross_output, investment, exports):
     """Obtain the consumption cost."""
     total_exports = np.sum(exports)
-    assert gross_output - investment - total_exports, "consumption cannot be negative! \n gross_output:{gross_output} \n investment:{exports} \n total exports: {total_exports} \n exports: {exports}"
-    return gross_output - investment - total_exports
+    assert gross_output - investment - total_exports > -1e-5, "consumption cannot be negative!"
+    return max(0.0, gross_output - investment - total_exports)
 
 
 def get_max_potential_exports(x_max, gross_output, investment):

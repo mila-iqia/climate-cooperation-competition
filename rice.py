@@ -819,6 +819,7 @@ class Rice:
             gov_balance_prev = gov_balance_prev * (1 + self.balance_interest_rate)
             investment = get_investment(savings, gross_output)
 
+
             for j in range(self.num_regions):
                 scaled_imports[region_id][j] = (
                     desired_imports[region_id][j] * gross_output
@@ -923,6 +924,7 @@ class Rice:
             gross_output = self.get_global_state(
                 "gross_output_all_regions", region_id=region_id
             )
+            investment = get_investment(savings, gross_output)
             labor = self.get_global_state(
                 "labor_all_regions",
                 timestep=self.timestep - 1,
