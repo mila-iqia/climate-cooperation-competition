@@ -27,12 +27,12 @@ _REGION_YAMLS = "region_yamls"
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.ERROR)
 
-_BASE_CODE_PATH = "https://raw.githubusercontent.com/mila-iqia/climate-cooperation-competition/main/code/"
-_BASE_RICE_PATH = _BASE_CODE_PATH + "rice.py"
-_BASE_RICE_HELPERS_PATH = _BASE_CODE_PATH + "rice_helpers.py"
-_BASE_RICE_BUILD_PATH = _BASE_CODE_PATH + "rice_build.cu"
+_BASE_CODE_PATH = "https://raw.githubusercontent.com/mila-iqia/climate-cooperation-competition/main"
+_BASE_RICE_PATH = os.path.join(_BASE_CODE_PATH, "rice.py")
+_BASE_RICE_HELPERS_PATH = os.path.join(_BASE_CODE_PATH, "rice_helpers.py")
+_BASE_RICE_BUILD_PATH = os.path.join(_BASE_CODE_PATH, "rice_build.cu")
 _BASE_CONSISTENCY_CHECKER_PATH = (
-    _BASE_CODE_PATH + "scripts/run_cpu_gpu_env_consistency_checks.py"
+    os.path.join(_BASE_CODE_PATH, "scripts/run_cpu_gpu_env_consistency_checks.py")
 )
 
 
