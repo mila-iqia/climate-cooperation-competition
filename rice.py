@@ -940,7 +940,7 @@ class Rice:
 
             # Aggregate consumption from domestic and foreign goods
             # domestic consumption
-            c_dom = get_consumption(savings, gross_output, exports=scaled_imports[:, region_id])
+            c_dom = get_consumption(gross_output, investment, exports=scaled_imports[:, region_id])
 
             consumption = get_armington_agg(
                 c_dom=c_dom,
