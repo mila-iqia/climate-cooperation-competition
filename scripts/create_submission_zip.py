@@ -27,7 +27,7 @@ def prepare_submission(results_dir=None):
     """
     assert results_dir is not None
     submission_filename = results_dir.split("/")[-1]
-    submission_file = os.path.join(_PUBLIC_REPO_DIR, "Submissions", submission_filename)
+    submission_file = os.path.join(PUBLIC_REPO_DIR, "Submissions", submission_filename)
 
     validate_dir(results_dir)
 

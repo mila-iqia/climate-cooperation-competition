@@ -30,7 +30,7 @@ assert _NUM_GPUS_AVAILABLE > 0, "This script needs a GPU to run!"
 
 env_registrar = EnvironmentRegistrar()
 
-env_registrar.add_cuda_env_src_path(Rice.name, os.path.join(_PUBLIC_REPO_DIR, "rice_build.cu"))
+env_registrar.add_cuda_env_src_path(Rice.name, os.path.join(PUBLIC_REPO_DIR, "rice_build.cu"))
 env_configs = {
     "no_negotiation": {
         "num_discrete_action_levels": 100,

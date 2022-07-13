@@ -65,7 +65,7 @@ def fetch_base_env(base_folder="/tmp/_base"):
     subprocess.call(["sudo", "wget", "-O", "rice.py", _BASE_RICE_PATH])
     subprocess.call(["sudo", "wget", "-O", "rice_helpers.py", _BASE_RICE_HELPERS_PATH])
     shutil.copytree(
-        os.path.join(_PUBLIC_REPO_DIR, "region_yamls"),
+        os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
         os.path.join(base_folder, "region_yamls"),
     )
 
@@ -92,7 +92,7 @@ class TestEnv(unittest.TestCase):
         # Note: results_dir attributed set in __main__.
         if _REGION_YAMLS not in os.listdir(cls.results_dir):
             shutil.copytree(
-                os.path.join(_PUBLIC_REPO_DIR, "region_yamls"),
+                os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
                 os.path.join(cls.results_dir, "region_yamls"),
             )
 
