@@ -18,8 +18,9 @@ from warp_drive.utils.constants import Constants
 from warp_drive.utils.data_feed import DataFeed
 from warp_drive.utils.gpu_environment_context import CUDAEnvironmentContext
 
-_ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)))
-sys.path = [_ROOT_DIR] + sys.path
+from fixed_paths import _PUBLIC_REPO_DIR
+
+sys.path = [_PUBLIC_REPO_DIR] + sys.path
 from rice import Rice
 
 _OBSERVATIONS = Constants.OBSERVATIONS

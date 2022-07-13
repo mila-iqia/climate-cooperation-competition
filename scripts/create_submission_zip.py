@@ -12,9 +12,10 @@ import os
 import shutil
 import sys
 
-from evaluate_submission import _ROOT_DIR, get_results_dir, validate_dir
+from evaluate_submission import get_results_dir, validate_dir
 
-sys.path.append(_ROOT_DIR)
+from fixed_paths import PUBLIC_REPO_DIR
+sys.path.append(PUBLIC_REPO_DIR)
 
 
 def prepare_submission(results_dir=None):
@@ -26,7 +27,7 @@ def prepare_submission(results_dir=None):
     """
     assert results_dir is not None
     submission_filename = results_dir.split("/")[-1]
-    submission_file = os.path.join(_ROOT_DIR, "Submissions", submission_filename)
+    submission_file = os.path.join(_PUBLIC_REPO_DIR, "Submissions", submission_filename)
 
     validate_dir(results_dir)
 

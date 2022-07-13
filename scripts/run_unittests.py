@@ -17,9 +17,10 @@ import sys
 import unittest
 
 import numpy as np
-from evaluate_submission import _ROOT_DIR, get_results_dir
+from evaluate_submission import get_results_dir
 
-sys.path.append(_ROOT_DIR)
+from fixed_paths import PUBLIC_REPO_DIR
+sys.path.append(PUBLIC_REPO_DIR)
 
 _REGION_YAMLS = "region_yamls"
 
@@ -64,7 +65,7 @@ def fetch_base_env(base_folder="/tmp/_base"):
     subprocess.call(["sudo", "wget", "-O", "rice.py", _BASE_RICE_PATH])
     subprocess.call(["sudo", "wget", "-O", "rice_helpers.py", _BASE_RICE_HELPERS_PATH])
     shutil.copytree(
-        os.path.join(_ROOT_DIR, "region_yamls"),
+        os.path.join(_PUBLIC_REPO_DIR, "region_yamls"),
         os.path.join(base_folder, "region_yamls"),
     )
 
@@ -91,7 +92,7 @@ class TestEnv(unittest.TestCase):
         # Note: results_dir attributed set in __main__.
         if _REGION_YAMLS not in os.listdir(cls.results_dir):
             shutil.copytree(
-                os.path.join(_ROOT_DIR, "region_yamls"),
+                os.path.join(_PUBLIC_REPO_DIR, "region_yamls"),
                 os.path.join(cls.results_dir, "region_yamls"),
             )
 

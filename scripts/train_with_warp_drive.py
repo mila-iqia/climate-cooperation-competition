@@ -17,9 +17,9 @@ import subprocess
 import sys
 
 import yaml
-from evaluate_submission import _ROOT_DIR
 
-sys.path.append(_ROOT_DIR)
+from fixed_paths import PUBLIC_REPO_DIR
+sys.path.append(PUBLIC_REPO_DIR)
 
 from scripts.run_unittests import import_class_from_path
 
@@ -62,7 +62,7 @@ def create_trainer(run_config=None, source_dir=None, seed=None):
 
     assert run_config is not None
     if source_dir is None:
-        source_dir = _ROOT_DIR
+        source_dir = _PUBLIC_REPO_DIR
     if seed is not None:
         run_config["trainer"]["seed"] = seed
 
@@ -151,7 +151,7 @@ def copy_source_files(trainer):
     """
     for file in ["rice.py", "rice_helpers.py", "rice_cuda.py", "rice_step.cu"]:
         shutil.copyfile(
-            os.path.join(_ROOT_DIR, file),
+            os.path.join(_PUBLIC_REPO_DIR, file),
             os.path.join(trainer.save_dir, file),
         )
 
@@ -159,7 +159,7 @@ def copy_source_files(trainer):
         "rice_warpdrive.yaml",
     ]:
         shutil.copyfile(
-            os.path.join(_ROOT_DIR, "scripts", file),
+            os.path.join(_PUBLIC_REPO_DIR, "scripts", file),
             os.path.join(trainer.save_dir, file),
         )
 
@@ -177,7 +177,7 @@ if __name__ == "__main__":
     # Read the run configurations specific to the environment.
     # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
     # -----------------------------------------------------------------------------
-    config_path = os.path.join(_ROOT_DIR, "scripts", "rice_warpdrive.yaml")
+    config_path = os.path.join(_PUBLIC_REPO_DIR, "scripts", "rice_warpdrive.yaml")
     if not os.path.exists(config_path):
         raise ValueError(
             "The run configuration is missing. Please make sure the correct path"
@@ -204,7 +204,7 @@ if __name__ == "__main__":
     subprocess.call(
         [
             "python",
-            os.path.join(_ROOT_DIR, "scripts", "create_submission_zip.py"),
+            os.path.join(_PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"),
             "--results_dir",
             trainer_object.save_dir,
         ]

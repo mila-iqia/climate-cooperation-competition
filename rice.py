@@ -15,8 +15,8 @@ import sys
 import numpy as np
 from gym.spaces import MultiDiscrete
 
-_ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)))
-sys.path = [_ROOT_DIR] + sys.path
+_PUBLIC_REPO_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path = [_PUBLIC_REPO_DIR] + sys.path
 
 from rice_helpers import (
     get_abatement_cost,
@@ -46,7 +46,6 @@ from rice_helpers import (
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.ERROR)
 
-_ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 _FEATURES = "features"
 _ACTION_MASK = "action_mask"
 
@@ -77,7 +76,7 @@ class Rice:
 
         # Constants
         params, num_regions = set_rice_params(
-            os.path.join(_ROOT_DIR, "region_yamls"),
+            os.path.join(_PUBLIC_REPO_DIR, "region_yamls"),
         )
         # TODO : add to yaml
         self.balance_interest_rate = 0.1

@@ -21,9 +21,18 @@ from collections import OrderedDict
 import numpy as np
 import yaml
 
-_ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-sys.path.append(os.path.join(_ROOT_DIR, "scripts"))
-sys.path.append(os.path.join(_ROOT_DIR, "backend"))
+from pathlib import Path
+
+_path = Path(os.path.abspath(__file__))
+
+from fixed_paths import PUBLIC_REPO_DIR
+sys.path.append(os.path.join(PUBLIC_REPO_DIR, "scripts"))
+print("Using PUBLIC_REPO_DIR = {}".format(PUBLIC_REPO_DIR))
+
+_PRIVATE_REPO_DIR = os.path.join(_path.parent.parent.parent.absolute(), "private-repo-clone")
+sys.path.append(os.path.join(_PRIVATE_REPO_DIR, "backend"))
+print("Using _PRIVATE_REPO_DIR = {}".format(_PRIVATE_REPO_DIR))
+
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.ERROR)

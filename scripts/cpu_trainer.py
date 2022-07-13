@@ -22,8 +22,8 @@ import yaml
 from run_unittests import import_class_from_path
 from desired_outputs import desired_outputs
 
-_ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-sys.path.append(_ROOT_DIR)
+from fixed_paths import PUBLIC_REPO_DIR
+sys.path.append(PUBLIC_REPO_DIR)
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.DEBUG)
@@ -146,7 +146,7 @@ class EnvWrapper(MultiAgentEnv):
         if "source_dir" in env_config_copy:
             del env_config_copy["source_dir"]
         if source_dir is None:
-            source_dir = _ROOT_DIR
+            source_dir = _PUBLIC_REPO_DIR
         assert isinstance(env_config_copy, dict)
         self.env = import_class_from_path("Rice", os.path.join(source_dir, "rice.py"))(
             **env_config_copy
@@ -397,7 +397,7 @@ def trainer(
     # Read the run configurations specific to the environment.
     # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
     # -----------------------------------------------------------------------------
-    config_path = os.path.join(_ROOT_DIR, "scripts", "rice_rllib.yaml")
+    config_path = os.path.join(_PUBLIC_REPO_DIR, "scripts", "rice_rllib.yaml")
     if not os.path.exists(config_path):
         raise ValueError(
             "The run configuration is missing. Please make sure the correct path "
@@ -425,12 +425,12 @@ def trainer(
     # Copy source files to the saving directory
     for file in ["rice.py", "rice_helpers.py"]:
         shutil.copyfile(
-            os.path.join(_ROOT_DIR, file),
+            os.path.join(_PUBLIC_REPO_DIR, file),
             os.path.join(save_dir, file),
         )
     for file in ["rice_rllib.yaml"]:
         shutil.copyfile(
-            os.path.join(_ROOT_DIR, "scripts", file),
+            os.path.join(_PUBLIC_REPO_DIR, "scripts", file),
             os.path.join(save_dir, file),
         )
 
@@ -466,7 +466,7 @@ def trainer(
     subprocess.call(
         [
             "python",
-            os.path.join(_ROOT_DIR, "scripts", "create_submission_zip.py"),
+            os.path.join(_PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"),
             "--results_dir",
             save_dir,
         ]
