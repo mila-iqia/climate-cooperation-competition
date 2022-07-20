@@ -87,9 +87,26 @@ extern "C"
 
     __device__ float get_consumption(
         float savings,
-        float gross_output)
+        float gross_output,
+        float *exports,
+        const int kAgentId,
+        const int kNumAgents)
     {
-        return gross_output * (1 - savings);
+        float exports_total = 0.0;
+        for (int region_id = 0; region_id < kNumAgents; region_id++)
+        {
+            exports_total += exports[kAgentId + region_id * kNumAgents];
+        }
+        float consumption = gross_output * (1 - savings) - exports_total;
+
+        if (consumption >= 0.0)
+        {
+            return consumption;
+        }
+        else
+        {
+            return 0.0;
+        }
     }
 
     __device__ float get_max_potential_exports(
@@ -1553,7 +1570,10 @@ extern "C"
 
             float domestic_consumption = get_consumption(
                 savings_all_regions[kAgentArrayIdx],
-                gross_output_all_regions[kAgentArrayIdx]);
+                gross_output_all_regions[kAgentArrayIdx],
+                scaled_imports,
+                kAgentId,
+                kNumAgents);
 
             consumption_all_regions[kAgentArrayIdx] = get_armington_agg(
                 domestic_consumption,
