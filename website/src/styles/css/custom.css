@@ -137,3 +137,7 @@ h6 {
 .partner-logo {
   width: 10rem;   
 }
+
+.fake-table-header {
+  font-weight: 700;
+}
