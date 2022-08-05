@@ -130,10 +130,20 @@ h6 {
 }
 
 .navbar-logo {
-  height: 40px;
-  margin-right: 5px;
+  height: 40px;  
 }
 
 .partner-logo {
   width: 10rem;   
+}
+
+.fake-table-header {
+  font-weight: 700;
+}
+
+.right-grey-line {
+  border-right: 2px solid grey;
+  padding-right: 10px;
+  /* border-right-width: 20px !important;
+  border-right-color: grey; */
 }
