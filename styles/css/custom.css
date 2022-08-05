@@ -109,6 +109,11 @@ body {
   height: 40px;  
 }
 
+.navbar-logo-small {
+  height: 24px;
+  /* padding: 8px 0; */
+}
+
 .partner-logo {
   width: 10rem;   
 }
