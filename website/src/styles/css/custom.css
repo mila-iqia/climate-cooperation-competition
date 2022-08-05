@@ -11,30 +11,6 @@ body {
   /* background-color: rgb(255, 255, 255, 0.75); */
 }
 
-
-/* h2,
-h3,
-h4,
-h5,
-h6 {
-  font-family: "Spectral", serif;
-  font-size: 1.5em;
-  font-weight: 700;
-} */
-
-
-
-/* h1 {
-  font-family: "Source Sans Pro", serif;
-  font-size: 1.5em;
-  font-weight: 900;
-  padding-top: 2em;
-  padding-bottom: 0.3em;
-  margin: auto;
-  text-align: center;
-} */
-
-
 .green-highlight {
   color: #00812d !important;
   font-weight: 700;
@@ -146,4 +122,8 @@ h6 {
   padding-right: 10px;
   /* border-right-width: 20px !important;
   border-right-color: grey; */
+}
+
+table#tracks-narrow td {
+  width: 50%;
 }
