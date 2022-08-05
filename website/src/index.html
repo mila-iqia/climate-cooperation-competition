@@ -43,10 +43,20 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <ul class="navbar-nav">
-          <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
-          <li class="nav-item"><a class="nav-link" href="#leaderboard">Leaderboard</a></li>
-          <li class="nav-item"><a class="nav-link" href="#schedule">Schedule</a></li>
-          <li class="nav-item"><a class="nav-link" href="#tracks">Tracks</a></li>
+          
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button"
+            data-bs-toggle="dropdown" aria-expanded="false">
+            About
+          </a>
+          <ul class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+              <li><a class="dropdown-item" href="#overview">Overview</a></li>
+              <li><a class="dropdown-item" href="#leaderboard">Leaderboard</a></li>          
+              <li><a class="dropdown-item" href="#schedule">Schedule</a></li>
+              <li><a class="dropdown-item" href="#tracks">Tracks</a></li>
+            </ul>
+          </li>
+          
           <li class="nav-item"><a class="nav-link" href="#ethics">Ethics</a></li>
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button"
@@ -117,10 +127,14 @@
           <li class="nav-item"><a class="nav-link green-highlight" href="#getstarted">Get started</a></li>
         </ul>
       </div>
-      <span>
-        <img src="images/Salesforce_Logo_RGB_1797c0_8_13_14.png" class="navbar-logo d-inline-block align-top">
+      <div class="d-inline-block">
+        <a href="http://salesforceairesearch.com/" target="blank" class="text-decoration-none">
+          <img src="images/Salesforce_Logo_RGB_1797c0_8_13_14.png" class="navbar-logo d-inline-block align-top right-grey-line">
+        </a>
+        <a href="https://mila.quebec/en/" target="blank" class="text-decoration-none">
           <img src="images/Mila_LOGO_HORIZONTAL_standard_RGB.png" class="navbar-logo d-inline-block align-top">
-      </span>
+        </a>
+      </div>
     </div>
   </nav>
   <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
@@ -158,7 +172,7 @@
       
       <iframe width="100%" height="315" src="https://www.youtube.com/embed/vz88U6RPFGM" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-      <a href="#about" class="btn btn-dark" tabindex="-1" role="button" aria-disabled="true">Learn More</a>
+      <a href="#overview" class="btn btn-dark" tabindex="-1" role="button" aria-disabled="true">Learn More</a>
 
       <a href="#getstarted" class="btn btn-dark" tabindex="-1" role="button" aria-disabled="true">Get started</a>
       <a href="https://github.com/mila-iqia/climate-cooperation-competition/blob/main/White_Paper.pdf"
