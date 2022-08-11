@@ -15,11 +15,12 @@ import os
 import shutil
 import subprocess
 import sys
-
+import numpy as np
 import yaml
 from desired_outputs import desired_outputs
-
+from opt_helper import get_mean_std
 from fixed_paths import PUBLIC_REPO_DIR
+
 sys.path.append(PUBLIC_REPO_DIR)
 
 from scripts.run_unittests import import_class_from_path
@@ -134,7 +135,7 @@ def load_model_checkpoints(trainer=None, save_directory=None, ckpt_idx=-1):
     trainer.load_model_checkpoint(ckpts_dict)
 
 
-def fetch_episode_states(trainer_obj=None, episode_states=None):
+def fetch_episode_states(trainer_obj=None, episode_states=None, env_id=None):
     """
     Helper function to rollout the env and fetch env states for an episode.
     """
@@ -143,7 +144,7 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
         episode_states, list
     ), "Please pass the 'episode states' args as a list."
     assert len(episode_states) > 0
-    return trainer_obj.fetch_episode_states(episode_states)
+    return trainer_obj.fetch_episode_states(episode_states, env_id)
 
 
 def copy_source_files(trainer):
@@ -180,6 +181,7 @@ def trainer(
     lr=0.0005,
     model_params_save_freq=5000,
     desired_outputs=desired_outputs,
+    output_all_envs=False,
 ):
     """
     Main function to run the trainer.
@@ -227,7 +229,19 @@ def trainer(
             trainer_object.save_dir,
         ]
     )
-    outputs_ts = fetch_episode_states(trainer_object, desired_outputs)
+    outputs_ts = [
+        fetch_episode_states(trainer_object, desired_outputs, env_id=i)
+        for i in range(num_envs)
+    ]
+    for i in range(len(outputs_ts)):
+        outputs_ts[i]["global_consumption"] = np.sum(
+            outputs_ts[i]["consumption_all_regions"], axis=-1
+        )
+        outputs_ts[i]["global_production"] = np.sum(
+            outputs_ts[i]["gross_output_all_regions"], axis=-1
+        )
+    if not output_all_envs:
+        outputs_ts, _ = get_mean_std(outputs_ts)
     # Shut off the trainer gracefully
     # -------------------------------
     trainer_object.graceful_close()

@@ -4,12 +4,12 @@
 # For full license text, see the LICENSE file in the repo root
 # or https://opensource.org/licenses/BSD-3-Clause
 
-
 import numpy as np
 from sklearn import linear_model
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 import os
+from operator import sub, mul
 
 default = {
     "_RICE_CONSTANT": {
@@ -325,6 +325,124 @@ def load(filename):
     with open(filename, "rb") as file:
         z = pickle.load(file)
     return z
+
+
+def get_mean_std(list_of_dict):
+    k = list_of_dict[0].keys()
+    v = [list(x.values()) for x in list_of_dict]
+    mean = [sum(x) / len(v) for x in zip(*v)]
+    demean = [list(map(sub, v[i], mean)) for i in range(len(v))]
+    muls = [list(map(mul, demean[i], demean[i])) for i in range(len(v))]
+    sqr = [sum(x) / len(v) for x in zip(*muls)]
+    sqrt = [np.sqrt(x) for x in sqr]
+    mean_dict = dict(zip(k, mean))
+    std_dict = dict(zip(k, sqrt))
+    return mean_dict, std_dict
+
+
+def get_upper_lower_bounds(list_of_dict, n=1.96):
+    mean_dict, std_dict = get_mean_std(list_of_dict)
+    upper = {k: mean_dict[k] + n * std_dict[k] for k in mean_dict.keys()}
+    lower = {k: mean_dict[k] - n * std_dict[k] for k in mean_dict.keys()}
+    return upper, lower, mean_dict
+
+
+def plot_fig_with_bounds(
+    variable,
+    y_label,
+    list_of_dict_off=None,
+    list_of_dict_on=None,
+    title=None,
+    idx=0,
+    x_label="year",
+    skips=3,
+    line_colors=["#0868ac", "#7e0018"],
+    region_colors=["#7bccc4", "#ffac3b"],
+    start=2020,
+    alpha=0.5,
+    is_grid=True,
+    is_save=True,
+    delta=5,
+):
+    year = np.array(range(len(list(list_of_dict_off[0].values())[0]))) * delta + start
+    if list_of_dict_off is not None:
+        upper_off, lower_off, mean_off = get_upper_lower_bounds(list_of_dict_off)
+        if idx == -1:
+            plt.plot(
+                year,
+                mean_off[variable][...],
+                label="no negotiation",
+                linestyle="--",
+                color=line_colors[0],
+            )
+            plt.fill_between(
+                year,
+                lower_off[variable][...],
+                upper_off[variable][...],
+                color=region_colors[0],
+                alpha=0.5,
+            )
+        else:
+            plt.plot(
+                year,
+                mean_off[variable][..., idx],
+                label="no negotiation",
+                linestyle="--",
+                color=line_colors[0],
+            )
+            plt.fill_between(
+                year,
+                lower_off[variable][..., idx],
+                upper_off[variable][..., idx],
+                color=region_colors[0],
+                alpha=0.5,
+            )
+    if list_of_dict_on is not None:
+        upper_on, lower_on, mean_on = get_upper_lower_bounds(list_of_dict_on)
+        if idx == -1:
+            plt.plot(
+                year,
+                mean_on[variable][...][::skips],
+                label="with negotiation",
+                color=line_colors[1],
+            )
+            plt.fill_between(
+                year,
+                lower_on[variable][...][::skips],
+                upper_on[variable][...][::skips],
+                color=region_colors[1],
+                alpha=0.5,
+            )
+        else:
+            plt.plot(
+                year,
+                mean_on[variable][..., idx][::skips],
+                label="with negotiation",
+                color=line_colors[1],
+            )
+            plt.fill_between(
+                year,
+                lower_on[variable][..., idx][::skips],
+                upper_on[variable][..., idx][::skips],
+                color=region_colors[1],
+                alpha=0.5,
+            )
+
+    plt.legend(loc=2)
+    if is_grid:
+        plt.grid(color="#d3d3d3")  # light grey
+    ax = plt.axes()
+    ax.spines["bottom"].set_color("#676767")  # dark grey
+    ax.spines["top"].set_color("#676767")
+    ax.spines["right"].set_color("#676767")
+    ax.spines["left"].set_color("#676767")
+    plt.ylabel(y_label)
+    plt.xlabel("Year")
+    if title is not None:
+        plt.title(title)
+    if is_save:
+        plt.savefig("{}.pdf".format(title))
+    return
 
 
 def plot_result(variable, nego_off=None, nego_on=None, k=0):

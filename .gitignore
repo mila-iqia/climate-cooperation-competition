@@ -220,3 +220,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+Submissions/*.zip
+emissions.csv
+Colab_Tutorial-Copy1.ipynb
+Draw_graphs.ipynb
+100_rounds.pkl
+*.pdf
