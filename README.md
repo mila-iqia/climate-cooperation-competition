@@ -9,11 +9,11 @@ In this competition, you will design negotiation protocols and contracts between
 
 ## Resources
 
-- For all information and the leaderboard, see [https://mila-iqia.github.io/climate-cooperation-competition](https://mila-iqia.github.io/climate-cooperation-competition).
+- For all information and the leaderboard, see [https://mila-iqia.github.io/climate-cooperation-competition](https://www.ai4climatecoop.org).
 - [Getting Started Jupyter Notebook](getting_started.ipynb)
 - [Colab Tutorial Notebook](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb)
 - For the mathematical background and scientific references, please see [the white paper](https://github.com/mila-iqia/climate-cooperation-competition/blob/main/White_Paper.pdf).
-
+- Other free GPU resources: [Kaggle](https://www.kaggle.com/kernel), [Baidu Paddle](https://aistudio.baidu.com/), [MegStudio](https://studio.brainpp.com/)
 
 
 ## Installation
@@ -22,6 +22,13 @@ You can get a copy of the code by cloning the repo using Git:
 
 ```
 git clone https://github.com/mila-iqia/climate-cooperation-competition
+cd climate-cooperation-competition
+```
+
+As an alternative, one can also use:
+
+```
+git clone https://e.coding.net/ai4climatecoop/ai4climatecoop/climate-cooperation-competition.git
 cd climate-cooperation-competition
 ```
 
