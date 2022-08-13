@@ -364,6 +364,11 @@ def plot_fig_with_bounds(
     is_save=True,
     delta=5,
 ):
+    ax = plt.axes()
+    ax.spines["bottom"].set_color("#676767")  # dark grey
+    ax.spines["top"].set_color("#676767")
+    ax.spines["right"].set_color("#676767")
+    ax.spines["left"].set_color("#676767")
     year = np.array(range(len(list(list_of_dict_off[0].values())[0]))) * delta + start
     if list_of_dict_off is not None:
         upper_off, lower_off, mean_off = get_upper_lower_bounds(list_of_dict_off)
@@ -431,11 +436,6 @@ def plot_fig_with_bounds(
     plt.legend(loc=2)
     if is_grid:
         plt.grid(color="#d3d3d3")  # light grey
-    ax = plt.axes()
-    ax.spines["bottom"].set_color("#676767")  # dark grey
-    ax.spines["top"].set_color("#676767")
-    ax.spines["right"].set_color("#676767")
-    ax.spines["left"].set_color("#676767")
     plt.ylabel(y_label)
     plt.xlabel("Year")
     if title is not None:
