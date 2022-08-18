@@ -22,6 +22,7 @@ import yaml
 from run_unittests import import_class_from_path
 
 from fixed_paths import PUBLIC_REPO_DIR
+
 sys.path.append(PUBLIC_REPO_DIR)
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
@@ -48,11 +49,11 @@ except ImportError:
     print("Installing requirements...")
 
     # Install gym
-    subprocess.call(["pip", "install", "gym==0.21"])
+    subprocess.call(["pip", "install", "gym==0.21.0"])
     # Install RLlib v1.10.0
     subprocess.call(["pip", "install", "ray[rllib]==1.0.0"])
     # Install PyTorch
-    subprocess.call(["pip3", "install", "torch==1.10"])
+    subprocess.call(["pip", "install", "torch==1.10"])
 
     other_imports = perform_other_imports()
 
