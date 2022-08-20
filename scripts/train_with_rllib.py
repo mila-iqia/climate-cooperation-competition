@@ -50,7 +50,7 @@ except ImportError:
 
     # Install gym
     subprocess.call(["pip", "install", "gym==0.21.0"])
-    # Install RLlib v1.10.0
+    # Install RLlib v1.0.0
     subprocess.call(["pip", "install", "ray[rllib]==1.0.0"])
     # Install PyTorch
     subprocess.call(["pip", "install", "torch==1.10"])
@@ -179,7 +179,7 @@ def get_rllib_config(exp_run_config=None, env_class=None, seed=None):
 
     env_config = exp_run_config["env"]
     assert isinstance(env_config, dict)
-    env_object = EnvWrapper(env_config=env_config)
+    env_object = env_class(env_config=env_config)
 
     # Define all the policies here
     policy_config = exp_run_config["policy"]["regions"]
