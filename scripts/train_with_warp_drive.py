@@ -135,7 +135,7 @@ def load_model_checkpoints(trainer=None, save_directory=None, ckpt_idx=-1):
     trainer.load_model_checkpoint(ckpts_dict)
 
 
-def fetch_episode_states(trainer_obj=None, episode_states=None):
+def fetch_episode_states(trainer_obj=None, episode_states=None, env_id=None):
     """
     Helper function to rollout the env and fetch env states for an episode.
     """
@@ -144,7 +144,7 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
         episode_states, list
     ), "Please pass the 'episode states' args as a list."
     assert len(episode_states) > 0
-    return trainer_obj.fetch_episode_states(episode_states)
+    return trainer_obj.fetch_episode_states(episode_states, env_id)
 
 
 def copy_source_files(trainer):
