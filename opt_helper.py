@@ -521,7 +521,7 @@ def get_training_curve(submission_file_name):
     json_path = os.path.join(unzip_path, "results.json")
     with open(json_path, "r", encoding="utf-8") as f:
         json_data = [json.loads(line) for line in f]
-    shutil.rmtree('./Submissions/1661318226/')
+    shutil.rmtree(unzip_path)
     l = len(json_data)
     data = {}
     for k in json_data[0].keys():
