@@ -487,28 +487,68 @@ def plot_result(variable, nego_off=None, nego_on=None, k=0):
         plt.ylabel(variable)
 
 
-def plot_training_curve(data, feature, submission_file_name, start=None, end=None):
+def plot_training_curve(
+    data, mertic, submission_file_name, start=None, end=None, return_data=False
+):
+    """
+       plotting mertics collected in a dictionary from the training procedure. Below are some of the available metrics:
+       mertics = ['Iterations Completed',
+        'VF loss coefficient',
+        'Entropy coefficient',
+        'Total loss',
+        'Policy loss',
+        'Value function loss',
+        'Mean rewards',
+        'Max. rewards',
+        'Min. rewards',
+        'Mean value function',
+        'Mean advantages',
+        'Mean (norm.) advantages',
+        'Mean (discounted) returns',
+        'Mean normalized returns',
+        'Mean entropy',
+        'Variance explained by the value function',
+        'Gradient norm',
+        'Learning rate',
+        'Mean episodic reward',
+        'Mean policy eval time per iter (ms)',
+        'Mean action sample time per iter (ms)',
+        'Mean env. step time per iter (ms)',
+        'Mean training time per iter (ms)',
+        'Mean total time per iter (ms)',
+        'Mean steps per sec (policy eval)',
+        'Mean steps per sec (action sample)',
+        'Mean steps per sec (env. step)',
+        'Mean steps per sec (training time)',
+        'Mean steps per sec (total)'
+        ]
+    """
     if data is None:
         data = get_training_curve(submission_file_name)
     if start is None:
         start = 0
     if end is None:
-        plt.plot(data["Iterations Completed"][start:], data[feature][start:])
+        plt.plot(data["Iterations Completed"][start:], data[mertic][start:])
     else:
-        plt.plot(data["Iterations Completed"][start:end], data[feature][start:end])
+        plt.plot(data["Iterations Completed"][start:end], data[mertic][start:end])
     plt.grid()
     plt.xlabel("iteration")
-    plt.ylabel(feature)
+    plt.ylabel(mertic)
     plt.show()
-    return data
+    if return_data:
+        return data
+    return
 
 
 def get_training_curve(submission_file_name):
+    """
+    get the metrics collected in a dictionary from the training procedure from the zip submission file.
+    """
     import zipfile, json, shutil
 
     if "zip" != submission_file_name.split(".")[-1]:
-        files = submission_file_name + ".zip"
-    path_ = os.path.join("./Submissions/", files)
+        submission_file_name = submission_file_name + ".zip"
+    path_ = os.path.join("./Submissions/", submission_file_name)
     assert os.path.exists(path_), "This files is not available. Please check the path."
     with zipfile.ZipFile(path_, "r") as zip_ref:
         unzip_path = os.path.join(
