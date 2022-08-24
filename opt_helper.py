@@ -504,7 +504,7 @@ def plot_training_curve(data, feature, submission_file_name, start=None, end=Non
 
 
 def get_training_curve(submission_file_name):
-    import zipfile, json
+    import zipfile, json, shutil
 
     if "zip" != submission_file_name.split(".")[-1]:
         files = submission_file_name + ".zip"
@@ -521,7 +521,7 @@ def get_training_curve(submission_file_name):
     json_path = os.path.join(unzip_path, "results.json")
     with open(json_path, "r", encoding="utf-8") as f:
         json_data = [json.loads(line) for line in f]
-
+    shutil.rmtree('./Submissions/1661318226/')
     l = len(json_data)
     data = {}
     for k in json_data[0].keys():
