@@ -485,3 +485,48 @@ def plot_result(variable, nego_off=None, nego_on=None, k=0):
         plt.legend(legends)
         plt.grid()
         plt.ylabel(variable)
+
+
+def plot_training_curve(data, feature, submission_file_name, start=None, end=None):
+    if data is None:
+        data = get_training_curve(submission_file_name)
+    if start is None:
+        start = 0
+    if end is None:
+        end = -1
+    plt.plot(data["Iterations Completed"][start:end], data[feature][start:end])
+    plt.grid()
+    plt.xlabel("iteration")
+    plt.ylabel(feature)
+    plt.show()
+    return data
+
+
+def get_training_curve(submission_file_name):
+    import zipfile, json
+
+    if "zip" != submission_file_name.split(".")[-1]:
+        files = submission_file_name + ".zip"
+    path_ = os.path.join("./Submissions/", files)
+    assert os.path.exists(path_), "This files is not available. Please check the path."
+    with zipfile.ZipFile(path_, "r") as zip_ref:
+        unzip_path = os.path.join(
+            "./Submissions/", os.path.basename(path_).split(".")[0]
+        )
+        if not os.path.exists(unzip_path):
+            os.makedirs(unzip_path)
+        zip_ref.extractall(unzip_path)
+
+    json_path = os.path.join(unzip_path, "results.json")
+    with open(json_path, "r", encoding="utf-8") as f:
+        json_data = [json.loads(line) for line in f]
+
+    l = len(json_data)
+    data = {}
+    for k in json_data[0].keys():
+        if isinstance(json_data[0][k], (int, float)):
+            data[k] = [json_data[i][k] for i in range(l)]
+        elif isinstance(json_data[0][k], dict):
+            for k_ in json_data[0][k].keys():
+                data[k_] = [json_data[i][k][k_] for i in range(l)]
+    return data
