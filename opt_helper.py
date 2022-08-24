@@ -493,8 +493,9 @@ def plot_training_curve(data, feature, submission_file_name, start=None, end=Non
     if start is None:
         start = 0
     if end is None:
-        end = -1
-    plt.plot(data["Iterations Completed"][start:end], data[feature][start:end])
+        plt.plot(data["Iterations Completed"][start:], data[feature][start:])
+    else:
+        plt.plot(data["Iterations Completed"][start:end], data[feature][start:end])
     plt.grid()
     plt.xlabel("iteration")
     plt.ylabel(feature)
