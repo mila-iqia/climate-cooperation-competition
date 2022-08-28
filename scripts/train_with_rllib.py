@@ -53,7 +53,7 @@ except ImportError:
     # Install RLlib v1.10.0
     subprocess.call(["pip", "install", "ray[rllib]==1.0.0"])
     # Install PyTorch
-    subprocess.call(["pip", "install", "torch==1.10"])
+    subprocess.call(["pip", "install", "torch==1.12.1"])
 
     other_imports = perform_other_imports()
 
