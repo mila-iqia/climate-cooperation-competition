@@ -6,8 +6,10 @@ jupyterlab>=3.4.0
 tensorflow==1.13.1
 torch==1.12.1
 # optional: RLlib and WarpDrive for training
-# ray[rllib]==1.0.0
-# rl-warp-drive==1.6.5
+# For CPU
+# ray[rllib]==1.0.0 
+# For GPU
+# rl-warp-drive==1.6.7
 matplotlib==3.2.2
 numpy==1.21.6
 deepdiff==5.8.1
