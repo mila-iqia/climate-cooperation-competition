@@ -2,8 +2,8 @@
 
 [![PyTorch 1.12](https://img.shields.io/badge/PyTorch-1.12-ee4c2c?logo=pytorch&logoColor=white%22)](https://pytorch.org/docs/1.12/)
 [![Python 3.7](https://img.shields.io/badge/python-3.7-blue.svg)](https://www.python.org/downloads/release/python-3713/)
-[![Warp drive 1.67](https://img.shields.io/badge/warp_drive-1.6.7-blue.svg)(https://github.com/salesforce/warp-drive/)]
-[![Ray 1.0.0]](https://img.shields.io/badge/ray[rllib]-1.0.0-blue.svg)(https://docs.ray.io/en/latest/index.html)
+[![Warp drive 1.67](https://img.shields.io/badge/warp_drive-1.6.7-blue.svg)](https://github.com/salesforce/warp-drive/)
+[![Ray 1.0.0](https://img.shields.io/badge/ray[rllib]-1.0.0-blue.svg)](https://docs.ray.io/en/latest/index.html)
 [![Paper](http://img.shields.io/badge/paper-arxiv.2208.07004-B31B1B.svg)](https://arxiv.org/abs/2208.07004)
 
 This is the code respository for the competition on modeling global cooperation in the RICE-N Integrated Assessment Model. This competition is co-organized by MILA and Salesforce Research.
