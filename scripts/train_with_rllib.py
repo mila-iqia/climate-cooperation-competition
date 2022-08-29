@@ -50,10 +50,10 @@ except ImportError:
 
     # Install gym
     subprocess.call(["pip", "install", "gym==0.21.0"])
-    # Install RLlib v1.10.0
+    # Install RLlib v1.0.0
     subprocess.call(["pip", "install", "ray[rllib]==1.0.0"])
     # Install PyTorch
-    subprocess.call(["pip", "install", "torch==1.12.1"])
+    subprocess.call(["pip", "install", "torch==1.9.0"])
 
     other_imports = perform_other_imports()
 
