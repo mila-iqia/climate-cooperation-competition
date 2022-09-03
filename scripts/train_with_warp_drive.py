@@ -15,10 +15,12 @@ import os
 import shutil
 import subprocess
 import sys
-
+import numpy as np
 import yaml
-
+from desired_outputs import desired_outputs
+from opt_helper import get_mean_std
 from fixed_paths import PUBLIC_REPO_DIR
+
 sys.path.append(PUBLIC_REPO_DIR)
 
 from scripts.run_unittests import import_class_from_path
@@ -133,7 +135,7 @@ def load_model_checkpoints(trainer=None, save_directory=None, ckpt_idx=-1):
     trainer.load_model_checkpoint(ckpts_dict)
 
 
-def fetch_episode_states(trainer_obj=None, episode_states=None):
+def fetch_episode_states(trainer_obj=None, episode_states=None, env_id=None):
     """
     Helper function to rollout the env and fetch env states for an episode.
     """
@@ -142,7 +144,7 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
         episode_states, list
     ), "Please pass the 'episode states' args as a list."
     assert len(episode_states) > 0
-    return trainer_obj.fetch_episode_states(episode_states)
+    return trainer_obj.fetch_episode_states(episode_states, env_id)
 
 
 def copy_source_files(trainer):
@@ -169,6 +171,81 @@ def copy_source_files(trainer):
     ) as file_pointer:
         pass
     file_pointer.close()
+
+
+def trainer(
+    negotiation_on=0,
+    num_envs=100,
+    train_batch_size=1024,
+    num_episodes=30000,
+    lr=0.0005,
+    model_params_save_freq=5000,
+    desired_outputs=desired_outputs,
+    output_all_envs=False,
+):
+    """
+    Main function to run the trainer.
+    """
+    # Load the run_config
+    print("Training with WarpDrive...")
+
+    # Read the run configurations specific to the environment.
+    # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
+    # -----------------------------------------------------------------------------
+    config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", "rice_warpdrive.yaml")
+    if not os.path.exists(config_path):
+        raise ValueError(
+            "The run configuration is missing. Please make sure the correct path"
+            "is specified."
+        )
+
+    with open(config_path, "r", encoding="utf8") as fp:
+        run_configuration = yaml.safe_load(fp)
+    run_configuration["env"]["negotiation_on"] = negotiation_on
+    run_configuration["trainer"]["num_envs"] = num_envs
+    run_configuration["trainer"]["train_batch_size"] = train_batch_size
+    run_configuration["trainer"]["num_episodes"] = num_episodes
+    run_configuration["policy"]["regions"]["lr"] = lr
+    run_configuration["saving"]["model_params_save_freq"] = model_params_save_freq
+    # run_configuration trainer
+    # --------------
+    trainer_object, _ = create_trainer(run_config=run_configuration)
+
+    # Copy the source files into the results directory
+    # ------------------------------------------------
+    copy_source_files(trainer_object)
+
+    # Perform training!
+    # -----------------
+    trainer_object.train()
+
+    # Create a (zipped) submission file
+    # ---------------------------------
+    subprocess.call(
+        [
+            "python",
+            os.path.join(PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"),
+            "--results_dir",
+            trainer_object.save_dir,
+        ]
+    )
+    outputs_ts = [
+        fetch_episode_states(trainer_object, desired_outputs, env_id=i)
+        for i in range(num_envs)
+    ]
+    for i in range(len(outputs_ts)):
+        outputs_ts[i]["global_consumption"] = np.sum(
+            outputs_ts[i]["consumption_all_regions"], axis=-1
+        )
+        outputs_ts[i]["global_production"] = np.sum(
+            outputs_ts[i]["gross_output_all_regions"], axis=-1
+        )
+    if not output_all_envs:
+        outputs_ts, _ = get_mean_std(outputs_ts)
+    # Shut off the trainer gracefully
+    # -------------------------------
+    trainer_object.graceful_close()
+    return trainer_object, outputs_ts
 
 
 if __name__ == "__main__":

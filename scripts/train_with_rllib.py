@@ -20,7 +20,7 @@ import time
 import numpy as np
 import yaml
 from run_unittests import import_class_from_path
-
+from desired_outputs import desired_outputs
 from fixed_paths import PUBLIC_REPO_DIR
 
 sys.path.append(PUBLIC_REPO_DIR)
@@ -53,7 +53,7 @@ except ImportError:
     # Install RLlib v1.0.0
     subprocess.call(["pip", "install", "ray[rllib]==1.0.0"])
     # Install PyTorch
-    subprocess.call(["pip", "install", "torch==1.10"])
+    subprocess.call(["pip", "install", "torch==1.9.0"])
 
     other_imports = perform_other_imports()
 
@@ -380,6 +380,102 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
             break
 
     return outputs
+
+
+def trainer(
+    negotiation_on=0,
+    num_envs=100,
+    train_batch_size=1024,
+    num_episodes=30000,
+    lr=0.0005,
+    model_params_save_freq=5000,
+    desired_outputs=desired_outputs,
+    num_workers=4,
+):
+    print("Training with RLlib...")
+
+    # Read the run configurations specific to the environment.
+    # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
+    # -----------------------------------------------------------------------------
+    config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", "rice_rllib.yaml")
+    if not os.path.exists(config_path):
+        raise ValueError(
+            "The run configuration is missing. Please make sure the correct path "
+            "is specified."
+        )
+
+    with open(config_path, "r", encoding="utf8") as fp:
+        run_config = yaml.safe_load(fp)
+    # replace the default setting
+    run_config["env"]["negotiation_on"] = negotiation_on
+    run_config["trainer"]["num_envs"] = num_envs
+    run_config["trainer"]["train_batch_size"] = train_batch_size
+    run_config["trainer"]["num_workers"] = num_workers
+    run_config["trainer"]["num_episodes"] = num_episodes
+    run_config["policy"]["regions"]["lr"] = lr
+    run_config["saving"]["model_params_save_freq"] = model_params_save_freq
+
+    # Create trainer
+    # --------------
+    trainer, save_dir = create_trainer(run_config)
+
+    # Copy the source files into the results directory
+    # ------------------------------------------------
+    os.makedirs(save_dir)
+    # Copy source files to the saving directory
+    for file in ["rice.py", "rice_helpers.py"]:
+        shutil.copyfile(
+            os.path.join(PUBLIC_REPO_DIR, file),
+            os.path.join(save_dir, file),
+        )
+    for file in ["rice_rllib.yaml"]:
+        shutil.copyfile(
+            os.path.join(PUBLIC_REPO_DIR, "scripts", file),
+            os.path.join(save_dir, file),
+        )
+
+    # Add an identifier file
+    with open(os.path.join(save_dir, ".rllib"), "x", encoding="utf-8") as fp:
+        pass
+    fp.close()
+
+    # Perform training
+    # ----------------
+    trainer_config = run_config["trainer"]
+    # num_episodes = trainer_config["num_episodes"]
+    # train_batch_size = trainer_config["train_batch_size"]
+    # Fetch the env object from the trainer
+    env_obj = trainer.workers.local_worker().env.env
+    episode_length = env_obj.episode_length
+    num_iters = (num_episodes * episode_length) // train_batch_size
+
+    for iteration in range(num_iters):
+        print(f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********")
+        result = trainer.train()
+        total_timesteps = result.get("timesteps_total")
+        if (
+            iteration % run_config["saving"]["model_params_save_freq"] == 0
+            or iteration == num_iters - 1
+        ):
+            save_model_checkpoint(trainer, save_dir, total_timesteps)
+            logging.info(result)
+        print(f"""episode_reward_mean: {result.get('episode_reward_mean')}""")
+
+    # Create a (zipped) submission file
+    # ---------------------------------
+    subprocess.call(
+        [
+            "python",
+            os.path.join(PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"),
+            "--results_dir",
+            save_dir,
+        ]
+    )
+
+    # Close Ray gracefully after completion
+    outputs_ts = fetch_episode_states(trainer, desired_outputs)
+    ray.shutdown()
+    return trainer, outputs_ts
 
 
 if __name__ == "__main__":

@@ -485,3 +485,89 @@ def plot_result(variable, nego_off=None, nego_on=None, k=0):
         plt.legend(legends)
         plt.grid()
         plt.ylabel(variable)
+
+
+def plot_training_curve(
+    data, mertic, submission_file_name, start=None, end=None, return_data=False
+):
+    """
+       plotting mertics collected in a dictionary from the training procedure. Below are some of the available metrics:
+       mertics = ['Iterations Completed',
+        'VF loss coefficient',
+        'Entropy coefficient',
+        'Total loss',
+        'Policy loss',
+        'Value function loss',
+        'Mean rewards',
+        'Max. rewards',
+        'Min. rewards',
+        'Mean value function',
+        'Mean advantages',
+        'Mean (norm.) advantages',
+        'Mean (discounted) returns',
+        'Mean normalized returns',
+        'Mean entropy',
+        'Variance explained by the value function',
+        'Gradient norm',
+        'Learning rate',
+        'Mean episodic reward',
+        'Mean policy eval time per iter (ms)',
+        'Mean action sample time per iter (ms)',
+        'Mean env. step time per iter (ms)',
+        'Mean training time per iter (ms)',
+        'Mean total time per iter (ms)',
+        'Mean steps per sec (policy eval)',
+        'Mean steps per sec (action sample)',
+        'Mean steps per sec (env. step)',
+        'Mean steps per sec (training time)',
+        'Mean steps per sec (total)'
+        ]
+    """
+    if data is None:
+        data = get_training_curve(submission_file_name)
+    if start is None:
+        start = 0
+    if end is None:
+        plt.plot(data["Iterations Completed"][start:], data[mertic][start:])
+    else:
+        plt.plot(data["Iterations Completed"][start:end], data[mertic][start:end])
+    plt.grid()
+    plt.xlabel("iteration")
+    plt.ylabel(mertic)
+    plt.show()
+    if return_data:
+        return data
+    return
+
+
+def get_training_curve(submission_file_name):
+    """
+    get the metrics collected in a dictionary from the training procedure from the zip submission file.
+    """
+    import zipfile, json, shutil
+
+    if "zip" != submission_file_name.split(".")[-1]:
+        submission_file_name = submission_file_name + ".zip"
+    path_ = os.path.join("./Submissions/", submission_file_name)
+    assert os.path.exists(path_), "This files is not available. Please check the path."
+    with zipfile.ZipFile(path_, "r") as zip_ref:
+        unzip_path = os.path.join(
+            "./Submissions/", os.path.basename(path_).split(".")[0]
+        )
+        if not os.path.exists(unzip_path):
+            os.makedirs(unzip_path)
+        zip_ref.extractall(unzip_path)
+
+    json_path = os.path.join(unzip_path, "results.json")
+    with open(json_path, "r", encoding="utf-8") as f:
+        json_data = [json.loads(line) for line in f]
+    shutil.rmtree(unzip_path)
+    l = len(json_data)
+    data = {}
+    for k in json_data[0].keys():
+        if isinstance(json_data[0][k], (int, float)):
+            data[k] = [json_data[i][k] for i in range(l)]
+        elif isinstance(json_data[0][k], dict):
+            for k_ in json_data[0][k].keys():
+                data[k_] = [json_data[i][k][k_] for i in range(l)]
+    return data

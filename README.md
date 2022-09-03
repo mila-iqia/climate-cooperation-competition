@@ -1,5 +1,11 @@
 # Competition: Fostering Global Cooperation to Mitigate Climate Change
 
+[![PyTorch 1.9.0](https://img.shields.io/badge/PyTorch-1.9.0-ee4c2c?logo=pytorch&logoColor=white%22)](https://pytorch.org/docs/1.12/)
+[![Python 3.7](https://img.shields.io/badge/python-3.7-blue.svg)](https://www.python.org/downloads/release/python-3713/)
+[![Warp drive 1.67](https://img.shields.io/badge/warp_drive-1.6.7-blue.svg)](https://github.com/salesforce/warp-drive/)
+[![Ray 1.0.0](https://img.shields.io/badge/ray[rllib]-1.0.0-blue.svg)](https://docs.ray.io/en/latest/index.html)
+[![Paper](http://img.shields.io/badge/paper-arxiv.2208.07004-B31B1B.svg)](https://arxiv.org/abs/2208.07004)
+
 This is the code respository for the competition on modeling global cooperation in the RICE-N Integrated Assessment Model. This competition is co-organized by MILA and Salesforce Research.
 
 The RICE-N IAM is an agent-based model that incorporates DICE climate-economic dynamics and multi-lateral negotiation protocols between several fictitious nations.
@@ -124,15 +130,24 @@ To cite this code, please use the information in ```CITATION.cff``` and the foll
 
 ```
 @software{Zhang_RICE-N_2022,
-author = {Zhang, Tianyu and Srinivasa, Sunil and Wiliams, Andrew and Phade, Soham and Zhang, Yang and Gupta, Prateek and Bengio, Yoshua and Zheng, Stephan},
+author = {Zhang, Tianyu and Srinivasa, Sunil and Williams, Andrew and Phade, Soham and Zhang, Yang and Gupta, Prateek and Bengio, Yoshua and Zheng, Stephan},
 month = {7},
 title = {{RICE-N}},
 url = {https://github.com/mila-iqia/climate-cooperation-competition},
 version = {1.0.0},
 year = {2022}
 }
-```
 
+@misc{https://doi.org/10.48550/arxiv.2208.07004,
+  doi = {10.48550/ARXIV.2208.07004},
+  url = {https://arxiv.org/abs/2208.07004},
+  author = {Zhang, Tianyu and Williams, Andrew and Phade, Soham and Srinivasa, Sunil and Zhang, Yang and Gupta, Prateek and Bengio, Yoshua and Zheng, Stephan},
+  title = {AI for Global Climate Cooperation: Modeling Global Climate Negotiations, Agreements, and Long-Term Cooperation in RICE-N},  
+  publisher = {arXiv},
+  year = {2022}
+}
+
+```
 
 # License
 
