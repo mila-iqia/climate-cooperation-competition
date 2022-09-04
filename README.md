@@ -104,7 +104,7 @@ The notebook has a walkthrough of how to train RL agents with the simulation cod
 
 Once you build your simulation, you can use either of the following scripts to perform training.
 
-- `train_with_rllib.py`: this script performs end-to-end training with RLlib. The experiment run configuration will be read in from [rice_rllib.yaml](/scripts/rice_rllib.yaml), which contains the environment configuration, logging and saving settings and the trainer and policy network parameters. The duration of training can be set via the `num_episodes` parameter. We have also provided an initial implementation of a linear PyTorch policy model in [torch_models.py](/scripts/torch_models.py). You can [add other policy models](https://docs.ray.io/en/latest/rllib/rllib-concepts.html) you wish to use into that file.
+- [train_with_rllib.py](/scripts/train_with_rllib.py): this script performs end-to-end training with RLlib. The experiment run configuration will be read in from [rice_rllib.yaml](/scripts/rice_rllib.yaml), which contains the environment configuration, logging and saving settings and the trainer and policy network parameters. The duration of training can be set via the `num_episodes` parameter. We have also provided an initial implementation of a linear PyTorch policy model in [torch_models.py](/scripts/torch_models.py). You can [add other policy models](https://docs.ray.io/en/latest/rllib/rllib-concepts.html) you wish to use into that file.
 
 USAGE: The training script (with RLlib) is invoked using (from the root directory)
 ```commandline
