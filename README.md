@@ -26,6 +26,8 @@ We recommend that GPU users use ``warp_drive`` and CPU users use ``rllib``.
 
 ## Installation
 
+Notice: we recommend using `Linux` or `MacOS`. For Windows users, we recommend to use virtual machine running `Ubuntu 20.04` or [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install).
+
 You can get a copy of the code by cloning the repo using Git: 
 
 ```
