@@ -179,7 +179,7 @@ def get_rllib_config(exp_run_config=None, env_class=None, seed=None):
 
     env_config = exp_run_config["env"]
     assert isinstance(env_config, dict)
-    env_object = EnvWrapper(env_config=env_config)
+    env_object = env_class(env_config=env_config)
 
     # Define all the policies here
     policy_config = exp_run_config["policy"]["regions"]

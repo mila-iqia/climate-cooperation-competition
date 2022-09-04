@@ -48,10 +48,13 @@ def import_class_from_path(class_name=None, path=None):
     return getattr(module_from_spec, class_name)
 
 
-def fetch_base_env(base_folder="/tmp/_base"):
+def fetch_base_env(base_folder=".tmp/_base"):
     """
     Download the base version of the code from GitHub.
     """
+    if not base_folder.startswith('/'):
+      base_folder = os.path.join(PUBLIC_REPO_DIR, base_folder)
+      #print(f"Using tmp dir {base_folder}")
     if os.path.exists(base_folder):
         shutil.rmtree(base_folder)
     os.makedirs(base_folder, exist_ok=False)
@@ -62,8 +65,8 @@ def fetch_base_env(base_folder="/tmp/_base"):
     )
     prev_dir = os.getcwd()
     os.chdir(base_folder)
-    subprocess.call(["sudo", "wget", "-O", "rice.py", _BASE_RICE_PATH])
-    subprocess.call(["sudo", "wget", "-O", "rice_helpers.py", _BASE_RICE_HELPERS_PATH])
+    subprocess.call(["wget", "-O", "rice.py", _BASE_RICE_PATH])
+    subprocess.call(["wget", "-O", "rice_helpers.py", _BASE_RICE_HELPERS_PATH])
     shutil.copytree(
         os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
         os.path.join(base_folder, "region_yamls"),
@@ -104,7 +107,6 @@ class TestEnv(unittest.TestCase):
             os.makedirs("scripts", exist_ok=True)
             subprocess.call(
                 [
-                    "sudo",
                     "wget",
                     "-O",
                     "scripts/run_cpu_gpu_env_consistency_checks.py",
@@ -113,7 +115,6 @@ class TestEnv(unittest.TestCase):
             )
             subprocess.call(
                 [
-                    "sudo",
                     "wget",
                     "-O",
                     "rice_build.cu",
