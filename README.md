@@ -5,6 +5,7 @@
 [![Warp drive 1.67](https://img.shields.io/badge/warp_drive-1.6.7-blue.svg)](https://github.com/salesforce/warp-drive/)
 [![Ray 1.0.0](https://img.shields.io/badge/ray[rllib]-1.0.0-blue.svg)](https://docs.ray.io/en/latest/index.html)
 [![Paper](http://img.shields.io/badge/paper-arxiv.2208.07004-B31B1B.svg)](https://arxiv.org/abs/2208.07004)
+[![Tutorial In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb)
 
 This is the code respository for the competition on modeling global cooperation in the RICE-N Integrated Assessment Model. This competition is co-organized by MILA and Salesforce Research.
 
@@ -12,6 +13,7 @@ The RICE-N IAM is an agent-based model that incorporates DICE climate-economic d
 
 In this competition, you will design negotiation protocols and contracts between nations. You will use the simulation and agents to evaluate their impact on the climate and the economy. 
 
+We recommend GPU user use ``warp_drive`` and CPU user use ``rllib``.
 
 ## Resources
 
