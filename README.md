@@ -13,7 +13,7 @@ The RICE-N IAM is an agent-based model that incorporates DICE climate-economic d
 
 In this competition, you will design negotiation protocols and contracts between nations. You will use the simulation and agents to evaluate their impact on the climate and the economy. 
 
-We recommend GPU user use ``warp_drive`` and CPU user use ``rllib``.
+We recommend that GPU users use ``warp_drive`` and CPU users use ``rllib``.
 
 ## Resources
 
