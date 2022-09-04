@@ -71,7 +71,9 @@ We also provide starter scripts to train the simulation you build with either of
 Note that we only allow these two options, since our backend submission evaluation process only supports these at the moment.
 
 
-For training with RLlib, `rllib (1.0.0)`, `torch (1.10)` and `gym (0.21)` packages are required.
+For training with RLlib, `rllib (1.0.0)`, `torch (1.9.0)` and `gym (0.21)` packages are required.
+
+
 
 For training with WarpDrive, the `rl-warp-drive (>=1.6.5)` package is needed.
 
@@ -82,6 +84,10 @@ Note that these requirements are automatically installed (or updated) when you r
 
 We have also provided a sample dockerfile for your reference. It mainly uses a Nvidia PyTorch base image, and installs the `pycuda` package as well. Note: `pycuda` is only required if you would like to train using WarpDrive.
 
+
+## Docker image (for CPU)
+
+Thanks for the contribution from @muxspace. We also have an end-to-end docker environment ready for CPU users. Please refer to `README_CPU.md` for more details.
 
 # Customizing and running the simulation
 
