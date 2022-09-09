@@ -9,7 +9,7 @@ torch==1.9.0
 # For CPU
 # ray[rllib]==1.0.0 
 # For GPU
-# rl-warp-drive==1.6.7
+# rl-warp-drive==1.7.0
 matplotlib==3.2.2
 numpy==1.21.6
 deepdiff==5.8.1
