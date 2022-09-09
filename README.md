@@ -7,6 +7,9 @@
 [![Paper](http://img.shields.io/badge/paper-arxiv.2208.07004-B31B1B.svg)](https://arxiv.org/abs/2208.07004)
 [![Tutorial In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb)
 
+<a href="https://www.kaggle.com/kernels/fork-version/105300459"><img src="https://www.kaggle.com/static/images/site-logo.svg" align="left" height="40" width="40" ></a>(Tutorial Notebook on Kaggle with free GPU available)
+
+
 This is the code respository for the competition on modeling global cooperation in the RICE-N Integrated Assessment Model. This competition is co-organized by MILA and Salesforce Research.
 
 The RICE-N IAM is an agent-based model that incorporates DICE climate-economic dynamics and multi-lateral negotiation protocols between several fictitious nations.
@@ -19,9 +22,10 @@ We recommend that GPU users use ``warp_drive`` and CPU users use ``rllib``.
 
 - For all information and the leaderboard, see [our official website](https://www.ai4climatecoop.org).
 - [Getting Started Jupyter Notebook](getting_started.ipynb)
-- [Colab Tutorial Notebook](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb)
+- [Colab Tutorial Notebook with **free GPU**](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb)
+- [Kaggle Tutorial Notebook with **free GPU**](https://www.kaggle.com/kernels/fork-version/105300459)
 - For the mathematical background and scientific references, please see [the white paper](https://deliverypdf.ssrn.com/delivery.php?ID=579098091025080122123095015088114126057046084059055038121023114094110112070107123088059057002107022006023123122016086089001013042072002040020075022078097115093071118048047053064022064117095120085074022123010099031092026025094015125094099080071097079070&EXT=pdf&INDEX=TRUE).
-- Other free GPU resources: [Kaggle](https://www.kaggle.com/kernel), [Baidu Paddle](https://aistudio.baidu.com/), [MegStudio](https://studio.brainpp.com/)
+- Other free GPU resources: [Baidu Paddle](https://aistudio.baidu.com/), [MegStudio](https://studio.brainpp.com/)
 
 
 ## Installation
@@ -99,6 +103,7 @@ It provides examples on modifying the code to implement different negotiation pr
 
 The notebook has a walkthrough of how to train RL agents with the simulation code and how to visualize results from the simulation after running it with a set of agents.
 
+For those who have **limited access to Colab**, please try to use [**free GPUs on Kaggle**](https://www.kaggle.com/kernels/fork-version/105300459). Please notice that Kaggle platform requires mobile phone verification to be able to access the GPUs. One may find the **settings** to get GPUs and internet connect on the right hand side after clicking on the link above and login.
 
 # Training RL agents in your simulation
 
