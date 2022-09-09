@@ -5,6 +5,7 @@
 [![Warp drive 1.67](https://img.shields.io/badge/warp_drive-1.6.7-blue.svg)](https://github.com/salesforce/warp-drive/)
 [![Ray 1.0.0](https://img.shields.io/badge/ray[rllib]-1.0.0-blue.svg)](https://docs.ray.io/en/latest/index.html)
 [![Paper](http://img.shields.io/badge/paper-arxiv.2208.07004-B31B1B.svg)](https://arxiv.org/abs/2208.07004)
+[![Tutorial In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb)
 
 This is the code respository for the competition on modeling global cooperation in the RICE-N Integrated Assessment Model. This competition is co-organized by MILA and Salesforce Research.
 
@@ -12,6 +13,7 @@ The RICE-N IAM is an agent-based model that incorporates DICE climate-economic d
 
 In this competition, you will design negotiation protocols and contracts between nations. You will use the simulation and agents to evaluate their impact on the climate and the economy. 
 
+We recommend that GPU users use ``warp_drive`` and CPU users use ``rllib``.
 
 ## Resources
 
@@ -23,6 +25,8 @@ In this competition, you will design negotiation protocols and contracts between
 
 
 ## Installation
+
+Notice: we recommend using `Linux` or `MacOS`. For Windows users, we recommend to use virtual machine running `Ubuntu 20.04` or [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install).
 
 You can get a copy of the code by cloning the repo using Git: 
 
@@ -52,7 +56,7 @@ Then run the getting started Jupyter notebook, by starting Jupyter:
 jupyter notebook
 ``` 
 
-and then navigating to ```getting_started.ipynb```.
+and then navigating to [getting_started.ipynb](getting_started.ipynb).
 
 It provides a quick walkthrough for registering for the competition and creating a valid submission.
 
@@ -62,28 +66,34 @@ It provides a quick walkthrough for registering for the competition and creating
 RL agents can be trained using the RICE-N simulation using one of these two frameworks:
 
 1. [RLlib](https://docs.ray.io/en/latest/rllib/index.html#:~:text=RLlib%20is%20an%20open%2Dsource,large%20variety%20of%20industry%20applications): The pythonic environment can be trained on your local CPU machine using open-source RL framework, RLlib.
-2. [WarpDrive](https://github.com/salesforce/warp-drive): WarpDrive is a GPU-based framework that allows for [over 10x faster training](https://arxiv.org/pdf/2108.13976.pdf) compared to CPU-based training. It requires the simulation to be written out in CUDA C, and we also provide a starter version of the simulation environment written in CUDA C (`rice_step.cu`)
+2. [WarpDrive](https://github.com/salesforce/warp-drive): WarpDrive is a GPU-based framework that allows for [over 10x faster training](https://arxiv.org/pdf/2108.13976.pdf) compared to CPU-based training. It requires the simulation to be written out in CUDA C, and we also provide a starter version of the simulation environment written in CUDA C ([rice_step.cu](rice_step.cu))
 
 We also provide starter scripts to train the simulation you build with either of the above frameworks.
 
 Note that we only allow these two options, since our backend submission evaluation process only supports these at the moment.
 
 
-For training with RLlib, `rllib (1.0.0)`, `torch (1.10)` and `gym (0.21)` packages are required.
+For training with RLlib, `rllib (1.0.0)`, `torch (1.9.0)` and `gym (0.21)` packages are required.
+
+
 
 For training with WarpDrive, the `rl-warp-drive (>=1.6.5)` package is needed.
 
 Note that these requirements are automatically installed (or updated) when you run the corresponding training scripts.
 
 
-## Docker image (for GPU training)
+## Docker image (for GPU users)
 
 We have also provided a sample dockerfile for your reference. It mainly uses a Nvidia PyTorch base image, and installs the `pycuda` package as well. Note: `pycuda` is only required if you would like to train using WarpDrive.
 
 
+## Docker image (for CPU users)
+
+Thanks for the contribution from @muxspace. We also have an end-to-end docker environment ready for CPU users. Please refer to [README_CPU.md](README_CPU.md) for more details.
+
 # Customizing and running the simulation
 
-See the ```Tutorial.ipynb```. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb) for details. 
+See the [Colab_Tutorial.ipynb](Tutorial.ipynb). [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb) for details. 
 
 It provides examples on modifying the code to implement different negotiation protocols. It describes ways of changing the agent observations and action spaces corresponding to the proposed negotiation protocols and implementing the negotiation logic in the provided code. 
 
@@ -94,14 +104,14 @@ The notebook has a walkthrough of how to train RL agents with the simulation cod
 
 Once you build your simulation, you can use either of the following scripts to perform training.
 
-- `train_with_rllib.py`: this script performs end-to-end training with RLlib. The experiment run configuration will be read in from `rice_rllib.yaml`, which contains the environment configuration, logging and saving settings and the trainer and policy network parameters. The duration of training can be set via the `num_episodes` parameter. We have also provided an initial implementation of a linear PyTorch policy model in `torch_models.py`. You can [add other policy models](https://docs.ray.io/en/latest/rllib/rllib-concepts.html) you wish to use into that file.
+- [train_with_rllib.py](/scripts/train_with_rllib.py): this script performs end-to-end training with RLlib. The experiment run configuration will be read in from [rice_rllib.yaml](/scripts/rice_rllib.yaml), which contains the environment configuration, logging and saving settings and the trainer and policy network parameters. The duration of training can be set via the `num_episodes` parameter. We have also provided an initial implementation of a linear PyTorch policy model in [torch_models.py](/scripts/torch_models.py). You can [add other policy models](https://docs.ray.io/en/latest/rllib/rllib-concepts.html) you wish to use into that file.
 
 USAGE: The training script (with RLlib) is invoked using (from the root directory)
 ```commandline
     python scripts/train_with_rllib.py
 ```
 
-- `train_with_warp_drive.py`: this script performs end-to-end training with WarpDrive. The experiment run configuration will be read in from `rice_warpdrive.yaml`. Currently, WarpDrive just supports the Advantage Actor-Critic (A2C) and the Proximal Policy Optimization (PPO) algorithms, and the fully-connected policy model.
+- [train_with_warp_drive.py](/scripts/train_with_warp_drive.py): this script performs end-to-end training with WarpDrive. The experiment run configuration will be read in from [rice_warpdrive.yaml](/scripts/rice_warpdrive.yaml). Currently, WarpDrive just supports the Advantage Actor-Critic (A2C) and the Proximal Policy Optimization (PPO) algorithms, and the fully-connected policy model.
 
 USAGE: The training script (with WarpDrive) is invoked using
 ```commandline
@@ -111,10 +121,10 @@ USAGE: The training script (with WarpDrive) is invoked using
 As training progresses, some key metrics (such as the mean episode reward) are printed on screen for your reference. At the end of training, a zipped submission file is automatically created and saved for your reference. The zipped file essentially comprises the following
 
 - An identifier file (`.rllib` or `.warpdrive`) indicating which framework was used towards training.
-- The environment files - `rice.py` and `rice_helpers.py`.
-- A copy of the yaml configuration file (`rice_rllib.yaml` or `rice_warpdrive.yaml`) used for training.
+- The environment files - [rice.py](rice.py) and [rice_helpers.py](rice_helpers.py).
+- A copy of the yaml configuration file ([rice_rllib.yaml](/scripts/rice_rllib.yaml) or [rice_warpdrive.yaml](/scripts/rice_warpdrive.yaml)) used for training.
 - PyTorch policy model(s) (of type ".state_dict") containing the trained weights for the policy network(s). Only the trained policy model for the final timestep will be copied over into the submission zip. If you would like to instead submit the trained policy model at a different timestep, please see the section below on creating your submission file.
-- For submissions using WarpDrive, the submission will also contain CUDA-specific files `rice_step.cu` and `rice_cuda.py` that were used for training.
+- For submissions using WarpDrive, the submission will also contain CUDA-specific files [rice_step.cu](rice_step.cu) and [rice_cuda](rice_cuda.py) that were used for training.
 
 
 # Contributing
@@ -126,7 +136,7 @@ If there are bugs or corner cases, please open a PR detailing the issue and cons
 
 # Citation
 
-To cite this code, please use the information in ```CITATION.cff``` and the following bibtex entry:
+To cite this code, please use the information in [CITATION.cff](CITATION.cff) and the following bibtex entry:
 
 ```
 @software{Zhang_RICE-N_2022,

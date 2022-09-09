@@ -1,0 +1,16 @@
+#FROM toluclassics/transformers_notebook
+FROM jupyter/base-notebook:python-3.7.6
+#FROM jupyter/tensorflow-notebook
+
+ENV TRANSFORMERS_CACHE=/tmp/.cache
+ENV TOKENIZERS_PARALLELISM=true
+
+USER root
+RUN apt-get update && apt-get install -y libglib2.0-0
+RUN pip3 install --no-cache-dir protobuf==3.20.1
+RUN pip3 install --no-cache-dir tensorflow==1.13.2 gym==0.21 ray[rllib]==1.0.0 torch==1.9.0
+RUN pip3 install --no-cache-dir importlib-resources ale-py~=0.7.1 \
+ && pip3 install --no-cache-dir MarkupSafe==2.0.1
+
+USER ${NB_UID}
+WORKDIR "${HOME}/work"
