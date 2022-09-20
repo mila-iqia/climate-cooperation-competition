@@ -491,37 +491,37 @@ def plot_training_curve(
     data, mertic, submission_file_name, start=None, end=None, return_data=False
 ):
     """
-       plotting mertics collected in a dictionary from the training procedure. Below are some of the available metrics:
-       mertics = ['Iterations Completed',
-        'VF loss coefficient',
-        'Entropy coefficient',
-        'Total loss',
-        'Policy loss',
-        'Value function loss',
-        'Mean rewards',
-        'Max. rewards',
-        'Min. rewards',
-        'Mean value function',
-        'Mean advantages',
-        'Mean (norm.) advantages',
-        'Mean (discounted) returns',
-        'Mean normalized returns',
-        'Mean entropy',
-        'Variance explained by the value function',
-        'Gradient norm',
-        'Learning rate',
-        'Mean episodic reward',
-        'Mean policy eval time per iter (ms)',
-        'Mean action sample time per iter (ms)',
-        'Mean env. step time per iter (ms)',
-        'Mean training time per iter (ms)',
-        'Mean total time per iter (ms)',
-        'Mean steps per sec (policy eval)',
-        'Mean steps per sec (action sample)',
-        'Mean steps per sec (env. step)',
-        'Mean steps per sec (training time)',
-        'Mean steps per sec (total)'
-        ]
+    plotting mertics collected in a dictionary from the training procedure. Below are some of the available metrics:
+    mertics = ['Iterations Completed',
+     'VF loss coefficient',
+     'Entropy coefficient',
+     'Total loss',
+     'Policy loss',
+     'Value function loss',
+     'Mean rewards',
+     'Max. rewards',
+     'Min. rewards',
+     'Mean value function',
+     'Mean advantages',
+     'Mean (norm.) advantages',
+     'Mean (discounted) returns',
+     'Mean normalized returns',
+     'Mean entropy',
+     'Variance explained by the value function',
+     'Gradient norm',
+     'Learning rate',
+     'Mean episodic reward',
+     'Mean policy eval time per iter (ms)',
+     'Mean action sample time per iter (ms)',
+     'Mean env. step time per iter (ms)',
+     'Mean training time per iter (ms)',
+     'Mean total time per iter (ms)',
+     'Mean steps per sec (policy eval)',
+     'Mean steps per sec (action sample)',
+     'Mean steps per sec (env. step)',
+     'Mean steps per sec (training time)',
+     'Mean steps per sec (total)'
+     ]
     """
     if data is None:
         data = get_training_curve(submission_file_name)
@@ -548,12 +548,16 @@ def get_training_curve(submission_file_name):
 
     if "zip" != submission_file_name.split(".")[-1]:
         submission_file_name = submission_file_name + ".zip"
-    path_ = os.path.join("./Submissions/", submission_file_name)
-    assert os.path.exists(path_), "This files is not available. Please check the path."
+    # path_ = os.path.join("./Submissions/", submission_file_name)
+    path_ = submission_file_name
+    assert os.path.exists(
+        path_
+    ), f"This files is not available. Please check the path: {path_}."
     with zipfile.ZipFile(path_, "r") as zip_ref:
-        unzip_path = os.path.join(
-            "./Submissions/", os.path.basename(path_).split(".")[0]
-        )
+        # unzip_path = os.path.join(
+        #     "./Submissions/", os.path.basename(path_).split(".")[0]
+        # )
+        unzip_path = path_[:-4]
         if not os.path.exists(unzip_path):
             os.makedirs(unzip_path)
         zip_ref.extractall(unzip_path)
