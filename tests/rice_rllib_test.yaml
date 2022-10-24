@@ -48,4 +48,4 @@ policy:
         model:
             custom_model: torch_linear
             custom_model_config:
-                fc_dims: [256, 256]
+                fc_dims: [16, 16]
