@@ -20,7 +20,7 @@ We recommend that GPU users use ``warp_drive`` and CPU users use ``rllib``.
 
 ## Tutorial
 - For all information and the leaderboard, see [our official website](https://www.ai4climatecoop.org).
-- [Getting Started](getting_started.ipynb)
+- [How to Get Started](getting_started.ipynb)
 - [Code Tutorial Notebook with **free GPU**](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb)
 - [Code Kaggle Tutorial Notebook with **free GPU**](https://www.kaggle.com/kernels/fork-version/105300459)
 
