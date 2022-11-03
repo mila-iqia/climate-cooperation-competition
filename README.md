@@ -5,9 +5,9 @@
 [![Warp drive 1.7.0](https://img.shields.io/badge/warp_drive-1.7.0-blue.svg)](https://github.com/salesforce/warp-drive/)
 [![Ray 1.0.0](https://img.shields.io/badge/ray[rllib]-1.0.0-blue.svg)](https://docs.ray.io/en/latest/index.html)
 [![Paper](http://img.shields.io/badge/paper-arxiv.2208.07004-B31B1B.svg)](https://arxiv.org/abs/2208.07004)
-[![Tutorial In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb)
+[![Code Tutorial](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb)
 
-<a href="https://www.kaggle.com/kernels/fork-version/105300459"><img src="https://www.kaggle.com/static/images/site-logo.svg" align="left" height="40" width="40" ></a>(Tutorial Notebook on Kaggle with free GPU available)
+<a href="https://www.kaggle.com/kernels/fork-version/105300459"><img src="https://www.kaggle.com/static/images/site-logo.svg" align="left" height="40" width="40" ></a>(Code Tutorial Notebook on Kaggle with free GPU available)
 
 
 This is the code respository for the competition on modeling global cooperation in the RICE-N Integrated Assessment Model. This competition is co-organized by MILA and Salesforce Research.
@@ -18,12 +18,13 @@ In this competition, you will design negotiation protocols and contracts between
 
 We recommend that GPU users use ``warp_drive`` and CPU users use ``rllib``.
 
-## Resources
-
+## Tutorial
 - For all information and the leaderboard, see [our official website](https://www.ai4climatecoop.org).
-- [Getting Started Jupyter Notebook](getting_started.ipynb)
-- [Colab Tutorial Notebook with **free GPU**](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb)
-- [Kaggle Tutorial Notebook with **free GPU**](https://www.kaggle.com/kernels/fork-version/105300459)
+- [Getting Started](getting_started.ipynb)
+- [Code Tutorial Notebook with **free GPU**](https://colab.research.google.com/github/mila-iqia/climate-cooperation-competition/blob/main/Colab_Tutorial.ipynb)
+- [Code Kaggle Tutorial Notebook with **free GPU**](https://www.kaggle.com/kernels/fork-version/105300459)
+
+## Resources
 - For the mathematical background and scientific references, please see [the white paper](https://deliverypdf.ssrn.com/delivery.php?ID=579098091025080122123095015088114126057046084059055038121023114094110112070107123088059057002107022006023123122016086089001013042072002040020075022078097115093071118048047053064022064117095120085074022123010099031092026025094015125094099080071097079070&EXT=pdf&INDEX=TRUE).
 - Other free GPU resources: [Baidu Paddle](https://aistudio.baidu.com/), [MegStudio](https://studio.brainpp.com/)
 
