@@ -55,6 +55,7 @@ You can install the dependencies using pip:
 pip install -r requirements.txt
 ```
 
+## Get Started
 Then run the getting started Jupyter notebook, by starting Jupyter:
 
 ```
