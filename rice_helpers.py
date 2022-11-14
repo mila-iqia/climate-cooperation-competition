@@ -66,6 +66,11 @@ def get_exogenous_emissions(f_0, f_1, t_f, timestep):
 
 def get_land_emissions(e_l0, delta_el, timestep, num_regions):
     """Obtain the amount of land emissions."""
+    print(f"Params:")
+    print(f"e_l0: {e_l0}, type: {e_l0}")
+    print(f"e_l0: {delta_el}, type: {delta_el}")
+    print(f"e_l0: {timestep}, type: {timestep}")
+    print(f"e_l0: {num_regions}, type: {num_regions}")
     return e_l0 * pow(1 - delta_el, timestep - 1)/num_regions
 
 
