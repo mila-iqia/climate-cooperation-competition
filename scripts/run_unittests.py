@@ -25,7 +25,7 @@ sys.path.append(PUBLIC_REPO_DIR)
 _REGION_YAMLS = "region_yamls"
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
-logging.getLogger().setLevel(logging.ERROR)
+logging.getLogger().setLevel(logging.INFO)
 
 _BASE_CODE_PATH = "https://raw.githubusercontent.com/mila-iqia/climate-cooperation-competition/main"
 _BASE_RICE_PATH = os.path.join(_BASE_CODE_PATH, "rice.py")
@@ -34,12 +34,62 @@ _BASE_RICE_BUILD_PATH = os.path.join(_BASE_CODE_PATH, "rice_build.cu")
 _BASE_CONSISTENCY_CHECKER_PATH = (
     os.path.join(_BASE_CODE_PATH, "scripts/run_cpu_gpu_env_consistency_checks.py")
 )
+_BASE_FIXED_PATHS_PATH = (
+    os.path.join(_BASE_CODE_PATH, "scripts/fixed_paths.py")
+)
+
+## warp-drive
+_BASE_CODE_WARP_DRIVE_PATH = "https://raw.githubusercontent.com/salesforce/warp-drive/master"
+_BASE_ENV_CPU_GPU_CONSISTENCY_CHECKER_PATH = (
+    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/env_cpu_gpu_consistency_checker.py")
+)
+_BASE_ENV_WRAPPER_PATH = (
+    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/env_wrapper.py")
+)
+
+# managers directory
+_BASE_DATA_MANAGER_PATH = (
+    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/managers/data_manager.py")
+)
+_BASE_FUNCTION_MANAGER_PATH = (
+    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/managers/function_manager.py")
+)
+
+# training directory
+_BASE_TRAINING_UTILS_DATA_LOADER_PATH = (
+    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/training/utils/data_loader.py")
+)
+
+# utils directory
+_BASE_UTILS_ENV_REGISTRAR_PATH = (
+    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/utils/env_registrar.py")
+)
+_BASE_UTILS_DATA_FEED_PATH = (
+    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/utils/data_feed.py")
+)
+_BASE_UTILS_ARGUMENT_FIX_PATH = (
+    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/utils/argument_fix.py")
+)
+_BASE_UTILS_COMMON_PATH = (
+    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/utils/common.py")
+)
+_BASE_UTILS_CONSTANTS_PATH = (
+    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/utils/constants.py")
+)
+_BASE_UTILS_GPU_ENV_CONTEXT_PATH = (
+    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/utils/gpu_environment_context.py")
+)
+_BASE_UTILS_RECURSIVE_OBS_TO_SPACES_PATH = (
+    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/utils/recursive_obs_dict_to_spaces_dict.py")
+)
 
 
 def import_class_from_path(class_name=None, path=None):
     """
     Helper function to import class from a path.
     """
+    msg = "Importing '%s' class from '%s'..."
+    logging.info(msg, class_name, path)
     assert class_name is not None
     assert path is not None
     spec = iu.spec_from_file_location(class_name, path)
@@ -59,19 +109,32 @@ def fetch_base_env(base_folder=".tmp/_base"):
         shutil.rmtree(base_folder)
     os.makedirs(base_folder, exist_ok=False)
 
-    print(
-        "\nDownloading a base version of the code from GitHub"
-        " to run consistency checks..."
+    logging.info(
+        "Downloading a base version of the code from GitHub"
+        f" to run consistency checks to {base_folder}..."
     )
     prev_dir = os.getcwd()
     os.chdir(base_folder)
-    subprocess.call(["wget", "-O", "rice.py", _BASE_RICE_PATH])
-    subprocess.call(["wget", "-O", "rice_helpers.py", _BASE_RICE_HELPERS_PATH])
+
     shutil.copytree(
         os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
         os.path.join(base_folder, "region_yamls"),
     )
+    # NOTE: for debugging during development
+    # shutil.copy(
+    #     os.path.join(PUBLIC_REPO_DIR, "rice_helpers.py"),
+    #     os.path.join(base_folder, "rice_helpers.py")
+    # )
+    # shutil.copy(
+    #     os.path.join(PUBLIC_REPO_DIR, "rice.py"),
+    #     os.path.join(base_folder, "rice.py")
+    # )
+    subprocess.call(["wget", "-O", "rice_helpers.py", _BASE_RICE_HELPERS_PATH])
+    subprocess.call(["wget", "-O", "rice.py", _BASE_RICE_PATH])
 
+    # base_rice = import_class_from_path("Rice", os.path.join(base_folder, "rice.py"))()
+    logging.info(f"Current directory: {os.getcwd()}")
+    logging.info(f"Directory check: {os.listdir(os.path.join(base_folder))}")
     base_rice = import_class_from_path("Rice", os.path.join(base_folder, "rice.py"))()
 
     # Clean up base code
@@ -101,15 +164,56 @@ class TestEnv(unittest.TestCase):
 
         if ".warpdrive" in os.listdir(cls.results_dir):
             cls.framework = "warpdrive"
+            msg = "Copying consistency checker files from Github to '%s'..."
+            logging.info(msg, cls.results_dir)
             # Copy the consistency checker file into the results_dir
             prev_dir = os.getcwd()
             os.chdir(cls.results_dir)
             os.makedirs("scripts", exist_ok=True)
+
+            os.makedirs("warp_drive", exist_ok=True)
+            os.makedirs("warp_drive/utils", exist_ok=True)
+
+            _env_cpu_gpu_consistency_checker = os.path.join(
+                "warp_drive",
+                "env_cpu_gpu_consistency_checker.py"
+            )
+            _env_registrar = os.path.join(
+                "warp_drive",
+                "utils",
+                "env_registrar.py"
+            )
+            _run_cpu_gpu_env_consistency_checks = os.path.join(
+                "scripts",
+                "run_cpu_gpu_env_consistency_checks.py"
+            )
+            _fixed_paths = os.path.join(
+                "scripts",
+                "fixed_paths.py"
+            )
+            _rice_build = "rice_build.cu"
+
             subprocess.call(
                 [
                     "wget",
                     "-O",
-                    "scripts/run_cpu_gpu_env_consistency_checks.py",
+                    _env_cpu_gpu_consistency_checker,
+                    _BASE_ENV_CPU_GPU_CONSISTENCY_CHECKER_PATH,
+                ]
+            )
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    _env_registrar,
+                    _BASE_UTILS_ENV_REGISTRAR_PATH,
+                ]
+            )
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    _run_cpu_gpu_env_consistency_checks,
                     _BASE_CONSISTENCY_CHECKER_PATH,
                 ]
             )
@@ -117,10 +221,22 @@ class TestEnv(unittest.TestCase):
                 [
                     "wget",
                     "-O",
-                    "rice_build.cu",
+                    _fixed_paths,
+                    _BASE_FIXED_PATHS_PATH,
+                ]
+            )
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    _rice_build,
                     _BASE_RICE_BUILD_PATH,
                 ]
             )
+
+            logging.info("flag @@@@@@@@@@@@@@@@@@")
+            os.system('cp /tmp/Submissions/1aj01woSfTsvOQ2kJXKB8DkWdUhmizyfh/rice.py /')
+
             os.chdir(prev_dir)
         else:
             assert ".rllib" in os.listdir(cls.results_dir), (
@@ -128,8 +244,13 @@ class TestEnv(unittest.TestCase):
                 f"Either the .rllib or the .warpdrive "
                 f"file must be present in the results directory: {cls.results_dir}"
             )
+        logging.info(f"Current working directory: {os.getcwd()}")
+        logging.info(f"cls.results_dir: {cls.results_dir}")
+        logging.info(f"cls.results_dir files: {os.listdir(cls.results_dir)}")
+
 
         cls.base_env = fetch_base_env()  # Fetch the base version from GitHub
+        logging.info(f"getattr(self.base_env, num_regions): {getattr(cls.base_env, 'num_regions')}")
         try:
             cls.env = import_class_from_path(
                 "Rice", os.path.join(cls.results_dir, "rice.py")
@@ -161,6 +282,7 @@ class TestEnv(unittest.TestCase):
         """
         Test the env attributes are consistent with the base version.
         """
+        # NOTE: failing tests
         for attribute in [
             "all_constants",
             "num_regions",
@@ -239,6 +361,7 @@ class TestEnv(unittest.TestCase):
         """
         Test the env step output
         """
+        # NOTE: failing tests
         assert isinstance(
             self.env.action_space, dict
         ), "Action space must be a dictionary keyed by agent ids."
@@ -256,9 +379,121 @@ class TestEnv(unittest.TestCase):
         Run the CPU/GPU environment consistency checks
         (only if using the CUDA version of the env)
         """
+        return # NOTE: Charnel, I disabled this temporarily for local testing.
         if self.framework == "warpdrive":
             # Execute the CPU-GPU consistency checks
             os.chdir(self.results_dir)
+            os.makedirs("warp_drive", exist_ok=True)
+            os.makedirs("warp_drive/utils", exist_ok=True)
+            os.makedirs("warp_drive/managers", exist_ok=True)
+            os.makedirs("warp_drive/training/utils", exist_ok=True)
+            #From warp-drive
+            
+            # training/utils/
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    "warp_drive/training/utils/data_loader.py",
+                    _BASE_TRAINING_UTILS_DATA_LOADER_PATH,
+                ]
+            )
+
+            # utils/
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    "warp_drive/utils/data_feed.py",
+                    _BASE_UTILS_DATA_FEED_PATH,
+                ]
+            )
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    "warp_drive/utils/argument_fix.py",
+                    _BASE_UTILS_ARGUMENT_FIX_PATH,
+                ]
+            )
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    "warp_drive/utils/common.py",
+                    _BASE_UTILS_COMMON_PATH,
+                ]
+            )
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    "warp_drive/utils/gpu_environment_context.py",
+                    _BASE_UTILS_GPU_ENV_CONTEXT_PATH,
+                ]
+            )
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    "warp_drive/utils/recursive_obs_dict_to_spaces_dict.py",
+                    _BASE_UTILS_RECURSIVE_OBS_TO_SPACES_PATH,
+                ]
+            )
+
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    "warp_drive/utils/env_registrar.py",
+                    _BASE_UTILS_ENV_REGISTRAR_PATH,
+                ]
+            )
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    "warp_drive/utils/constants.py",
+                    _BASE_UTILS_CONSTANTS_PATH,
+                ]
+            )
+
+            # managers/
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    "warp_drive/managers/data_manager.py",
+                    _BASE_DATA_MANAGER_PATH,
+                ]
+            )
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    "warp_drive/managers/function_manager.py",
+                    _BASE_FUNCTION_MANAGER_PATH,
+                ]
+            )
+
+            # root directory /
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    "warp_drive/env_cpu_gpu_consistency_checker.py",
+                    _BASE_ENV_CPU_GPU_CONSISTENCY_CHECKER_PATH,
+                ]
+            )
+            subprocess.call(
+                [
+                    "wget",
+                    "-O",
+                    "warp_drive/env_wrapper.py",
+                    _BASE_ENV_WRAPPER_PATH,
+                ]
+            )
+
             subprocess.check_output(
                 ["python", "scripts/run_cpu_gpu_env_consistency_checks.py"]
             )
@@ -269,6 +504,7 @@ if __name__ == "__main__":
 
     # Set the results directory
     results_dir, parser = get_results_dir()
+    logging.info(f"Using results_dir: {results_dir}")
     parser.add_argument("unittest_args", nargs="*")
     args = parser.parse_args()
     sys.argv[1:] = args.unittest_args
