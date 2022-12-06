@@ -25,7 +25,7 @@ sys.path.append(PUBLIC_REPO_DIR)
 _REGION_YAMLS = "region_yamls"
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
-logging.getLogger().setLevel(logging.INFO)
+logging.getLogger().setLevel(logging.ERROR)
 
 _BASE_CODE_PATH = "https://raw.githubusercontent.com/mila-iqia/climate-cooperation-competition/main"
 _BASE_RICE_PATH = os.path.join(_BASE_CODE_PATH, "rice.py")
@@ -118,8 +118,8 @@ def import_class_from_path(class_name=None, path=None):
     """
     Helper function to import class from a path.
     """
-    msg = "Importing '%s' class from '%s'..."
-    logging.info(msg, class_name, path)
+    m = "Importing '%s' class from '%s'..."
+    logging.info(m, class_name, path)
     assert class_name is not None
     assert path is not None
     spec = iu.spec_from_file_location(class_name, path)
@@ -183,8 +183,8 @@ class TestEnv(unittest.TestCase):
 
         if ".warpdrive" in os.listdir(cls.results_dir):
             cls.framework = "warpdrive"
-            msg = "Copying consistency checker files from Github to '%s'..."
-            logging.info(msg, cls.results_dir)
+            m = "Copying consistency checker files from Github to '%s'..."
+            logging.info(m, cls.results_dir)
             # Copy the consistency checker file into the results_dir
             prev_dir = os.getcwd()
             os.chdir(cls.results_dir)
