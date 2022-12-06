@@ -49,38 +49,68 @@ _BASE_ENV_WRAPPER_PATH = (
 
 # managers directory
 _BASE_DATA_MANAGER_PATH = (
-    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/managers/data_manager.py")
+    os.path.join(
+        _BASE_CODE_WARP_DRIVE_PATH, 
+        "warp_drive/managers/data_manager.py"
+    )
 )
 _BASE_FUNCTION_MANAGER_PATH = (
-    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/managers/function_manager.py")
+    os.path.join(
+        _BASE_CODE_WARP_DRIVE_PATH, 
+        "warp_drive/managers/function_manager.py"
+    )
 )
 
 # training directory
 _BASE_TRAINING_UTILS_DATA_LOADER_PATH = (
-    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/training/utils/data_loader.py")
+    os.path.join(
+        _BASE_CODE_WARP_DRIVE_PATH, 
+        "warp_drive/training/utils/data_loader.py"
+    )
 )
 
 # utils directory
 _BASE_UTILS_ENV_REGISTRAR_PATH = (
-    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/utils/env_registrar.py")
+    os.path.join(
+        _BASE_CODE_WARP_DRIVE_PATH, 
+        "warp_drive/utils/env_registrar.py"
+    )
 )
 _BASE_UTILS_DATA_FEED_PATH = (
-    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/utils/data_feed.py")
+    os.path.join(
+        _BASE_CODE_WARP_DRIVE_PATH, 
+        "warp_drive/utils/data_feed.py"
+    )
 )
 _BASE_UTILS_ARGUMENT_FIX_PATH = (
-    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/utils/argument_fix.py")
+    os.path.join(
+        _BASE_CODE_WARP_DRIVE_PATH, 
+        "warp_drive/utils/argument_fix.py"
+    )
 )
 _BASE_UTILS_COMMON_PATH = (
-    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/utils/common.py")
+    os.path.join(
+        _BASE_CODE_WARP_DRIVE_PATH, 
+        "warp_drive/utils/common.py"
+    )
 )
 _BASE_UTILS_CONSTANTS_PATH = (
-    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/utils/constants.py")
+    os.path.join(
+        _BASE_CODE_WARP_DRIVE_PATH, 
+        "warp_drive/utils/constants.py"
+    )
 )
 _BASE_UTILS_GPU_ENV_CONTEXT_PATH = (
-    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/utils/gpu_environment_context.py")
+    os.path.join(
+        _BASE_CODE_WARP_DRIVE_PATH, 
+        "warp_drive/utils/gpu_environment_context.py"
+    )
 )
 _BASE_UTILS_RECURSIVE_OBS_TO_SPACES_PATH = (
-    os.path.join(_BASE_CODE_WARP_DRIVE_PATH, "warp_drive/utils/recursive_obs_dict_to_spaces_dict.py")
+    os.path.join(
+        _BASE_CODE_WARP_DRIVE_PATH, 
+        "warp_drive/utils/recursive_obs_dict_to_spaces_dict.py"
+    )
 )
 
 
@@ -104,37 +134,24 @@ def fetch_base_env(base_folder=".tmp/_base"):
     """
     if not base_folder.startswith('/'):
       base_folder = os.path.join(PUBLIC_REPO_DIR, base_folder)
-      #print(f"Using tmp dir {base_folder}")
     if os.path.exists(base_folder):
         shutil.rmtree(base_folder)
     os.makedirs(base_folder, exist_ok=False)
 
     logging.info(
         "Downloading a base version of the code from GitHub"
-        f" to run consistency checks to {base_folder}..."
+        f" to run consistency checks to '{base_folder}'..."
     )
     prev_dir = os.getcwd()
     os.chdir(base_folder)
-
-    shutil.copytree(
-        os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
-        os.path.join(base_folder, "region_yamls"),
-    )
-    # NOTE: for debugging during development
-    # shutil.copy(
-    #     os.path.join(PUBLIC_REPO_DIR, "rice_helpers.py"),
-    #     os.path.join(base_folder, "rice_helpers.py")
-    # )
-    # shutil.copy(
-    #     os.path.join(PUBLIC_REPO_DIR, "rice.py"),
-    #     os.path.join(base_folder, "rice.py")
-    # )
+    if _REGION_YAMLS not in os.listdir(base_folder):
+        shutil.copytree(
+            os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
+            os.path.join(base_folder, "region_yamls"),
+        )
     subprocess.call(["wget", "-O", "rice_helpers.py", _BASE_RICE_HELPERS_PATH])
     subprocess.call(["wget", "-O", "rice.py", _BASE_RICE_PATH])
 
-    # base_rice = import_class_from_path("Rice", os.path.join(base_folder, "rice.py"))()
-    logging.info(f"Current directory: {os.getcwd()}")
-    logging.info(f"Directory check: {os.listdir(os.path.join(base_folder))}")
     base_rice = import_class_from_path("Rice", os.path.join(base_folder, "rice.py"))()
 
     # Clean up base code
@@ -157,6 +174,8 @@ class TestEnv(unittest.TestCase):
 
         # Note: results_dir attributed set in __main__.
         if _REGION_YAMLS not in os.listdir(cls.results_dir):
+            m = "Copying %s in '%s' directory..."
+            logging.info(m, _REGION_YAMLS, cls.results_dir)
             shutil.copytree(
                 os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
                 os.path.join(cls.results_dir, "region_yamls"),
@@ -234,9 +253,6 @@ class TestEnv(unittest.TestCase):
                 ]
             )
 
-            logging.info("flag @@@@@@@@@@@@@@@@@@")
-            os.system('cp /tmp/Submissions/1aj01woSfTsvOQ2kJXKB8DkWdUhmizyfh/rice.py /')
-
             os.chdir(prev_dir)
         else:
             assert ".rllib" in os.listdir(cls.results_dir), (
@@ -244,13 +260,9 @@ class TestEnv(unittest.TestCase):
                 f"Either the .rllib or the .warpdrive "
                 f"file must be present in the results directory: {cls.results_dir}"
             )
-        logging.info(f"Current working directory: {os.getcwd()}")
-        logging.info(f"cls.results_dir: {cls.results_dir}")
-        logging.info(f"cls.results_dir files: {os.listdir(cls.results_dir)}")
-
 
         cls.base_env = fetch_base_env()  # Fetch the base version from GitHub
-        logging.info(f"getattr(self.base_env, num_regions): {getattr(cls.base_env, 'num_regions')}")
+
         try:
             cls.env = import_class_from_path(
                 "Rice", os.path.join(cls.results_dir, "rice.py")
@@ -282,7 +294,6 @@ class TestEnv(unittest.TestCase):
         """
         Test the env attributes are consistent with the base version.
         """
-        # NOTE: failing tests
         for attribute in [
             "all_constants",
             "num_regions",
@@ -361,7 +372,6 @@ class TestEnv(unittest.TestCase):
         """
         Test the env step output
         """
-        # NOTE: failing tests
         assert isinstance(
             self.env.action_space, dict
         ), "Action space must be a dictionary keyed by agent ids."
@@ -379,7 +389,6 @@ class TestEnv(unittest.TestCase):
         Run the CPU/GPU environment consistency checks
         (only if using the CUDA version of the env)
         """
-        return # NOTE: Charnel, I disabled this temporarily for local testing.
         if self.framework == "warpdrive":
             # Execute the CPU-GPU consistency checks
             os.chdir(self.results_dir)

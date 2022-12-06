@@ -79,8 +79,6 @@ class Rice:
             os.path.join(_PUBLIC_REPO_DIR, "region_yamls"),
         )
 
-        print(f"@@@@@@@@@@@2 params: {params}")
-        print(f"@@@@@@@@@@@@ num_regions: {num_regions}")
         # TODO : add to yaml
         self.balance_interest_rate = 0.1
 
