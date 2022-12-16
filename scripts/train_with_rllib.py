@@ -371,7 +371,7 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
                     agent_states[region_id],
                     policy_id=policy_ids[region_id],
                 )
-        _, _, done, _ = env_object.step(actions)
+        obs, _, done, _ = env_object.step(actions)
         if done["__all__"]:
             for state in episode_states:
                 outputs[state][timestep + 1] = env.global_state[state]["value"][
