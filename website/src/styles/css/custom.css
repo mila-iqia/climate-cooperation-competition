@@ -95,7 +95,7 @@ body {
   width: 100%;
   aspect-ratio: 1 / 1;
   margin: 0 auto;
-  padding: 0;
+  padding: 16px;
 }
 
 .thumbnail {
@@ -110,12 +110,12 @@ body {
 }
 
 .navbar-logo-small {
-  height: 24px;
-  /* padding: 8px 0; */
+  height: 16px;
+  margin: 0 4px;
 }
 
 .partner-logo {
-  width: 10rem;   
+  margin: 0.6rem;
 }
 
 .fake-table-header {
