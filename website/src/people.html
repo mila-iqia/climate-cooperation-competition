@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>AI for Global Climate Cooperation</title>
+  <meta name="description" content="AI for Global Climate Cooperation" />
+  <!-- Fonts -->
+  <link rel="stylesheet" href="styles/css/font-awesome.min.css">
+  <script src="https://kit.fontawesome.com/d7c6b63fdf.js" crossorigin="anonymous"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik&family=Source+Sans+Pro&family=Spectral&display=swap"
+    rel="stylesheet">
+  <!-- Icons -->
+  <link rel="stylesheet" href="styles/css/academicons.min.css">
+  <link rel="stylesheet" href="styles/pygments/default.css">
+  <link rel="stylesheet" href="styles/css/sharingbuttons.css">
+  <link rel="icon" href="images/favicon.ico" />
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.5/dist/umd/popper.min.js"
+    integrity="sha384-Xe+8cL9oJa6tN/veChSP7q+mnSPaj5Bcu9mPX5F5xIGE0DVittaqT5lorf0EI7Vk"
+    crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.min.js"
+    integrity="sha384-kjU+l4N0Yf4ZOJErLsIcvOU2qSb74wXpOhqTvwVx3OElZRweTnQ6d31fXEoRD1Jy"
+    crossorigin="anonymous"></script>
+  <!-- Custom -->
+  <link rel="stylesheet" href="styles/css/custom.css">
+</head>
+
+<body data-bs-offset="50">
+  <!--  NAVBAR -->
+  <nav class="navbar navbar-expand-xl navbar-light bg-light position-sticky fixed-top">
+    <div class="container">
+      <span>
+        <a class="navbar-brand" href="index">
+          <img src="images/ai-for-global-climate-cooperation-logo-opaque.png"
+            class="navbar-logo d-inline-block align-top">
+        </a>
+      </span>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
+      aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav">
+    
+      <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle" href="index" id="navbarDropdownMenuLink" role="button"
+          data-bs-toggle="dropdown" aria-expanded="false">
+          About
+        </a>
+        <ul class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+          <li><a class="dropdown-item" href="index#overview">Overview</a></li>
+          <li><a class="dropdown-item" href="index#leaderboard">Leaderboard</a></li>
+          <li><a class="dropdown-item" href="schedule">Schedule</a></li>
+          <li><a class="dropdown-item" href="tracks">Tracks</a></li>
+          <li><a class="dropdown-item" href="ethics">Ethics</a></li>
+        </ul>
+      </li>
+      <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button"
+          data-bs-toggle="dropdown" aria-expanded="false">
+          Resources
+        </a>
+        <ul class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+          <li><a class="dropdown-item" href="faq">FAQ</a></li>
+          <li><a class="dropdown-item" href="https://blog.salesforceairesearch.com/ai4climatecoop/"
+              target="blank">Blog</a></li>
+          <li><a class="dropdown-item"
+              href="https://deliverypdf.ssrn.com/delivery.php?ID=133113085074071120106117066108031112006064056058069029104007020119110011112028126067098033019101022122010121092065088067097114059052014001081100123024076065125116100018049010096019099123092003103077013099080114075027121067015127121026010025071102030103&EXT=pdf&INDEX=TRUE"
+              target="blank">White paper</a></li>
+          <li><a class="dropdown-item" href="https://github.com/mila-iqia/climate-cooperation-competition"
+              target="blank">Code</a></li>
+          <li><a class="dropdown-item"
+              href="https://github.com/mila-iqia/climate-cooperation-competition/blob/main/README.md"
+              target="blank">Documentation</a></li>
+          <li><a class="dropdown-item"
+              href="https://github.com/mila-iqia/climate-cooperation-competition/blob/main/README-submissions.md"
+              target="blank">Code submission </a></li>
+          <li><a class="dropdown-item"
+              href="https://github.com/mila-iqia/climate-cooperation-competition/blob/main/README-code-overview.md"
+              target="blank">Code structure overview</a></li>
+        </ul>
+      </li>
+      <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button"
+          data-bs-toggle="dropdown" aria-expanded="false">
+          Participate
+        </a>
+        <ul class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+          <li><a class="dropdown-item" href="getstarted">Get started!</a></li>
+          <li><a class="dropdown-item" href="tracks#submit">Submit a solution</a></li>
+          <li><a class="dropdown-item" href="index#officehours">Office hours</a></li>
+        </ul>
+      </li>
+    
+      <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle" href="people" id="navbarDropdownMenuLink" role="button"
+          data-bs-toggle="dropdown" aria-expanded="false">
+          About us
+        </a>
+        <ul class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+          <li><a class="dropdown-item" href="people#jury">Jury</a></li>
+          <li><a class="dropdown-item" href="people#advisors">Advisors</a></li>
+          <li><a class="dropdown-item" href="people#organization">Organizers</a></li>
+          <li><a class="dropdown-item" href="people#acknowledgements">Acknowledgements</a></li>
+        </ul>
+      </li>
+    
+    
+      <li class="nav-item">
+        <a class="nav-link"
+          href="https://join.slack.com/t/aieconomist/shared_invite/zt-g71ajic7-XaMygwNIup~CCzaR1T0wgA"
+          target="blank">Slack</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="https://groups.google.com/g/climate-cooperation-competition">Google
+          Group</a>
+      </li>
+      <li class="nav-item">
+        <a href="http://www.twitter.com/AI4ClimateCoop" target="blank" class="nav-link text-decoration-none">
+          Follow us <img src="images/twitter-logo.png" class="navbar-logo-small">
+        </a>
+      </li>
+      <li class="nav-item"><a class="nav-link green-highlight" href="getstarted">Get started</a></li>
+    </ul>
+    </div>
+      <div class="d-inline-block">
+        
+        <a href="https://mila.quebec/en/" target="blank" class="text-decoration-none">
+          <img src="images/Mila_LOGO_HORIZONTAL_standard_RGB.png" class="navbar-logo d-inline-block align-top">
+        </a>
+      </div>
+    </div>
+  </nav>
+  <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+    <symbol id="check-circle-fill" fill="currentColor" viewBox="0 0 16 16">
+      <path
+        d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z" />
+    </symbol>
+    <symbol id="info-fill" fill="currentColor" viewBox="0 0 16 16">
+      <path
+        d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />
+    </symbol>
+    <symbol id="exclamation-triangle-fill" fill="currentColor" viewBox="0 0 16 16">
+      <path
+        d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" />
+    </symbol>
+  </svg>
+  
+
+  <!--  Main content -->
+  <div class="container">
+
+    <div class="row-col-1 pt-5" id="jury">
+      <h1 class="display-6">Jury</h1>
+      <div class="row no-gutters">
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/gillian.png" class="card-img-top people-img" alt="gillian">
+            <div class="card-body">
+              <h5 class="card-title">Gillian Hadfield</h5>
+              <h6 class="card-subtitle mb-2 text-muted">University of Toronto</h6>
+              <div class="card-text"> Schwartz Reisman Chair in Technology and Society <br /> Professor of Law and
+                Professor of Strategic Management <br /> Director, Schwartz Reisman Institute for Technology and Society
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/david.png" class="card-img-top people-img" alt="david">
+            <div class="card-body">
+              <h5 class="card-title">David Parkes</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Harvard University and DeepMind</h6>
+              <div class="card-text"> George F. Colony Professor of Computer Science <br /> Co-Director of the Harvard
+                Data Science Initiative <br /> Senior Research Scientist, DeepMind</div>
+            </div>
+          </div>
+        </div>
+        <!-- <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/victor.jpg" class="card-img-top people-img" alt="victor">
+            <div class="card-body">
+              <h5 class="card-title">David Victor</h5>
+              <h6 class="card-subtitle mb-2 text-muted">UC San Diego</h6>
+              <div class="card-text"> Professor of Innovation and Public Policy at the School of Global Policy and
+                Strategy</div>
+            </div>
+          </div>
+        </div> -->
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/lynn.png" class="card-img-top people-img" alt="lynn">
+            <div class="card-body">
+              <h5 class="card-title">Lynn Kaack</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Hertie School</h6>
+              <div class="card-text"> Assistant Professor, Computer Science and Public Policy <br />
+                Co-founder and Chair of Climate Change AI
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/nicholas.png" class="card-img-top people-img" alt="nicholas">
+            <div class="card-body">
+              <h5 class="card-title">Nicholas Muller</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Carnegie Mellon University</h6>
+              <div class="card-text"> Lester and Judith Lave Professor <br /> Economics, Engineering, and Public Policy,
+                Engineering and Public Policy, Tepper School of Business </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/stan.jpg" class="card-img-top people-img" alt="stan">
+            <div class="card-body">
+              <h5 class="card-title">Stan Veuger</h5>
+              <h6 class="card-subtitle mb-2 text-muted">American Enterprise Institute</h6>
+              <div class="card-text"> Senior Fellow <br /> Economic Policy Studies at the American Enterprise Institute
+                (AEI) </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/kumbleben.jpeg" class="card-img-top people-img" alt="kumbleben">
+            <div class="card-body">
+              <h5 class="card-title">Nicholas Kumleben</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Greenmantle</h6>
+              <div class="card-text"> Director, Energy</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/eyck.png" class="card-img-top people-img" alt="eyck">
+            <div class="card-body">
+              <h5 class="card-title">Eyck Freymann</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Greenmantle, Harvard Kennedy School</h6>
+              <div class="card-text"> Postdoctoral Fellow <br /> Arctic Initiative, Belfer Center </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/maija.png" class="card-img-top people-img" alt="maija">
+            <div class="card-body">
+              <h5 class="card-title">Maija Halonen-Akatwijuka</h5>
+              <h6 class="card-subtitle mb-2 text-muted">University of Bristol</h6>
+              <div class="card-text">Associate Professor, School of Economics</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/atacchet_headshot.jpg" class="card-img-top people-img" alt="TBC">
+            <div class="card-body">
+              <h5 class="card-title">Andrea Tachetti</h5>
+              <h6 class="card-subtitle mb-2 text-muted">DeepMind</h6>
+              <div class="card-text">Research Scientist, Multi-agent Team</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/romuald.png" class="card-img-top people-img" alt="TBC">
+            <div class="card-body">
+              <h5 class="card-title">Romuald Elie</h5>
+              <h6 class="card-subtitle mb-2 text-muted">DeepMind, Université Gustave Eiffel</h6>
+              <div class="card-text">Research Scientist, Professor of Mathematics</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/hector-alvarado.webp" class="card-img-top people-img" alt="TBC">
+            <div class="card-body">
+              <h5 class="card-title">Hector Alvarado</h5>
+              <h6 class="card-subtitle mb-2 text-muted">The Decision Lab</h6>
+              <div class="card-text">Project Leader</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/mike-tatigian.webp" class="card-img-top people-img" alt="TBC">
+            <div class="card-body">
+              <h5 class="card-title">Mike Tatigian</h5>
+              <h6 class="card-subtitle mb-2 text-muted">The Decision Lab</h6>
+              <div class="card-text">Director</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/shin.jpg" class="card-img-top people-img" alt="TBC">
+            <div class="card-body">
+              <h5 class="card-title">Shin Koseki</h5>
+              <h6 class="card-subtitle mb-2 text-muted"></h6>
+              <div class="card-text">Urban designer, policy-maker, coder, and co-founder of Paris-based urban planning
+                cooperative Chôros.</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/jen.jpg" class="card-img-top people-img" alt="TBC">
+            <div class="card-body">
+              <h5 class="card-title">Jen Gobby</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Concordia University (Montreal, QC)</h6>
+              <div class="card-text">Affiliate Assistant Professor, Dept of Geography, Planning and Environment.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="row-col-1 pt-5" id="advisors">
+      <h1 class="display-6">Advisors</h1>
+      <div class="row no-gutters">
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/vincent.png" class="card-img-top people-img" alt="vincent">
+            <div class="card-body">
+              <h5 class="card-title">Vincent Conitzer</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Duke University</h6>
+              <div class="card-text"> Professor of Computer Science</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/victor.jpg" class="card-img-top people-img" alt="victor">
+            <div class="card-body">
+              <h5 class="card-title">David Victor</h5>
+              <h6 class="card-subtitle mb-2 text-muted">UC San Diego</h6>
+              <div class="card-text"> Professor of Innovation and Public Policy at the School of Global Policy and
+                Strategy</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/richard.png" class="card-img-top people-img" alt="richard">
+            <div class="card-body">
+              <h5 class="card-title">Richard Socher</h5>
+              <h6 class="card-subtitle mb-2 text-muted">You.com</h6>
+              <div class="card-text">
+                CEO <br /> Former adjunct professor <br /> Stanford Computer Science <br /> Former Chief Scientist,
+                Salesforce
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/christian.jpeg" class="card-img-top people-img" alt="christian">
+            <div class="card-body">
+              <h5 class="card-title">Christian Schroeder de Witt</h5>
+              <h6 class="card-subtitle mb-2 text-muted">University of Oxford</h6>
+              <div class="card-text">
+                Postdoctoral Researcher
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/silvio.jpeg" class="card-img-top people-img" alt="silvio">
+            <div class="card-body">
+              <h5 class="card-title">Silvio Savarese</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Salesforce Research</h6>
+              <div class="card-text">
+                Chief Scientist
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="row-col-1 pt-5" id="organization">
+      <h1 class="display-6">Organizers</h1>
+      <div class="row no-gutters">
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/tianyu.png" class="card-img-top people-img" alt="tianyu">
+            <div class="card-body">
+              <h5 class="card-title">Tianyu Zhang</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Université de Montréal, MILA</h6>
+              <div class="card-text"> PhD student</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/andrew.png" class="card-img-top people-img" alt="andrew">
+            <div class="card-body">
+              <h5 class="card-title">Andrew Williams</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Université de Montréal, MILA</h6>
+              <div class="card-text"> Student</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/lu.jpg" class="card-img-top people-img" alt="lu">
+            <div class="card-body">
+              <h5 class="card-title">Lu Li</h5>
+              <h6 class="card-subtitle mb-2 text-muted">University of Pennsylvania</h6>
+              <div class="card-text"> PhD student</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/sunil.png" class="card-img-top people-img" alt="sunil">
+            <div class="card-body">
+              <h5 class="card-title">Sunil Srinivasa</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Google</h6>
+              <div class="card-text"> Research engineer <br />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/yang.png" class="card-img-top people-img" alt="yang">
+            <div class="card-body">
+              <h5 class="card-title">Yang Zhang</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Bank of Canada, MILA</h6>
+              <div class="card-text"> Part-time researcher</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/prateek.png" class="card-img-top people-img" alt="prateek">
+            <div class="card-body">
+              <h5 class="card-title">Prateek Gupta</h5>
+              <h6 class="card-subtitle mb-2 text-muted">University of Oxford, The Alan Turing Institute</h6>
+              <div class="card-text"> PhD student</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/stephan.png" class="card-img-top people-img" alt="stephan">
+            <div class="card-body">
+              <h5 class="card-title">Stephan Zheng</h5>
+              <h6 class="card-subtitle mb-2 text-muted"></h6>
+              <div class="card-text"><a href="https://www.salesforceairesearch.com/projects/the-ai-economist"
+                  target="blank">AI Economist</a></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/yoshua.jpeg" class="card-img-top people-img" alt="yoshua">
+            <div class="card-body">
+              <h5 class="card-title">Yoshua Bengio</h5>
+              <h6 class="card-subtitle mb-2 text-muted">MILA</h6>
+              <div class="card-text"> CIFAR AI Chair, Fellow and Program Director <br /> Scientific Director of Mila and
+                IVADO
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="row-col-1 pt-5" id="acknowledgements">
+      <h1 class="display-6">Acknowledgements</h1>
+      <div class="row no-gutters">
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/cheng.jpg" class="card-img-top people-img" alt="cheng">
+            <div class="card-body">
+              <h5 class="card-title">Qianyi Cheng</h5>
+              <h6 class="card-subtitle mb-2 text-muted">HfG Offenbach</h6>
+              <div class="card-text">
+                Logo designer
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/zhu.jpg" class="card-img-top people-img" alt="zhu">
+            <div class="card-body">
+              <h5 class="card-title">Zhu Zhu</h5>
+              <h6 class="card-subtitle mb-2 text-muted">HfG Offenbach</h6>
+              <div class="card-text">
+                Logo designer
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/soham.png" class="card-img-top people-img" alt="soham">
+            <div class="card-body">
+              <h5 class="card-title">Soham Phade</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Salesforce</h6>
+              <div class="card-text"> Research scientist</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/denise.jpg" class="card-img-top people-img" alt="denise">
+            <div class="card-body">
+              <h5 class="card-title">Denise Perez</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Salesforce</h6>
+              <div class="card-text">
+                Marketing
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/" class="card-img-top people-img" alt="donald">
+            <div class="card-body">
+              <h5 class="card-title">Donald Rose</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Salesforce</h6>
+              <div class="card-text">
+                Blog writer
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/" class="card-img-top people-img" alt="brianrowe">
+            <div class="card-body">
+              <h5 class="card-title">Brian Rowe</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Zatonovo</h6>
+              <div class="card-text">
+                CEO
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6 col-xs-12 d-flex justify-content-center">
+          <div class="card" style="width: 100%; padding: 0 10px;">
+            <img src="images/people/" class="card-img-top people-img" alt="donald">
+            <div class="card-body">
+              <h5 class="card-title">Charnel Clamosa</h5>
+              <h6 class="card-subtitle mbq-2 text-muted">Zatonovo</h6>
+              <div class="card-text">
+                Engineer
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="page-footer font-small bg-light" style="margin-top: 20px;">
+
+    <div class="footer-copyright text-center py-3">
+    </div>
+
+  </footer>
+  <!-- Footer -->
+
+</html>
+
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0B3QBV9L68"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag() { dataLayer.push(arguments); }
+  gtag('js', new Date());
+  gtag('config', 'G-0B3QBV9L68');
+</script>
