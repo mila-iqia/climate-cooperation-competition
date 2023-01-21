@@ -16,6 +16,7 @@ USER root
 RUN apt-get update && apt-get install -y libglib2.0-0
 RUN pip3 install --no-cache-dir protobuf==3.20.1
 RUN pip3 install --no-cache-dir gym==0.23.1
+RUN pip3 install --no-cache-dir scikit-learn
 RUN pip3 install --no-cache-dir importlib-metadata==4.12.0
 RUN pip3 install --no-cache-dir ray[rllib]==2.0.0 torch==1.9.0
 RUN pip3 install --no-cache-dir importlib-resources ale-py~=0.7.1 \

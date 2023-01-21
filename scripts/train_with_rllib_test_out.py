@@ -25,7 +25,9 @@ from fixed_paths import PUBLIC_REPO_DIR
 
 import ray
 from ray import tune
+from ray import air
 from ray.rllib.algorithms.ppo import PPO
+from ray.rllib.algorithms.ppo import PPOConfig
 
 sys.path.append(PUBLIC_REPO_DIR)
 
@@ -101,10 +103,21 @@ def get_tuner(run_config):
       #scheduler=pbt,
       num_samples=1),
       param_space={
-        'num_workers': 1,
+        'num_workers': p7,
         'num_gpus':p8
     }
     )
+    
+    return tuner
+    
+def get_tuner_simple(run_config):
+    
+    tuner = tune.Tuner(
+    "PPO",
+    run_config=air.RunConfig(
+        stop={"episode_reward_mean": 150},
+    ),
+    param_space=config)
     
     return tuner
 
@@ -347,8 +360,8 @@ def create_trainer(exp_run_config=None, source_dir=None, results_dir=None, seed=
     run_config1= exp_run_config # input to tuner
     logging.warning("ray init call")
     #if not ray.is_initialized():
-    #    ray.init() # ignore_reinit_error=True)
-    context = ray.init() # do no init?
+    ray.init() # ignore_reinit_error=True)
+    #context = ray.init() # do no init?
     logging.warning("ray initiated")
     # Create the A2C trainer.
     exp_run_config["env"]["source_dir"] = source_dir
@@ -362,9 +375,10 @@ def create_trainer(exp_run_config=None, source_dir=None, results_dir=None, seed=
             exp_run_config=exp_run_config, env_class=EnvWrapper, seed=seed
         ),
     )"""
-    tuner1= get_tuner(run_config1)
+    config1 = PPOConfig().training(lr=tune.grid_search([0.01, 0.001, 0.0001]))
+    tuner1= get_tuner_simple(config1)
     
-    logging.warning("created a2c trainer")
+    logging.warning("created simple trainer")
     return tuner1, results_save_dir # return rllib_trainer
 
 

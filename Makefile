@@ -14,6 +14,9 @@ run:
 
 trainn:
 	docker run --shm-size=2.31gb --platform linux/arm64/v8 -it --rm $(DOCKER_VARS) -v "${PWD}":/home/jovyan/work $(IMAGE) python scripts/train_with_rllib.py
+
+trainnn:
+	docker run --shm-size=2.31gb --platform linux/arm64/v8 -it --rm $(DOCKER_VARS) -v "${PWD}":/home/jovyan/work $(IMAGE) python scripts/train_with_rllib_test_out.py
 	
 evaluate: SUB=$(shell ls -r Submissions/*.zip | tr ' ' '\n' | head -1)
 evaluate:
