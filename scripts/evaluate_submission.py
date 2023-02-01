@@ -329,7 +329,7 @@ def perform_evaluation(
         this_file_dir = os.path.dirname(os.path.abspath(__file__))
 
         try:
-            if skip_test:
+            if skip_tests:
                 logging.info("Skipping check_output test")
             else:
                 subprocess.check_output(
