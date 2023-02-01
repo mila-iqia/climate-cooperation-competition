@@ -151,7 +151,13 @@ def copy_source_files(trainer):
     """
     Copy source files to the saving directory.
     """
-    for file in ["rice.py", "rice_helpers.py", "rice_cuda.py", "rice_step.cu"]:
+    for file in [
+        "rice.py",
+        "rice_helpers.py",
+        "rice_cuda.py",
+        "rice_step.cu",
+        "rice_build.cu",
+    ]:
         shutil.copyfile(
             os.path.join(PUBLIC_REPO_DIR, file),
             os.path.join(trainer.save_dir, file),
