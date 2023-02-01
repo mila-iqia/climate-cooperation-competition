@@ -314,6 +314,7 @@ def perform_evaluation(
     results_directory=None,
     num_episodes=1,
     eval_seed=None,
+    skip_tests=False,
 ):
     """
     Create the trainer and compute metrics.
@@ -328,14 +329,17 @@ def perform_evaluation(
         this_file_dir = os.path.dirname(os.path.abspath(__file__))
 
         try:
-            subprocess.check_output(
-                [
-                    "python",
-                    os.path.join(this_file_dir, "run_unittests.py"),
-                    "--results_dir",
-                    results_directory,
-                ],
-            )
+            if skip_test:
+                logging.info("Skipping check_output test")
+            else:
+                subprocess.check_output(
+                    [
+                        "python",
+                        os.path.join(this_file_dir, "run_unittests.py"),
+                        "--results_dir",
+                        results_directory,
+                    ],
+                )                
             logging.info("DONE")
 
             if success:
