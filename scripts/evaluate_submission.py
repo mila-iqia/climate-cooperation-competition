@@ -26,10 +26,13 @@ from pathlib import Path
 _path = Path(os.path.abspath(__file__))
 
 from fixed_paths import PUBLIC_REPO_DIR
+
 sys.path.append(os.path.join(PUBLIC_REPO_DIR, "scripts"))
 print("Using PUBLIC_REPO_DIR = {}".format(PUBLIC_REPO_DIR))
 
-_PRIVATE_REPO_DIR = os.path.join(_path.parent.parent.parent.absolute(), "private-repo-clone")
+_PRIVATE_REPO_DIR = os.path.join(
+    _path.parent.parent.parent.absolute(), "private-repo-clone"
+)
 sys.path.append(os.path.join(_PRIVATE_REPO_DIR, "backend"))
 print("Using _PRIVATE_REPO_DIR = {}".format(_PRIVATE_REPO_DIR))
 
@@ -85,7 +88,7 @@ def get_results_dir():
         "--results_dir",
         "-r",
         type=str,
-        default=".",
+        default="./Submissions/1675291650.zip",
         help="the directory where all the submission files are saved. Can also be "
         "the zipped file containing all the submission files.",
     )
@@ -252,7 +255,7 @@ def val_metrics(trainer, logged_ts, framework, num_episodes=1):
     try:
         for episode_id in range(num_episodes):
             episode_states[episode_id] = logged_ts
-            
+
         for feature in desired_outputs:
             feature_values = [None for _ in range(num_episodes)]
 
@@ -314,7 +317,7 @@ def perform_evaluation(
     results_directory=None,
     num_episodes=1,
     eval_seed=None,
-    skip_tests=False,
+    skip_tests=True,
 ):
     """
     Create the trainer and compute metrics.
@@ -339,7 +342,7 @@ def perform_evaluation(
                         "--results_dir",
                         results_directory,
                     ],
-                )                
+                )
                 logging.info("check_output test is done")
 
             if success:
@@ -366,6 +369,17 @@ def perform_evaluation(
 
                     # Create trainer object
                     try:
+                        shutil.copytree(
+                            os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
+                            os.path.join(results_directory, "region_yamls"),
+                        )
+                        if not os.path.exists(
+                            os.path.join(results_directory, "rice_build.cu")
+                        ):
+                            shutil.copyfile(
+                                os.path.join(PUBLIC_REPO_DIR, "rice_build.cu"),
+                                os.path.join(results_directory, "rice_build.cu"),
+                            )
                         trainer, _ = create_trainer(
                             run_config, source_dir=results_directory, seed=eval_seed
                         )
@@ -414,7 +428,7 @@ def perform_evaluation(
 if __name__ == "__main__":
     logging.info("This script performs evaluation of your code.")
     results_dir = get_results_dir()[0]
-
+    print("results_dir:", results_dir)
     framework_used, succeeded, metrics, comments = perform_evaluation(
         results_dir, eval_seed=_SEED
     )

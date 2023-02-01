@@ -18,6 +18,8 @@ import sys
 import numpy as np
 import yaml
 from desired_outputs import desired_outputs
+
+sys.path.append("./")
 from opt_helper import get_mean_std
 from fixed_paths import PUBLIC_REPO_DIR
 
