@@ -340,7 +340,7 @@ def perform_evaluation(
                         results_directory,
                     ],
                 )                
-            logging.info("DONE")
+                logging.info("check_output test is done")
 
             if success:
                 (
