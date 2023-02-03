@@ -67,10 +67,11 @@ def fetch_base_env(base_folder=".tmp/_base"):
     os.chdir(base_folder)
     subprocess.call(["wget", "-O", "rice.py", _BASE_RICE_PATH])
     subprocess.call(["wget", "-O", "rice_helpers.py", _BASE_RICE_HELPERS_PATH])
-    shutil.copytree(
-        os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
-        os.path.join(base_folder, "region_yamls"),
-    )
+    if "region_yamls" not in os.listdir(base_folder):
+        shutil.copytree(
+            os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
+            os.path.join(base_folder, "region_yamls"),
+        )
 
     base_rice = import_class_from_path("Rice", os.path.join(base_folder, "rice.py"))()
 
