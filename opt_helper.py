@@ -633,11 +633,10 @@ def make_grid_plot(
     return fig
 
 
-def make_aggregate_data_across_three_clusters(
+def make_aggregate_data_across_three_groups(
     data_ts, group_1, group_2, group_3, n_steps=61, n_features=27
 ):
-
-    n_clusters = 3  # feature indices as defined in group_1, group_2, group_3
+    n_groups = 3  # feature indices as defined in group_1, group_2, group_3
     aggregate_ts = dict()
 
     for key, value in data_ts.items():
@@ -648,7 +647,7 @@ def make_aggregate_data_across_three_clusters(
             med_data = value[:, group_2]
             hi_data = value[:, group_3]
 
-            _aggregate_data = np.zeros((n_steps, n_clusters))
+            _aggregate_data = np.zeros((n_steps, n_groups))
 
             _aggregate_data[:, 0] = np.mean(lo_data, axis=1)
             _aggregate_data[:, 1] = np.mean(med_data, axis=1)
