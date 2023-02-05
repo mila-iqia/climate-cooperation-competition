@@ -488,7 +488,7 @@ def plot_result(variable, nego_off=None, nego_on=None, k=0):
         ax.legend(legends)
         ax.grid()
         ax.set_title(f"{variable}".replace("_", " ").title())
-        ax.set_xlabel("Year")
+        ax.set_xlabel("Steps")
         ax.set_ylabel(variable)
         return fig, ax
 
@@ -604,7 +604,7 @@ def make_grid_plot(
     """
     timesteps, n_features = matrix_time_by_feature.shape
 
-    rows = n_features // cols
+    rows = n_features // cols + 1
     fig, axes = plt.subplots(
         rows,
         cols,
@@ -613,7 +613,10 @@ def make_grid_plot(
         sharey=True,
     )
     idx = 0
+    print(f"Plotting for {n_features} features")
     for col in range(cols):
+        if idx >= n_features:
+            break
         for row in range(rows):
             ax = axes[row, col]
             ax.plot(matrix_time_by_feature[:, idx])
@@ -623,6 +626,64 @@ def make_grid_plot(
             ax.grid()
 
             idx += 1
+            if idx >= n_features:
+                break
 
     fig.tight_layout()
     return fig
+
+
+def make_aggregate_data_across_three_clusters(
+    data_ts, group_1, group_2, group_3, n_steps=61, n_features=27
+):
+
+    n_clusters = 3  # feature indices as defined in group_1, group_2, group_3
+    aggregate_ts = dict()
+
+    for key, value in data_ts.items():
+
+        if value.shape == (n_steps, n_features):
+
+            lo_data = value[:, group_1]
+            med_data = value[:, group_2]
+            hi_data = value[:, group_3]
+
+            _aggregate_data = np.zeros((n_steps, n_clusters))
+
+            _aggregate_data[:, 0] = np.mean(lo_data, axis=1)
+            _aggregate_data[:, 1] = np.mean(med_data, axis=1)
+            _aggregate_data[:, 2] = np.mean(hi_data, axis=1)
+
+            aggregate_ts[key] = _aggregate_data
+
+    return aggregate_ts
+
+
+def compute_correlation_across_groups(
+    aggregate_stats_across_groups,
+    data_ts,
+    feature_name,
+    do_plot=False,
+):
+    all_x = []
+    all_y = []
+
+    for group_idx, group in enumerate(groups):
+
+        var_x = aggregate_stats_across_groups[::3, group_idx].mean()
+        var_y = (
+            data_ts[feature_name][::3, group]
+            .sum(axis=0, keepdims=True)
+            .mean(axis=1, keepdims=True)
+        )
+
+        all_x.append(var_x)
+        all_y.append(var_y[0, 0])
+
+    if do_plot:
+        plt.scatter(all_x, all_y)
+
+    """Give the correlation r2 between var_x and var_y"""
+    r2 = np.corrcoef(all_x, all_y)[0, 1] ** 2
+
+    return r2
