@@ -4,12 +4,13 @@
 # For full license text, see the LICENSE file in the repo root
 # or https://opensource.org/licenses/BSD-3-Clause
 
-import numpy as np
-from sklearn import linear_model
-from scipy.optimize import minimize
-import matplotlib.pyplot as plt
 import os
-from operator import sub, mul
+from operator import mul, sub
+
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.optimize import minimize
+from sklearn import linear_model
 
 default = {
     "_RICE_CONSTANT": {
@@ -186,6 +187,7 @@ def get_gA_deltaA(
 
 def write_yaml_files(pos_s, save_path, default_dict=default, ext=".yml"):
     import os
+
     import yaml
 
     result = default_dict.copy()
@@ -320,7 +322,8 @@ def save(obj, filename):
 
 
 def load(filename):
-    import pickle
+    # import pickle
+    import pickle5 as pickle  # on Python 3.7
 
     with open(filename, "rb") as file:
         z = pickle.load(file)
@@ -474,17 +477,20 @@ def plot_result(variable, nego_off=None, nego_on=None, k=0):
         if variable == "global_carbon_mass":
             assert k <= 2, f"There are only 3 variable records for global_carbon_mass"
 
-        plt.figure()
+        fig, ax = plt.subplots(1, 1, figsize=(4, 4))
         legends = []
         if nego_off is not None:
-            plt.plot(nego_off[variable][..., k])
+            ax.plot(nego_off[variable][..., k])
             legends.append("nego_off")
         if nego_on is not None:
-            plt.plot(nego_on[variable][..., k][::3])
+            ax.plot(nego_on[variable][..., k][::3])
             legends.append("nego_on")
-        plt.legend(legends)
-        plt.grid()
-        plt.ylabel(variable)
+        ax.legend(legends)
+        ax.grid()
+        ax.set_title(f"{variable}".replace("_", " ").title())
+        ax.set_xlabel("Year")
+        ax.set_ylabel(variable)
+        return fig, ax
 
 
 def plot_training_curve(
@@ -523,28 +529,36 @@ def plot_training_curve(
      'Mean steps per sec (total)'
      ]
     """
+    fig, ax = plt.subplots(1, 1, figsize=(4, 4))
+
     if data is None:
         data = get_training_curve(submission_file_name)
+
     if start is None:
         start = 0
+
     if end is None:
-        plt.plot(data["Iterations Completed"][start:], data[mertic][start:])
+        ax.plot(data["Iterations Completed"][start:], data[mertic][start:])
     else:
-        plt.plot(data["Iterations Completed"][start:end], data[mertic][start:end])
-    plt.grid()
-    plt.xlabel("iteration")
-    plt.ylabel(mertic)
-    plt.show()
+        ax.plot(data["Iterations Completed"][start:end], data[mertic][start:end])
+
+    ax.grid()
+    ax.set_xlabel("iteration")
+    ax.set_ylabel(mertic)
+
     if return_data:
-        return data
-    return
+        return fig, ax, data
+    else:
+        return fig, ax
 
 
 def get_training_curve(submission_file_name):
     """
     get the metrics collected in a dictionary from the training procedure from the zip submission file.
     """
-    import zipfile, json, shutil
+    import json
+    import shutil
+    import zipfile
 
     if "zip" != submission_file_name.split(".")[-1]:
         submission_file_name = submission_file_name + ".zip"
@@ -575,3 +589,40 @@ def get_training_curve(submission_file_name):
             for k_ in json_data[0][k].keys():
                 data[k_] = [json_data[i][k][k_] for i in range(l)]
     return data
+
+
+def make_grid_plot(
+    matrix_time_by_feature,
+    feature_label="",
+    xlabel="Year",
+    ylabel="Value",
+    cols=4,
+    fig_scale=4,
+):
+    """
+    Creates a matplotlib grid plot that plots each time series for each region.
+    """
+    timesteps, n_features = matrix_time_by_feature.shape
+
+    rows = n_features // cols
+    fig, axes = plt.subplots(
+        rows,
+        cols,
+        figsize=(fig_scale * cols, fig_scale * rows),
+        squeeze=False,
+        sharey=True,
+    )
+    idx = 0
+    for col in range(cols):
+        for row in range(rows):
+            ax = axes[row, col]
+            ax.plot(matrix_time_by_feature[:, idx])
+            ax.set_title(f"{feature_label} {idx}")
+            ax.set_xlabel(xlabel)
+            ax.set_ylabel(ylabel)
+            ax.grid()
+
+            idx += 1
+
+    fig.tight_layout()
+    return fig
