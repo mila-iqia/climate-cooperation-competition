@@ -263,11 +263,10 @@ def compute_metrics(
     return success, comment, eval_metrics
 
 
-def val_metrics(trainer, logged_ts, framework, num_episodes=1, include_c_e_idx=True):
+def val_metrics(logged_ts, framework, num_episodes=1, include_c_e_idx=True):
     """
     Generate episode rollouts and compute metrics.
     """
-    assert trainer is not None
     available_frameworks = ["rllib", "warpdrive"]
     assert (
         framework in available_frameworks
