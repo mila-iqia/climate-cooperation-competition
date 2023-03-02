@@ -27,7 +27,6 @@ _path = Path(os.path.abspath(__file__))
 
 from fixed_paths import PUBLIC_REPO_DIR
 from gym.spaces import MultiDiscrete
-from run_unittests import fetch_base_env
 
 # climate-cooperation-competition
 sys.path.append(os.path.join(PUBLIC_REPO_DIR, "scripts"))
@@ -118,6 +117,39 @@ def get_results_dir():
         return results_dir, parser
     except Exception as err:
         raise ValueError("Cannot obtain the results directory") from err
+
+
+def fetch_base_env(base_folder=".tmp/_base"):
+    """
+    Download the base version of the code from GitHub.
+    """
+    if not base_folder.startswith('/'):
+      base_folder = os.path.join(PUBLIC_REPO_DIR, base_folder)
+      #print(f"Using tmp dir {base_folder}")
+    if os.path.exists(base_folder):
+        shutil.rmtree(base_folder)
+    os.makedirs(base_folder, exist_ok=False)
+
+    print(
+        "\nDownloading a base version of the code from GitHub"
+        " to run consistency checks..."
+    )
+    prev_dir = os.getcwd()
+    os.chdir(base_folder)
+    subprocess.call(["wget", "-O", "rice.py", _BASE_RICE_PATH])
+    subprocess.call(["wget", "-O", "rice_helpers.py", _BASE_RICE_HELPERS_PATH])
+    if "region_yamls" not in os.listdir(base_folder):
+        shutil.copytree(
+            os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
+            os.path.join(base_folder, "region_yamls"),
+        )
+
+    base_rice = import_class_from_path("Rice", os.path.join(base_folder, "rice.py"))()
+
+    # Clean up base code
+    os.chdir(prev_dir)
+    shutil.rmtree(base_folder)
+    return base_rice
 
 
 def validate_dir(results_dir=None):
