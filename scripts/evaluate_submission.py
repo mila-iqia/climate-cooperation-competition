@@ -82,41 +82,50 @@ def get_imports(framework=None):
     return create_trainer, load_model_checkpoints, fetch_episode_states
 
 
-def get_results_dir():
+def get_results_dir(zip_path=None):
     """
     Obtain the 'results' directory from the system arguments.
     """
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--results_dir",
-        "-r",
-        type=str,
-        default=".",
-        help="the directory where all the submission files are saved. Can also be "
-        "the zipped file containing all the submission files.",
-    )
-    args = parser.parse_args()
-
-    if "results_dir" not in args:
-        raise ValueError(
-            "Please provide a results directory to evaluate with the argument -r"
+    if zip_path is None:
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--results_dir",
+            "-r",
+            type=str,
+            default=".",
+            help="the directory where all the submission files are saved. Can also be "
+            "the zipped file containing all the submission files.",
         )
-    if not os.path.exists(args.results_dir):
-        raise ValueError(
-            "The results directory is missing. Please make sure the correct path "
-            "is specified!"
-        )
-    try:
-        results_dir = args.results_dir
+        args = parser.parse_args()
+        if "results_dir" not in args:
+            raise ValueError(
+                "Please provide a results directory to evaluate with the argument -r"
+            )
+        if not os.path.exists(args.results_dir):
+            raise ValueError(
+                "The results directory is missing. Please make sure the correct path "
+                "is specified!"
+            )
+        try:
+            results_dir = args.results_dir
 
-        # Also handle a zipped file
-        if results_dir.endswith(".zip"):
+            # Also handle a zipped file
+            if results_dir.endswith(".zip"):
+                unzipped_results_dir = os.path.join("/tmp", str(time.time()))
+                shutil.unpack_archive(results_dir, unzipped_results_dir)
+                results_dir = unzipped_results_dir
+            return results_dir, parser
+        except Exception as err:
+            raise ValueError("Cannot obtain the results directory") from err
+    else:
+        assert zip_path.endswith(".zip"), "The zip_path must end with .zip"
+        try:
             unzipped_results_dir = os.path.join("/tmp", str(time.time()))
             shutil.unpack_archive(results_dir, unzipped_results_dir)
             results_dir = unzipped_results_dir
-        return results_dir, parser
-    except Exception as err:
-        raise ValueError("Cannot obtain the results directory") from err
+            return results_dir, parser
+        except Exception as err:
+            raise ValueError("Cannot obtain the results directory") from err
 
 
 def fetch_base_env(base_folder=".tmp/_base"):
