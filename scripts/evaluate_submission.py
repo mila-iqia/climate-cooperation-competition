@@ -17,7 +17,7 @@ import subprocess
 import sys
 import time
 from collections import OrderedDict
-
+import json
 import numpy as np
 import yaml
 
@@ -26,10 +26,13 @@ from pathlib import Path
 _path = Path(os.path.abspath(__file__))
 
 from fixed_paths import PUBLIC_REPO_DIR
+from gym.spaces import MultiDiscrete
 
+# climate-cooperation-competition
 sys.path.append(os.path.join(PUBLIC_REPO_DIR, "scripts"))
 print("Using PUBLIC_REPO_DIR = {}".format(PUBLIC_REPO_DIR))
 
+# mila-sfdc-...
 _PRIVATE_REPO_DIR = os.path.join(
     _path.parent.parent.parent.absolute(), "private-repo-clone"
 )
@@ -79,41 +82,83 @@ def get_imports(framework=None):
     return create_trainer, load_model_checkpoints, fetch_episode_states
 
 
-def get_results_dir():
+def get_results_dir(zip_path=None):
     """
     Obtain the 'results' directory from the system arguments.
     """
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--results_dir",
-        "-r",
-        type=str,
-        default="./Submissions/1675291650.zip",
-        help="the directory where all the submission files are saved. Can also be "
-        "the zipped file containing all the submission files.",
-    )
-    args = parser.parse_args()
-
-    if "results_dir" not in args:
-        raise ValueError(
-            "Please provide a results directory to evaluate with the argument -r"
+    if zip_path is None:
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--results_dir",
+            "-r",
+            type=str,
+            default=".",
+            help="the directory where all the submission files are saved. Can also be "
+            "the zipped file containing all the submission files.",
         )
-    if not os.path.exists(args.results_dir):
-        raise ValueError(
-            "The results directory is missing. Please make sure the correct path "
-            "is specified!"
-        )
-    try:
-        results_dir = args.results_dir
+        args = parser.parse_args()
+        if "results_dir" not in args:
+            raise ValueError(
+                "Please provide a results directory to evaluate with the argument -r"
+            )
+        if not os.path.exists(args.results_dir):
+            raise ValueError(
+                "The results directory is missing. Please make sure the correct path "
+                "is specified!"
+            )
+        try:
+            results_dir = args.results_dir
 
-        # Also handle a zipped file
-        if results_dir.endswith(".zip"):
+            # Also handle a zipped file
+            if results_dir.endswith(".zip"):
+                unzipped_results_dir = os.path.join("/tmp", str(time.time()))
+                shutil.unpack_archive(results_dir, unzipped_results_dir)
+                results_dir = unzipped_results_dir
+            return results_dir, parser
+        except Exception as err:
+            raise ValueError("Cannot obtain the results directory") from err
+    else:
+        assert zip_path.endswith(".zip"), "The zip_path must end with .zip"
+        try:
             unzipped_results_dir = os.path.join("/tmp", str(time.time()))
             shutil.unpack_archive(results_dir, unzipped_results_dir)
             results_dir = unzipped_results_dir
-        return results_dir, parser
-    except Exception as err:
-        raise ValueError("Cannot obtain the results directory") from err
+            return results_dir, parser
+        except Exception as err:
+            raise ValueError("Cannot obtain the results directory") from err
+
+
+def fetch_base_env(base_folder=".tmp/_base"):
+    """
+    Download the base version of the code from GitHub.
+    """
+    if not base_folder.startswith('/'):
+      base_folder = os.path.join(PUBLIC_REPO_DIR, base_folder)
+      #print(f"Using tmp dir {base_folder}")
+    if os.path.exists(base_folder):
+        shutil.rmtree(base_folder)
+    os.makedirs(base_folder, exist_ok=False)
+
+    print(
+        "\nDownloading a base version of the code from GitHub"
+        " to run consistency checks..."
+    )
+    prev_dir = os.getcwd()
+    os.chdir(base_folder)
+    subprocess.call(["wget", "-O", "rice.py", _BASE_RICE_PATH])
+    subprocess.call(["wget", "-O", "rice_helpers.py", _BASE_RICE_HELPERS_PATH])
+    if "region_yamls" not in os.listdir(base_folder):
+        shutil.copytree(
+            os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
+            os.path.join(base_folder, "region_yamls"),
+        )
+
+    base_rice = import_class_from_path("Rice", os.path.join(base_folder, "rice.py"))()
+
+    # Clean up base code
+    os.chdir(prev_dir)
+    shutil.rmtree(base_folder)
+    return base_rice
 
 
 def validate_dir(results_dir=None):
@@ -164,11 +209,13 @@ def validate_dir(results_dir=None):
             results_dir,
         )
         comment = "Missing identifier file!"
-
+    print("comment", comment)
     return framework, success, comment
 
 
-def compute_metrics(fetch_episode_states, trainer, framework, num_episodes=1):
+def compute_metrics(
+    fetch_episode_states, trainer, framework, num_episodes=1, include_c_e_idx=True
+):
     """
     Generate episode rollouts and compute metrics.
     """
@@ -226,7 +273,26 @@ def compute_metrics(fetch_episode_states, trainer, framework, num_episodes=1):
             eval_metrics[metrics_to_label_dict[0]] = perform_format(
                 mean_feature_value, metrics_to_label_dict[1]
             )
-
+        if include_c_e_idx:
+            if not os.path.exists(_INDEXES_FILENAME):
+                # Write min, max climate and economic index values to a file
+                # for use during evaluation.
+                indices_dict = generate_min_max_climate_economic_indices()
+                # Write indices to a file
+                with open(_INDEXES_FILENAME, "w", encoding="utf-8") as file_ptr:
+                    file_ptr.write(json.dumps(indices_dict))
+            with open(_INDEXES_FILENAME, "r", encoding="utf-8") as file_ptr:
+                index_dict = json.load(file_ptr)
+            eval_metrics["climate_index"] = np.round(
+                (eval_metrics["Temperature Rise"] - index_dict["min_ci"])
+                / (index_dict["max_ci"] - index_dict["min_ci"]),
+                2,
+            )
+            eval_metrics["economic_index"] = np.round(
+                (eval_metrics["Gross Output"] - index_dict["min_ei"])
+                / (index_dict["max_ei"] - index_dict["min_ei"]),
+                2,
+            )
         success = True
         comment = "Successful submission"
     except Exception as err:
@@ -238,11 +304,10 @@ def compute_metrics(fetch_episode_states, trainer, framework, num_episodes=1):
     return success, comment, eval_metrics
 
 
-def val_metrics(trainer, logged_ts, framework, num_episodes=1):
+def val_metrics(logged_ts, framework, num_episodes=1, include_c_e_idx=True):
     """
     Generate episode rollouts and compute metrics.
     """
-    assert trainer is not None
     available_frameworks = ["rllib", "warpdrive"]
     assert (
         framework in available_frameworks
@@ -288,7 +353,26 @@ def val_metrics(trainer, logged_ts, framework, num_episodes=1):
             eval_metrics[metrics_to_label_dict[0]] = perform_format(
                 mean_feature_value, metrics_to_label_dict[1]
             )
-
+        if include_c_e_idx:
+            if not os.path.exists(_INDEXES_FILENAME):
+                # Write min, max climate and economic index values to a file
+                # for use during evaluation.
+                indices_dict = generate_min_max_climate_economic_indices()
+                # Write indices to a file
+                with open(_INDEXES_FILENAME, "w", encoding="utf-8") as file_ptr:
+                    file_ptr.write(json.dumps(indices_dict))
+            with open(_INDEXES_FILENAME, "r", encoding="utf-8") as file_ptr:
+                index_dict = json.load(file_ptr)
+            eval_metrics["climate_index"] = np.round(
+                (eval_metrics["Temperature Rise"] - index_dict["min_ci"])
+                / (index_dict["max_ci"] - index_dict["min_ci"]),
+                2,
+            )
+            eval_metrics["economic_index"] = np.round(
+                (eval_metrics["Gross Output"] - index_dict["min_ei"])
+                / (index_dict["max_ei"] - index_dict["min_ei"]),
+                2,
+            )
         success = True
         comment = "Successful submission"
     except Exception as err:
@@ -382,6 +466,15 @@ def perform_evaluation(
                                 os.path.join(PUBLIC_REPO_DIR, "rice_build.cu"),
                                 os.path.join(results_directory, "rice_build.cu"),
                             )
+
+                        # ==================== debugging ====================
+                        shutil.copyfile(
+                            os.path.join(PUBLIC_REPO_DIR, "rice_helpers.py"),
+                            os.path.join(results_directory, "rice_helpers.py"),
+                            follow_symlinks=False,
+                        )
+                        print("results_directory", results_directory)
+                        # ==================== debugging ====================
                         trainer, _ = create_trainer(
                             run_config, source_dir=results_directory, seed=eval_seed
                         )
@@ -425,6 +518,74 @@ def perform_evaluation(
             comment = "Unit tests were not successful."
 
     return framework, success, eval_metrics, comment
+
+
+def get_temp_rise_and_gross_output(env, actions):
+    env.reset()
+    for _ in range(env.episode_length):
+        env.step(actions)
+    temperature_array = env.global_state["global_temperature"]["value"]
+    temperature_rise = temperature_array[-1, 0] - temperature_array[0, 0]
+
+    total_gross_production = np.sum(
+        env.global_state["gross_output_all_regions"]["value"]
+    )
+    return temperature_rise, total_gross_production
+
+
+def generate_min_max_climate_economic_indices():
+    """
+    Generate min and max climate and economic indices for the leaderboard.
+    0% savings, 100% mitigation => best climate index, worst economic index
+    100% savings, 0% mitigation => worst climate index, best economic index
+    """
+    env = fetch_base_env()  # base rice env
+    assert isinstance(
+        env.action_space[0], MultiDiscrete
+    ), "Unknown action space for env."
+    all_zero_actions = {
+        agent_id: np.zeros(
+            len(env.action_space[agent_id].nvec),
+            dtype=np.int32,
+        )
+        for agent_id in range(env.num_agents)
+    }
+
+    # 0% savings, 100% mitigation
+    low_savings_high_mitigation_actions = {}
+    savings_action_idx = 0
+    mitigation_action_idx = 1
+    for agent_id in range(env.num_agents):
+        low_savings_high_mitigation_actions[agent_id] = all_zero_actions[
+            agent_id
+        ].copy()
+        low_savings_high_mitigation_actions[agent_id][
+            mitigation_action_idx
+        ] = env.num_discrete_action_levels
+    # Best climate index, worst economic index
+    best_ci, worst_ei = get_temp_rise_and_gross_output(
+        env, low_savings_high_mitigation_actions
+    )
+
+    high_savings_low_mitigation_actions = {}
+    for agent_id in range(env.num_agents):
+        high_savings_low_mitigation_actions[agent_id] = all_zero_actions[
+            agent_id
+        ].copy()
+        high_savings_low_mitigation_actions[agent_id][
+            savings_action_idx
+        ] = env.num_discrete_action_levels
+    worst_ci, best_ei = get_temp_rise_and_gross_output(
+        env, high_savings_low_mitigation_actions
+    )
+
+    index_dict = {
+        "min_ci": float(worst_ci),
+        "max_ci": float(best_ci),
+        "min_ei": float(worst_ei),
+        "max_ei": float(best_ei),
+    }
+    return index_dict
 
 
 if __name__ == "__main__":

@@ -5,6 +5,8 @@
 /tmp
 /out-tsc
 
+data
+
 # Runtime data
 pids
 *.pid
@@ -226,6 +228,5 @@ Colab_Tutorial-Copy1.ipynb
 Draw_graphs.ipynb
 100_rounds.pkl
 *.pdf
-*.txt
 core
 .tmp
