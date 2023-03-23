@@ -218,6 +218,8 @@ def compute_metrics(
 
     # Fetch all the desired outputs to compute various metrics.
     desired_outputs = list(_METRICS_TO_LABEL_DICT.keys())
+    # Add auxiliary outputs required for processing
+    required_outputs = desired_outputs + ["activity_timestep"]
 
     episode_states = {}
     eval_metrics = {}
@@ -225,11 +227,11 @@ def compute_metrics(
         for episode_id in range(num_episodes):
             if fetch_episode_states is not None:
                 episode_states[episode_id] = fetch_episode_states(
-                    trainer, desired_outputs
+                    trainer, required_outputs
                 )
             else:
                 episode_states[episode_id] = trainer.fetch_episode_global_states(
-                    desired_outputs
+                    required_outputs
                 )
 
         for feature in desired_outputs:
@@ -248,6 +250,14 @@ def compute_metrics(
                     feature_values[episode_id] = episode_states[episode_id][feature][
                         -1, 0
                     ]
+
+            elif feature == "gross_output_all_regions":
+                for episode_id in range(num_episodes):
+                    # collect gross output results based on activity timestep
+                    activity_timestep = episode_states[episode_id]["activity_timestep"]
+                    activity_index = np.append(1.0, np.diff(activity_timestep.squeeze()))
+                    activity_index = [np.isclose(v, 1.0) for v in activity_index]
+                    feature_values[episode_id] = np.sum(episode_states[episode_id]["gross_output_all_regions"][activity_index])
 
             else:
                 for episode_id in range(num_episodes):
