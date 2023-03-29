@@ -339,7 +339,7 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
     agent_states = {}
     policy_ids = {}
     policy_mapping_fn = trainer_obj.config["multiagent"]["policy_mapping_fn"]
-    for region_id in range(env.num_regions):
+    for region_id in range(env.num_agents):
         policy_ids[region_id] = policy_mapping_fn(region_id)
         agent_states[region_id] = trainer_obj.get_policy(
             policy_ids[region_id]
