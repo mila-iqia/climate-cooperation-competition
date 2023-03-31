@@ -453,10 +453,12 @@ def perform_evaluation(
 
                     # Create trainer object
                     try:
-                        shutil.copytree(
+                        if "region_yamls" not in os.listdir(results_directory):
+                          shutil.copytree(
                             os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
                             os.path.join(results_directory, "region_yamls"),
-                        )
+                          )
+
                         if not os.path.exists(
                             os.path.join(results_directory, "rice_build.cu")
                         ):
