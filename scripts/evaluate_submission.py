@@ -25,6 +25,7 @@ import yaml
 _path = Path(os.path.abspath(__file__))
 
 from fixed_paths import PUBLIC_REPO_DIR
+from run_unittests import fetch_base_env
 from gym.spaces import MultiDiscrete
 
 # climate-cooperation-competition
@@ -90,8 +91,7 @@ def try_to_unzip_file(path):
         shutil.unpack_archive(path, _unzipped_dir)
         return _unzipped_dir
     except Exception as err:
-        raise ValueError("Unzipping failed...") from err
-
+        raise ValueError("Cannot obtain the results directory") from err
 
 def validate_dir(results_dir=None):
     """
