@@ -230,3 +230,4 @@ Draw_graphs.ipynb
 *.pdf
 core
 .tmp
+Submissions/*

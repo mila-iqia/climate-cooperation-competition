@@ -11,11 +11,49 @@ Script to create the zipped submission file from the results directory
 import os
 import shutil
 import sys
-
-from evaluate_submission import get_results_dir, validate_dir
-
+import argparse
+from evaluate_submission import validate_dir
+import time
 from fixed_paths import PUBLIC_REPO_DIR
+
 sys.path.append(PUBLIC_REPO_DIR)
+
+
+def get_results_dir():
+    """
+    Obtain the 'results' directory from the system arguments.
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--results_dir",
+        "-r",
+        type=str,
+        default=".",
+        help="the directory where all the submission files are saved. Can also be "
+        "the zipped file containing all the submission files.",
+    )
+    args = parser.parse_args()
+
+    if "results_dir" not in args:
+        raise ValueError(
+            "Please provide a results directory to evaluate with the argument -r"
+        )
+    if not os.path.exists(args.results_dir):
+        raise ValueError(
+            "The results directory is missing. Please make sure the correct path "
+            "is specified!"
+        )
+    try:
+        results_dir = args.results_dir
+
+        # Also handle a zipped file
+        if results_dir.endswith(".zip"):
+            unzipped_results_dir = os.path.join("/tmp", str(time.time()))
+            shutil.unpack_archive(results_dir, unzipped_results_dir)
+            results_dir = unzipped_results_dir
+        return results_dir, parser
+    except Exception as err:
+        raise ValueError("Cannot obtain the results directory") from err
 
 
 def prepare_submission(results_dir=None):

@@ -93,6 +93,7 @@ def try_to_unzip_file(path):
     except Exception as err:
         raise ValueError("Cannot obtain the results directory") from err
 
+
 def validate_dir(results_dir=None):
     """
     Validate that all the required files are present in the 'results' directory.
@@ -196,9 +197,15 @@ def compute_metrics(
                 for episode_id in range(num_episodes):
                     # collect gross output results based on activity timestep
                     activity_timestep = episode_states[episode_id]["activity_timestep"]
-                    activity_index = np.append(1.0, np.diff(activity_timestep.squeeze()))
+                    activity_index = np.append(
+                        1.0, np.diff(activity_timestep.squeeze())
+                    )
                     activity_index = [np.isclose(v, 1.0) for v in activity_index]
-                    feature_values[episode_id] = np.sum(episode_states[episode_id]["gross_output_all_regions"][activity_index])
+                    feature_values[episode_id] = np.sum(
+                        episode_states[episode_id]["gross_output_all_regions"][
+                            activity_index
+                        ]
+                    )
 
             else:
                 for episode_id in range(num_episodes):
@@ -416,6 +423,7 @@ def perform_evaluation(
         logging.error(f"Count not fetch episode and compute metrics.")
         raise err
 
+
 def get_temp_rise_and_gross_output(env, actions):
     env.reset()
     for _ in range(env.episode_length):
@@ -494,7 +502,7 @@ if __name__ == "__main__":
         "--results_dir",
         "-r",
         type=str,
-        default="./Submissions/1675291650.zip",
+        default="./Submissions/1680302495.zip",  # an example of a submission file
         help="The directory where all the submission files are saved. Can also be "
         "a zip-file containing all the submission files.",
     )
@@ -513,7 +521,7 @@ if __name__ == "__main__":
         )
 
     results_dir = (
-        try_to_unzip_file(args)
+        try_to_unzip_file(args.results_dir)
         if args.results_dir.endswith(".zip")
         else args.results_dir
     )
