@@ -570,3 +570,4 @@ if __name__ == "__main__":
         ]
     )
     logging.info(eval_result_str)
+    print(eval_result_str)
