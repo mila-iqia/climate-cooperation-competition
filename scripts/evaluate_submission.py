@@ -17,11 +17,10 @@ import subprocess
 import sys
 import time
 from collections import OrderedDict
+from pathlib import Path
 import json
 import numpy as np
 import yaml
-
-from pathlib import Path
 
 _path = Path(os.path.abspath(__file__))
 
@@ -30,20 +29,20 @@ from gym.spaces import MultiDiscrete
 
 # climate-cooperation-competition
 sys.path.append(os.path.join(PUBLIC_REPO_DIR, "scripts"))
-print("Using PUBLIC_REPO_DIR = {}".format(PUBLIC_REPO_DIR))
+logging.info("Using PUBLIC_REPO_DIR = {}".format(PUBLIC_REPO_DIR))
 
 # mila-sfdc-...
 _PRIVATE_REPO_DIR = os.path.join(
     _path.parent.parent.parent.absolute(), "private-repo-clone"
 )
 sys.path.append(os.path.join(_PRIVATE_REPO_DIR, "backend"))
-print("Using _PRIVATE_REPO_DIR = {}".format(_PRIVATE_REPO_DIR))
+logging.info("Using _PRIVATE_REPO_DIR = {}".format(_PRIVATE_REPO_DIR))
 
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.ERROR)
 
-_SEED = 1234567890  # seed used for evaluation
+_EVAL_SEED = 1234567890  # seed used for evaluation
 
 _INDEXES_FILENAME = "climate_economic_min_max_indices.txt"
 
@@ -82,83 +81,16 @@ def get_imports(framework=None):
     return create_trainer, load_model_checkpoints, fetch_episode_states
 
 
-def get_results_dir(zip_path=None):
+def try_to_unzip_file(path):
     """
     Obtain the 'results' directory from the system arguments.
     """
-    if zip_path is None:
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            "--results_dir",
-            "-r",
-            type=str,
-            default=".",
-            help="the directory where all the submission files are saved. Can also be "
-            "the zipped file containing all the submission files.",
-        )
-        args = parser.parse_args()
-        if "results_dir" not in args:
-            raise ValueError(
-                "Please provide a results directory to evaluate with the argument -r"
-            )
-        if not os.path.exists(args.results_dir):
-            raise ValueError(
-                "The results directory is missing. Please make sure the correct path "
-                "is specified!"
-            )
-        try:
-            results_dir = args.results_dir
-
-            # Also handle a zipped file
-            if results_dir.endswith(".zip"):
-                unzipped_results_dir = os.path.join("/tmp", str(time.time()))
-                shutil.unpack_archive(results_dir, unzipped_results_dir)
-                results_dir = unzipped_results_dir
-            return results_dir, parser
-        except Exception as err:
-            raise ValueError("Cannot obtain the results directory") from err
-    else:
-        assert zip_path.endswith(".zip"), "The zip_path must end with .zip"
-        try:
-            unzipped_results_dir = os.path.join("/tmp", str(time.time()))
-            shutil.unpack_archive(results_dir, unzipped_results_dir)
-            results_dir = unzipped_results_dir
-            return results_dir, parser
-        except Exception as err:
-            raise ValueError("Cannot obtain the results directory") from err
-
-
-def fetch_base_env(base_folder=".tmp/_base"):
-    """
-    Download the base version of the code from GitHub.
-    """
-    if not base_folder.startswith('/'):
-      base_folder = os.path.join(PUBLIC_REPO_DIR, base_folder)
-      #print(f"Using tmp dir {base_folder}")
-    if os.path.exists(base_folder):
-        shutil.rmtree(base_folder)
-    os.makedirs(base_folder, exist_ok=False)
-
-    print(
-        "\nDownloading a base version of the code from GitHub"
-        " to run consistency checks..."
-    )
-    prev_dir = os.getcwd()
-    os.chdir(base_folder)
-    subprocess.call(["wget", "-O", "rice.py", _BASE_RICE_PATH])
-    subprocess.call(["wget", "-O", "rice_helpers.py", _BASE_RICE_HELPERS_PATH])
-    if "region_yamls" not in os.listdir(base_folder):
-        shutil.copytree(
-            os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
-            os.path.join(base_folder, "region_yamls"),
-        )
-
-    base_rice = import_class_from_path("Rice", os.path.join(base_folder, "rice.py"))()
-
-    # Clean up base code
-    os.chdir(prev_dir)
-    shutil.rmtree(base_folder)
-    return base_rice
+    try:
+        _unzipped_dir = os.path.join("/tmp", str(time.time()))
+        shutil.unpack_archive(path, _unzipped_dir)
+        return _unzipped_dir
+    except Exception as err:
+        raise ValueError("Unzipping failed...") from err
 
 
 def validate_dir(results_dir=None):
@@ -398,127 +330,81 @@ def perform_format(val, num_decimal_places):
 
 
 def perform_evaluation(
-    results_directory=None,
+    results_directory,
+    framework,
     num_episodes=1,
     eval_seed=None,
-    skip_tests=True,
 ):
     """
     Create the trainer and compute metrics.
     """
     assert results_directory is not None
-    eval_metrics = {}
     assert num_episodes > 0
 
-    framework, success, comment = validate_dir(results_directory)
-    if success:
-        logging.info("Running unit tests...")
-        this_file_dir = os.path.dirname(os.path.abspath(__file__))
+    (
+        create_trainer,
+        load_model_checkpoints,
+        fetch_episode_states,
+    ) = get_imports(framework=framework)
 
-        try:
-            if skip_tests:
-                logging.info("Skipping check_output test")
-            else:
-                subprocess.check_output(
-                    [
-                        "python",
-                        os.path.join(this_file_dir, "run_unittests.py"),
-                        "--results_dir",
-                        results_directory,
-                    ],
-                )
-                logging.info("check_output test is done")
+    # Load a run configuration
+    config_file = os.path.join(results_directory, f"rice_{framework}.yaml")
 
-            if success:
-                (
-                    create_trainer,
-                    load_model_checkpoints,
-                    fetch_episode_states,
-                ) = get_imports(framework=framework)
+    try:
+        assert os.path.exists(config_file)
+    except Exception as err:
+        logging.error(f"The run configuration is missing in {results_directory}.")
+        raise err
 
-                logging.info("Performing eval...")
+    # Copy the PUBLIC region yamls and rice_build.cu to the results directory.
+    if not os.path.exists(os.path.join(results_directory, "region_yamls")):
+        shutil.copytree(
+            os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
+            os.path.join(results_directory, "region_yamls"),
+        )
+    if not os.path.exists(os.path.join(results_directory, "rice_build.cu")):
+        shutil.copyfile(
+            os.path.join(PUBLIC_REPO_DIR, "rice_build.cu"),
+            os.path.join(results_directory, "rice_build.cu"),
+        )
 
-                # Load a run configuration
-                config_file = os.path.join(results_directory, f"rice_{framework}.yaml")
+    # Create Trainer object
+    try:
+        with open(config_file, "r", encoding="utf-8") as file_ptr:
+            run_config = yaml.safe_load(file_ptr)
 
-                if not os.path.exists(config_file):
-                    success = False
-                    comment = (
-                        f"The run configuration is missing in {results_directory}."
-                    )
+        trainer, _ = create_trainer(
+            run_config, source_dir=results_directory, seed=eval_seed
+        )
 
-                else:
-                    with open(config_file, "r", encoding="utf-8") as file_ptr:
-                        run_config = yaml.safe_load(file_ptr)
+    except Exception as err:
+        logging.error(f"Could not create Trainer with the run_config provided.")
+        raise err
 
-                    # Create trainer object
-                    try:
-                        if "region_yamls" not in os.listdir(results_directory):
-                          shutil.copytree(
-                            os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
-                            os.path.join(results_directory, "region_yamls"),
-                          )
+    # Load model checkpoints
+    try:
+        load_model_checkpoints(trainer, results_directory)
+    except Exception as err:
+        logging.error(f"Could not load model checkpoints.")
+        raise err
 
-                        if not os.path.exists(
-                            os.path.join(results_directory, "rice_build.cu")
-                        ):
-                            shutil.copyfile(
-                                os.path.join(PUBLIC_REPO_DIR, "rice_build.cu"),
-                                os.path.join(results_directory, "rice_build.cu"),
-                            )
+    # Compute metrics
+    try:
+        success, comment, eval_metrics = compute_metrics(
+            fetch_episode_states,
+            trainer,
+            framework,
+            num_episodes=num_episodes,
+        )
 
-                        # ==================== debugging ====================
-                        shutil.copyfile(
-                            os.path.join(PUBLIC_REPO_DIR, "rice_helpers.py"),
-                            os.path.join(results_directory, "rice_helpers.py"),
-                            follow_symlinks=False,
-                        )
-                        print("results_directory", results_directory)
-                        # ==================== debugging ====================
-                        trainer, _ = create_trainer(
-                            run_config, source_dir=results_directory, seed=eval_seed
-                        )
+        if framework == "warpdrive":
+            trainer.graceful_close()
 
-                        # Load model checkpoints
-                        try:
-                            load_model_checkpoints(trainer, results_directory)
+        return success, eval_metrics, comment
 
-                            # Compute metrics
-                            try:
-                                success, comment, eval_metrics = compute_metrics(
-                                    fetch_episode_states,
-                                    trainer,
-                                    framework,
-                                    num_episodes=num_episodes,
-                                )
-
-                                if framework == "warpdrive":
-                                    trainer.graceful_close()
-                                logging.info("DONE!")
-
-                            except Exception as err:
-                                logging.error(err)
-                                success = False
-                                comment = "Count not fetch episode and compute metrics."
-
-                        except Exception as err:
-                            logging.error(err)
-                            success = False
-                            comment = "Could not load model checkpoints."
-
-                    except Exception as err:
-                        logging.error(err)
-                        success = False
-                        comment = (
-                            "Could not create trainer with the run_config provided."
-                        )
-        except subprocess.CalledProcessError as err:
-            logging.error(err)
-            success = False
-            comment = "Unit tests were not successful."
-
-    return framework, success, eval_metrics, comment
-
+    except Exception as err:
+        logging.error(f"Count not fetch episode and compute metrics.")
+        raise err
 
 def get_temp_rise_and_gross_output(env, actions):
     env.reset()
@@ -589,13 +475,80 @@ def generate_min_max_climate_economic_indices():
 
 
 if __name__ == "__main__":
+
     logging.info("This script performs evaluation of your code.")
-    results_dir = get_results_dir()[0]
-    print("results_dir:", results_dir)
-    framework_used, succeeded, metrics, comments = perform_evaluation(
-        results_dir, eval_seed=_SEED
+
+    # CLI arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--results_dir",
+        "-r",
+        type=str,
+        default="./Submissions/1675291650.zip",
+        help="The directory where all the submission files are saved. Can also be "
+        "a zip-file containing all the submission files.",
     )
-    print(f"Framework used: {framework_used}")
-    print(f"Succeeded: {succeeded}")
-    print(f"Metrics: {metrics}")
-    print(f"Comments: {comments}")
+    args = parser.parse_args()
+
+    # Check the submission zip file or directory.
+    if "results_dir" not in args:
+        raise ValueError(
+            "Please provide a results directory to evaluate with the argument -r"
+        )
+
+    if not os.path.exists(args.results_dir):
+        raise ValueError(
+            "The results directory is missing. Please make sure the correct path "
+            "is specified!"
+        )
+
+    results_dir = (
+        try_to_unzip_file(args)
+        if args.results_dir.endswith(".zip")
+        else args.results_dir
+    )
+
+    logging.info(f"Using submission files in {results_dir}")
+
+    # Validate the submission directory
+    framework, results_dir_is_valid, comment = validate_dir(results_dir)
+    if not results_dir_is_valid:
+        raise AssertionError(f"{results_dir} is not a valid submission directory.")
+
+    # Run unit tests on the simulation files
+    skip_unit_tests = True  # = args.skip_unit_tests
+
+    try:
+        if skip_unit_tests:
+            logging.info("Skipping check_output test")
+        else:
+            logging.info("Running unit tests...")
+            subprocess.check_output(
+                [
+                    "python",
+                    "run_unittests.py",
+                    "--results_dir",
+                    results_dir,
+                ],
+            )
+            logging.info("run_unittests.py is done")
+    except subprocess.CalledProcessError as err:
+        logging.error(f"{results_dir}: unit tests were not successful.")
+        raise err
+
+    # Run evaluation with submitted simulation and trained agents.
+    logging.info("Starting eval...")
+    succeeded, metrics, comments = perform_evaluation(
+        results_dir, framework, eval_seed=_EVAL_SEED
+    )
+
+    # Report results.
+    eval_result_str = "\n".join(
+        [
+            f"Framework used: {framework}",
+            f"Succeeded: {succeeded}",
+            f"Metrics: {metrics}",
+            f"Comments: {comments}",
+        ]
+    )
+    logging.info(eval_result_str)

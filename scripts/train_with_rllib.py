@@ -19,9 +19,9 @@ import time
 
 import numpy as np
 import yaml
-from run_unittests import import_class_from_path
 from desired_outputs import desired_outputs
 from fixed_paths import PUBLIC_REPO_DIR
+from run_unittests import import_class_from_path
 
 sys.path.append(PUBLIC_REPO_DIR)
 
@@ -43,6 +43,8 @@ def perform_other_imports():
     return ray, torch, Box, Dict, MultiAgentEnv, A2CTrainer, NoopLogger
 
 
+print("Do imports")
+
 try:
     other_imports = perform_other_imports()
 except ImportError:
@@ -60,6 +62,9 @@ except ImportError:
 ray, torch, Box, Dict, MultiAgentEnv, A2CTrainer, NoopLogger = other_imports
 
 from torch_models import TorchLinear
+
+logging.info("Finished imports")
+
 
 _BIG_NUMBER = 1e20
 
@@ -138,6 +143,9 @@ class EnvWrapper(MultiAgentEnv):
     """
 
     def __init__(self, env_config=None):
+
+        super().__init__()
+
         env_config_copy = env_config.copy()
         if env_config_copy is None:
             env_config_copy = {}
