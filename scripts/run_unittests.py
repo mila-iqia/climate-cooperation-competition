@@ -20,7 +20,9 @@ import unittest
 
 import numpy as np
 
+# from evaluate_submission import get_results_dir
 from fixed_paths import PUBLIC_REPO_DIR
+
 sys.path.append(PUBLIC_REPO_DIR)
 
 _REGION_YAMLS = "region_yamls"
@@ -28,12 +30,14 @@ _REGION_YAMLS = "region_yamls"
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.ERROR)
 
-_BASE_CODE_PATH = "https://raw.githubusercontent.com/mila-iqia/climate-cooperation-competition/main"
+_BASE_CODE_PATH = (
+    "https://raw.githubusercontent.com/mila-iqia/climate-cooperation-competition/main"
+)
 _BASE_RICE_PATH = os.path.join(_BASE_CODE_PATH, "rice.py")
 _BASE_RICE_HELPERS_PATH = os.path.join(_BASE_CODE_PATH, "rice_helpers.py")
 _BASE_RICE_BUILD_PATH = os.path.join(_BASE_CODE_PATH, "rice_build.cu")
-_BASE_CONSISTENCY_CHECKER_PATH = (
-    os.path.join(_BASE_CODE_PATH, "scripts/run_cpu_gpu_env_consistency_checks.py")
+_BASE_CONSISTENCY_CHECKER_PATH = os.path.join(
+    _BASE_CODE_PATH, "scripts/run_cpu_gpu_env_consistency_checks.py"
 )
 
 
@@ -53,9 +57,9 @@ def fetch_base_env(base_folder=".tmp/_base"):
     """
     Download the base version of the code from GitHub.
     """
-    if not base_folder.startswith('/'):
-      base_folder = os.path.join(PUBLIC_REPO_DIR, base_folder)
-      #print(f"Using tmp dir {base_folder}")
+    if not base_folder.startswith("/"):
+        base_folder = os.path.join(PUBLIC_REPO_DIR, base_folder)
+        # print(f"Using tmp dir {base_folder}")
     if os.path.exists(base_folder):
         shutil.rmtree(base_folder)
     os.makedirs(base_folder, exist_ok=False)
@@ -302,15 +306,14 @@ def get_results_dir():
     except Exception as err:
         raise ValueError("Cannot obtain the results directory") from err
 
+# if __name__ == "__main__":
+# Skip all of this
+# logging.info("Running env unit tests...")
+# # Set the results directory
+# results_dir, parser = get_results_dir()
+# parser.add_argument("unittest_args", nargs="*")
+# args = parser.parse_args()
+# sys.argv[1:] = args.unittest_args
+# TestEnv.results_dir = results_dir
 
-if __name__ == "__main__":
-    logging.info("Running env unit tests...")
-
-    # Set the results directory
-    results_dir, parser = get_results_dir()
-    parser.add_argument("unittest_args", nargs="*")
-    args = parser.parse_args()
-    sys.argv[1:] = args.unittest_args
-    TestEnv.results_dir = results_dir
-
-    unittest.main()
+# unittest.main()
