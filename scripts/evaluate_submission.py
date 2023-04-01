@@ -287,6 +287,19 @@ def val_metrics(logged_ts, framework, num_episodes=1, include_c_e_idx=True):
                         -1, 0
                     ]
 
+            elif feature == "gross_output_all_regions":
+                for episode_id in range(num_episodes):
+                    # collect gross output results based on activity timestep
+                    activity_timestep = episode_states[episode_id]["activity_timestep"]
+                    activity_index = np.append(
+                        1.0, np.diff(activity_timestep.squeeze())
+                    )
+                    activity_index = [np.isclose(v, 1.0) for v in activity_index]
+                    feature_values[episode_id] = np.sum(
+                        episode_states[episode_id]["gross_output_all_regions"][
+                            activity_index
+                        ]
+                    )
             else:
                 for episode_id in range(num_episodes):
                     feature_values[episode_id] = np.sum(
@@ -493,7 +506,6 @@ def generate_min_max_climate_economic_indices():
 
 
 if __name__ == "__main__":
-
     logging.info("This script performs evaluation of your code.")
 
     # CLI arguments
