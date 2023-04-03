@@ -231,3 +231,9 @@ Draw_graphs.ipynb
 core
 .tmp
 Submissions/*
+.vscode/*
+*.pkl
+scripts/climate_economic_min_max_indices.txt
+scripts/dev.ipynb
+scripts/dev.py
+scripts/eval_by_logs.py

@@ -22,6 +22,7 @@ import yaml
 from desired_outputs import desired_outputs
 from fixed_paths import PUBLIC_REPO_DIR
 from run_unittests import import_class_from_path
+from opt_helper import save
 
 sys.path.append(PUBLIC_REPO_DIR)
 
@@ -469,6 +470,15 @@ def trainer(
             logging.info(result)
         print(f"""episode_reward_mean: {result.get('episode_reward_mean')}""")
 
+    outputs_ts = fetch_episode_states(trainer, desired_outputs)
+    save(
+        outputs_ts,
+        os.path.join(
+            save_dir,
+            f"outputs_ts_{total_timesteps}.pkl",
+        ),
+    )
+    print(f"Saving logged outputs to {save_dir}")
     # Create a (zipped) submission file
     # ---------------------------------
     subprocess.call(
@@ -479,9 +489,7 @@ def trainer(
             save_dir,
         ]
     )
-
     # Close Ray gracefully after completion
-    outputs_ts = fetch_episode_states(trainer, desired_outputs)
     ray.shutdown()
     return trainer, outputs_ts
 
