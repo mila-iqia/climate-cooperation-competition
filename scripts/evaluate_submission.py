@@ -514,7 +514,7 @@ if __name__ == "__main__":
         "--results_dir",
         "-r",
         type=str,
-        default="./Submissions/1680500279.zip",  # an example of a submission file
+        default="./Submissions/1680502535.zip",  # an example of a submission file
         help="The directory where all the submission files are saved. Can also be "
         "a zip-file containing all the submission files.",
     )

@@ -427,19 +427,16 @@ def trainer(
     # Create trainer
     # --------------
     trainer, save_dir = create_trainer(run_config)
-
+    # debug: print("trainer weghts: ", trainer.get_weights()["regions"]["policy_head.97.weight"])
     # Copy the source files into the results directory
     # ------------------------------------------------
     os.makedirs(save_dir)
+    with open(os.path.join(save_dir, "rice_rllib.yaml"), "w") as yaml_file:
+        yaml.dump(run_config, yaml_file)
     # Copy source files to the saving directory
     for file in ["rice.py", "rice_helpers.py"]:
         shutil.copyfile(
             os.path.join(PUBLIC_REPO_DIR, file),
-            os.path.join(save_dir, file),
-        )
-    for file in ["rice_rllib.yaml"]:
-        shutil.copyfile(
-            os.path.join(PUBLIC_REPO_DIR, "scripts", file),
             os.path.join(save_dir, file),
         )
 
