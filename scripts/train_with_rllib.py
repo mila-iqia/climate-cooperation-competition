@@ -151,13 +151,19 @@ class EnvWrapper(MultiAgentEnv):
         if env_config_copy is None:
             env_config_copy = {}
         source_dir = env_config_copy.get("source_dir", None)
+        classname = env_config_copy.get("classname", "Rice")
+        classfilename = env_config_copy.get("classfilename", "rice.py")
         # Remove source_dir key in env_config if it exists
         if "source_dir" in env_config_copy:
             del env_config_copy["source_dir"]
+        if "classname" in env_config_copy:
+            del env_config_copy["classname"]
+        if "classfilename" in env_config_copy:
+            del env_config_copy["classfilename"]
         if source_dir is None:
             source_dir = PUBLIC_REPO_DIR
         assert isinstance(env_config_copy, dict)
-        self.env = import_class_from_path("Rice", os.path.join(source_dir, "rice.py"))(
+        self.env = import_class_from_path(classname, os.path.join(source_dir, classfilename))(
             **env_config_copy
         )
 
@@ -392,7 +398,6 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
 
 
 def trainer(
-    negotiation_on=0,
     num_envs=100,
     train_batch_size=1024,
     num_episodes=30000,
@@ -400,13 +405,14 @@ def trainer(
     model_params_save_freq=5000,
     desired_outputs=desired_outputs,
     num_workers=4,
+    yaml_path="rice_rllib.yaml"
 ):
     print("Training with RLlib...")
 
     # Read the run configurations specific to the environment.
     # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
     # -----------------------------------------------------------------------------
-    config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", "rice_rllib.yaml")
+    config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", yaml_path)
     if not os.path.exists(config_path):
         raise ValueError(
             "The run configuration is missing. Please make sure the correct path "
@@ -416,7 +422,7 @@ def trainer(
     with open(config_path, "r", encoding="utf8") as fp:
         run_config = yaml.safe_load(fp)
     # replace the default setting
-    run_config["env"]["negotiation_on"] = negotiation_on
+    # run_config["env"]["negotiation_on"] = negotiation_on
     run_config["trainer"]["num_envs"] = num_envs
     run_config["trainer"]["train_batch_size"] = train_batch_size
     run_config["trainer"]["num_workers"] = num_workers
@@ -434,7 +440,10 @@ def trainer(
     with open(os.path.join(save_dir, "rice_rllib.yaml"), "w") as yaml_file:
         yaml.dump(run_config, yaml_file)
     # Copy source files to the saving directory
-    for file in ["rice.py", "rice_helpers.py"]:
+    files_to_copy = ["rice.py", "rice_helpers.py"]
+    if run_config["env"]["classfilename"] not in files_to_copy:
+        files_to_copy.append(run_config["env"]["classfilename"])
+    for file in files_to_copy:
         shutil.copyfile(
             os.path.join(PUBLIC_REPO_DIR, file),
             os.path.join(save_dir, file),

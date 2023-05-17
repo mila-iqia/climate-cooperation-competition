@@ -28,8 +28,8 @@ trainer:
 
 # Environment configuration
 env:
-    classname: "Rice" # environment class name
-    classfilename: "rice.py" # environment class filename
+    classname: "Rice_binary_negotiation" # environment class name
+    classfilename: "rice_binary_negotiation.py" # environment class filename
     num_discrete_action_levels: 10 # number of discrete levels for the saving and mitigation actions
     # negotiation_on: False # flag to indicate whether negotiation is allowed or not
 
