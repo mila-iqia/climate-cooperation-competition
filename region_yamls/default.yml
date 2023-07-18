@@ -39,7 +39,7 @@ _RICE_CONSTANT:
   xa_2: 0.00236 # in CAP Eq 6
   xa_3: 2 # in CAP Eq 6
   xdelta_K: 0.1 # in CAP Eq 9 param discribe the depreciate of the capital
-  xalpha: 1.45 # Utility function param
+  xalpha: 0.01 # Utility function param, TODO calibrate for trade, current value is hotfix
   xrho: 0.015 # discount factor of the utility
   xL_0: 7403 # in POP population at the staring point
   xL_a: 11500 # in POP the expected population at convergence
@@ -58,3 +58,5 @@ _RICE_CONSTANT:
   xT_AT_0: 0.85 # in CAP a part of damage function initial condition
   xT_LO_0: 0.0068 # in CAP a part of damage function initial condition
   xK_0: 223 # in CAP initial condition for capital
+
+  max_savings: 0.4

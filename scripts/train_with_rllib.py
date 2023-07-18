@@ -84,7 +84,6 @@ def recursive_obs_dict_to_spaces_dict(obs):
     assert isinstance(obs, dict)
     dict_of_spaces = {}
     for key, val in obs.items():
-
         # list of lists are 'listified' np arrays
         _val = val
         if isinstance(val, list):
@@ -96,7 +95,10 @@ def recursive_obs_dict_to_spaces_dict(obs):
         if isinstance(_val, np.ndarray):
             large_num = float(_BIG_NUMBER)
             box = Box(
-                low=-large_num, high=large_num, shape=_val.shape, dtype=_val.dtype
+                low=-large_num,
+                high=large_num,
+                shape=_val.shape,
+                dtype=_val.dtype,
             )
             low_high_valid = (box.low < 0).all() and (box.high > 0).all()
 
@@ -104,7 +106,10 @@ def recursive_obs_dict_to_spaces_dict(obs):
             while not low_high_valid:
                 large_num = large_num // 2
                 box = Box(
-                    low=-large_num, high=large_num, shape=_val.shape, dtype=_val.dtype
+                    low=-large_num,
+                    high=large_num,
+                    shape=_val.shape,
+                    dtype=_val.dtype,
                 )
                 low_high_valid = (box.low < 0).all() and (box.high > 0).all()
 
@@ -144,7 +149,6 @@ class EnvWrapper(MultiAgentEnv):
     """
 
     def __init__(self, env_config=None):
-
         super().__init__()
 
         env_config_copy = env_config.copy()
@@ -157,13 +161,15 @@ class EnvWrapper(MultiAgentEnv):
         if source_dir is None:
             source_dir = PUBLIC_REPO_DIR
         assert isinstance(env_config_copy, dict)
-        self.env = import_class_from_path("Rice", os.path.join(source_dir, "rice.py"))(
-            **env_config_copy
-        )
+        self.env = import_class_from_path(
+            "Rice", os.path.join(source_dir, "rice.py")
+        )(**env_config_copy)
 
         self.action_space = self.env.action_space
 
-        self.observation_space = recursive_obs_dict_to_spaces_dict(self.env.reset())
+        self.observation_space = recursive_obs_dict_to_spaces_dict(
+            self.env.reset()
+        )
 
     def reset(self):
         """Reset the env."""
@@ -230,7 +236,8 @@ def get_rllib_config(exp_run_config=None, env_class=None, seed=None):
         "multiagent": multiagent_config,
         "num_workers": train_config["num_workers"],
         "num_gpus": train_config["num_gpus"],
-        "num_envs_per_worker": train_config["num_envs"] // train_config["num_workers"],
+        "num_envs_per_worker": train_config["num_envs"]
+        // train_config["num_workers"],
         "train_batch_size": train_config["train_batch_size"],
     }
     if seed is not None:
@@ -239,7 +246,9 @@ def get_rllib_config(exp_run_config=None, env_class=None, seed=None):
     return rllib_config
 
 
-def save_model_checkpoint(trainer_obj=None, save_directory=None, current_timestep=0):
+def save_model_checkpoint(
+    trainer_obj=None, save_directory=None, current_timestep=0
+):
     """
     Save trained model checkpoints.
     """
@@ -256,7 +265,8 @@ def save_model_checkpoint(trainer_obj=None, save_directory=None, current_timeste
             f"{policy}_{current_timestep}.state_dict",
         )
         logging.info(
-            "Saving the model checkpoints for policy %s to %s.", (policy, filepath)
+            "Saving the model checkpoints for policy %s to %s.",
+            (policy, filepath),
         )
         torch.save(model_params[policy], filepath)
 
@@ -278,7 +288,9 @@ def load_model_checkpoints(trainer_obj=None, save_directory=None, ckpt_idx=-1):
     model_params = trainer_obj.get_weights()
     for policy in model_params:
         policy_models = [
-            os.path.join(save_directory, file) for file in files if policy in file
+            os.path.join(save_directory, file)
+            for file in files
+            if policy in file
         ]
         # If there are multiple files, then use the ckpt_idx to specify the checkpoint
         assert ckpt_idx < len(policy_models)
@@ -290,7 +302,9 @@ def load_model_checkpoints(trainer_obj=None, save_directory=None, ckpt_idx=-1):
     trainer_obj.set_weights(model_params)
 
 
-def create_trainer(exp_run_config=None, source_dir=None, results_dir=None, seed=None):
+def create_trainer(
+    exp_run_config=None, source_dir=None, results_dir=None, seed=None
+):
     """
     Create the RLlib trainer.
     """
@@ -356,7 +370,9 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
 
     for timestep in range(env.episode_length):
         for state in episode_states:
-            outputs[state][timestep] = env.global_state[state]["value"][timestep]
+            outputs[state][timestep] = env.global_state[state]["value"][
+                timestep
+            ]
 
         actions = {}
         # TODO: Consider using the `compute_actions` (instead of `compute_action`)
@@ -456,7 +472,9 @@ def trainer(
     num_iters = (num_episodes * episode_length) // train_batch_size
 
     for iteration in range(num_iters):
-        print(f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********")
+        print(
+            f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"
+        )
         result = trainer.train()
         total_timesteps = result.get("timesteps_total")
         if (
@@ -481,7 +499,9 @@ def trainer(
     subprocess.call(
         [
             "python",
-            os.path.join(PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"),
+            os.path.join(
+                PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"
+            ),
             "--results_dir",
             save_dir,
         ]
@@ -542,7 +562,9 @@ if __name__ == "__main__":
     num_iters = (num_episodes * episode_length) // train_batch_size
 
     for iteration in range(num_iters):
-        print(f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********")
+        print(
+            f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"
+        )
         result = trainer.train()
         total_timesteps = result.get("timesteps_total")
         if (
@@ -558,7 +580,9 @@ if __name__ == "__main__":
     subprocess.call(
         [
             "python",
-            os.path.join(PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"),
+            os.path.join(
+                PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"
+            ),
             "--results_dir",
             save_dir,
         ]
