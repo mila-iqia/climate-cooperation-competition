@@ -58,3 +58,5 @@ _RICE_CONSTANT:
   xT_AT_0: 0.85 # in CAP a part of damage function initial condition
   xT_LO_0: 0.0068 # in CAP a part of damage function initial condition
   xK_0: 223 # in CAP initial condition for capital
+
+  max_savings: 0.4

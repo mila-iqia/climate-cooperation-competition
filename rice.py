@@ -98,7 +98,9 @@ class Rice:
         # These will be set in reset (see below)
         self.current_year = None  # current year in the simulation
         self.timestep = None  # episode timestep
-        self.activity_timestep = None  # timestep pertaining to the activity stage
+        self.activity_timestep = (
+            None  # timestep pertaining to the activity stage
+        )
 
         # Parameters for Armington aggregation
         # TODO : add to yaml
@@ -119,7 +121,9 @@ class Rice:
         self.episode_length = self.dice_constant["xN"]
 
         # Defining observation and action spaces
-        self.observation_space = None  # This will be set via the env_wrapper (in utils)
+        self.observation_space = (
+            None  # This will be set via the env_wrapper (in utils)
+        )
 
         # Notation nvec: vector of counts of each categorical variable
         # Each region sets mitigation and savings rates
@@ -128,9 +132,13 @@ class Rice:
         # Each region sets max allowed export from own region
         self.export_action_nvec = [self.num_discrete_action_levels]
         # Each region sets import bids (max desired imports from other countries)
-        self.import_actions_nvec = [self.num_discrete_action_levels] * self.num_regions
+        self.import_actions_nvec = [
+            self.num_discrete_action_levels
+        ] * self.num_regions
         # Each region sets import tariffs imposed on other countries
-        self.tariff_actions_nvec = [self.num_discrete_action_levels] * self.num_regions
+        self.tariff_actions_nvec = [
+            self.num_discrete_action_levels
+        ] * self.num_regions
 
         self.actions_nvec = (
             self.savings_action_nvec
@@ -170,7 +178,9 @@ class Rice:
 
         # Set the default action mask (all ones)
         self.len_actions = sum(self.actions_nvec)
-        self.default_agent_action_mask = np.ones(self.len_actions, dtype=self.int_dtype)
+        self.default_agent_action_mask = np.ones(
+            self.len_actions, dtype=self.int_dtype
+        )
 
         # Add num_agents attribute (for use with WarpDrive)
         self.num_agents = self.num_regions
@@ -210,7 +220,10 @@ class Rice:
         self.set_global_state(
             key="capital_all_regions",
             value=np.array(
-                [constants[region_id]["xK_0"] for region_id in range(self.num_regions)]
+                [
+                    constants[region_id]["xK_0"]
+                    for region_id in range(self.num_regions)
+                ]
             ),
             timestep=self.timestep,
             norm=1e4,
@@ -219,7 +232,10 @@ class Rice:
         self.set_global_state(
             key="labor_all_regions",
             value=np.array(
-                [constants[region_id]["xL_0"] for region_id in range(self.num_regions)]
+                [
+                    constants[region_id]["xL_0"]
+                    for region_id in range(self.num_regions)
+                ]
             ),
             timestep=self.timestep,
             norm=1e4,
@@ -228,7 +244,10 @@ class Rice:
         self.set_global_state(
             key="production_factor_all_regions",
             value=np.array(
-                [constants[region_id]["xA_0"] for region_id in range(self.num_regions)]
+                [
+                    constants[region_id]["xA_0"]
+                    for region_id in range(self.num_regions)
+                ]
             ),
             timestep=self.timestep,
             norm=1e2,
@@ -258,7 +277,11 @@ class Rice:
                 timestep=self.timestep,
             )
         self.set_global_state(
-            "timestep", self.timestep, self.timestep, dtype=self.int_dtype, norm=1e2
+            "timestep",
+            self.timestep,
+            self.timestep,
+            dtype=self.int_dtype,
+            norm=1e2,
         )
         self.set_global_state(
             "activity_timestep",
@@ -354,9 +377,9 @@ class Rice:
         # Carry over the previous global states to the current timestep
         for key in self.global_state:
             if key != "reward_all_regions":
-                self.global_state[key]["value"][self.timestep] = self.global_state[key][
-                    "value"
-                ][self.timestep - 1].copy()
+                self.global_state[key]["value"][
+                    self.timestep
+                ] = self.global_state[key]["value"][self.timestep - 1].copy()
 
         self.set_global_state(
             "timestep", self.timestep, self.timestep, dtype=self.int_dtype
@@ -454,35 +477,52 @@ class Rice:
         features_dict = {}
         for region_id in range(self.num_regions):
             # Add a region indicator array to the observation
-            region_indicator = np.zeros(self.num_regions, dtype=self.float_dtype)
+            region_indicator = np.zeros(
+                self.num_regions, dtype=self.float_dtype
+            )
             region_indicator[region_id] = 1
 
             all_features = np.append(region_indicator, shared_features)
 
             for feature in private_features:
-                assert self.global_state[feature]["value"].shape[1] == self.num_regions
+                assert (
+                    self.global_state[feature]["value"].shape[1]
+                    == self.num_regions
+                )
                 all_features = np.append(
                     all_features,
                     self.flatten_array(
-                        self.global_state[feature]["value"][self.timestep, region_id]
+                        self.global_state[feature]["value"][
+                            self.timestep, region_id
+                        ]
                         / self.global_state[feature]["norm"]
                     ),
                 )
 
             for feature in bilateral_features:
-                assert self.global_state[feature]["value"].shape[1] == self.num_regions
-                assert self.global_state[feature]["value"].shape[2] == self.num_regions
+                assert (
+                    self.global_state[feature]["value"].shape[1]
+                    == self.num_regions
+                )
+                assert (
+                    self.global_state[feature]["value"].shape[2]
+                    == self.num_regions
+                )
                 all_features = np.append(
                     all_features,
                     self.flatten_array(
-                        self.global_state[feature]["value"][self.timestep, region_id]
+                        self.global_state[feature]["value"][
+                            self.timestep, region_id
+                        ]
                         / self.global_state[feature]["norm"]
                     ),
                 )
                 all_features = np.append(
                     all_features,
                     self.flatten_array(
-                        self.global_state[feature]["value"][self.timestep, :, region_id]
+                        self.global_state[feature]["value"][
+                            self.timestep, :, region_id
+                        ]
                         / self.global_state[feature]["norm"]
                     ),
                 )
@@ -510,18 +550,21 @@ class Rice:
         for region_id in range(self.num_regions):
             mask = self.default_agent_action_mask.copy()
             if self.negotiation_on:
-                minimum_mitigation_rate = int(round(
-                    self.global_state["minimum_mitigation_rate_all_regions"]["value"][
-                        self.timestep, region_id
-                    ]
-                    * self.num_discrete_action_levels
-                ))
+                minimum_mitigation_rate = int(
+                    round(
+                        self.global_state[
+                            "minimum_mitigation_rate_all_regions"
+                        ]["value"][self.timestep, region_id]
+                        * self.num_discrete_action_levels
+                    )
+                )
                 mitigation_mask = np.array(
                     [0 for _ in range(minimum_mitigation_rate)]
                     + [
                         1
                         for _ in range(
-                            self.num_discrete_action_levels - minimum_mitigation_rate
+                            self.num_discrete_action_levels
+                            - minimum_mitigation_rate
                         )
                     ]
                 )
@@ -554,7 +597,8 @@ class Rice:
 
         m1_all_regions = [
             actions[region_id][
-                action_offset_index : action_offset_index + num_proposal_actions : 2
+                action_offset_index : action_offset_index
+                + num_proposal_actions : 2
             ]
             / self.num_discrete_action_levels
             for region_id in range(self.num_regions)
@@ -562,7 +606,9 @@ class Rice:
 
         m2_all_regions = [
             actions[region_id][
-                action_offset_index + 1 : action_offset_index + num_proposal_actions : 2
+                action_offset_index
+                + 1 : action_offset_index
+                + num_proposal_actions : 2
             ]
             / self.num_discrete_action_levels
             for region_id in range(self.num_regions)
@@ -604,7 +650,8 @@ class Rice:
         proposal_decisions = np.array(
             [
                 actions[region_id][
-                    action_offset_index : action_offset_index + num_evaluation_actions
+                    action_offset_index : action_offset_index
+                    + num_evaluation_actions
                 ]
                 for region_id in range(self.num_regions)
             ]
@@ -613,7 +660,9 @@ class Rice:
         for region_id in range(self.num_regions):
             proposal_decisions[region_id, region_id] = 0
 
-        self.set_global_state("proposal_decisions", proposal_decisions, self.timestep)
+        self.set_global_state(
+            "proposal_decisions", proposal_decisions, self.timestep
+        )
 
         for region_id in range(self.num_regions):
             outgoing_accepted_mitigation_rates = [
@@ -638,7 +687,8 @@ class Rice:
             self.global_state["minimum_mitigation_rate_all_regions"]["value"][
                 self.timestep, region_id
             ] = max(
-                outgoing_accepted_mitigation_rates + incoming_accepted_mitigation_rates
+                outgoing_accepted_mitigation_rates
+                + incoming_accepted_mitigation_rates
             )
 
         obs = self.generate_observation()
@@ -662,6 +712,11 @@ class Rice:
             dtype=self.int_dtype,
         )
 
+        # Constants
+        constants = self.all_constants
+        const = constants[0]
+        aux_m_all_regions = np.zeros(self.num_regions, dtype=self.float_dtype)
+
         if self.negotiation_on:
             assert self.stage == 0
         else:
@@ -678,7 +733,9 @@ class Rice:
         export_action_index = mitigation_rate_action_index + len(
             self.mitigation_rate_action_nvec
         )
-        tariffs_action_index = export_action_index + len(self.export_action_nvec)
+        tariffs_action_index = export_action_index + len(
+            self.export_action_nvec
+        )
         desired_imports_action_index = tariffs_action_index + len(
             self.tariff_actions_nvec
         )
@@ -686,8 +743,11 @@ class Rice:
         self.set_global_state(
             "savings_all_regions",
             [
-                actions[region_id][savings_action_index]
-                / self.num_discrete_action_levels
+                (
+                    actions[region_id][savings_action_index]
+                    / self.num_discrete_action_levels
+                )
+                * const["max_savings"]  # TODO: add 0.4 hotfix to default.yml
                 for region_id in range(self.num_regions)
             ],
             self.timestep,
@@ -714,7 +774,8 @@ class Rice:
             "future_tariffs",
             [
                 actions[region_id][
-                    tariffs_action_index : tariffs_action_index + self.num_regions
+                    tariffs_action_index : tariffs_action_index
+                    + self.num_regions
                 ]
                 / self.num_discrete_action_levels
                 for region_id in range(self.num_regions)
@@ -734,12 +795,6 @@ class Rice:
             self.timestep,
         )
 
-        # Constants
-        constants = self.all_constants
-
-        const = constants[0]
-        aux_m_all_regions = np.zeros(self.num_regions, dtype=self.float_dtype)
-
         prev_global_temperature = self.get_global_state(
             "global_temperature", self.timestep - 1
         )
@@ -750,11 +805,16 @@ class Rice:
             const["xf_0"], const["xf_1"], const["xt_f"], self.activity_timestep
         )
         global_land_emissions = get_land_emissions(
-            const["xE_L0"], const["xdelta_EL"], self.activity_timestep, self.num_regions
+            const["xE_L0"],
+            const["xdelta_EL"],
+            self.activity_timestep,
+            self.num_regions,
         )
 
         self.set_global_state(
-            "global_exogenous_emissions", global_exogenous_emissions, self.timestep
+            "global_exogenous_emissions",
+            global_exogenous_emissions,
+            self.timestep,
         )
         self.set_global_state(
             "global_land_emissions", global_land_emissions, self.timestep
@@ -763,16 +823,19 @@ class Rice:
         scaled_imports = self.get_global_state("scaled_imports")
 
         for region_id in range(self.num_regions):
-
             # Actions
-            savings = self.get_global_state("savings_all_regions", region_id=region_id)
+            savings = self.get_global_state(
+                "savings_all_regions", region_id=region_id
+            )
             mitigation_rate = self.get_global_state(
                 "mitigation_rate_all_regions", region_id=region_id
             )
 
             # feature values from previous timestep
             intensity = self.get_global_state(
-                "intensity_all_regions", timestep=self.timestep - 1, region_id=region_id
+                "intensity_all_regions",
+                timestep=self.timestep - 1,
+                region_id=region_id,
             )
             production_factor = self.get_global_state(
                 "production_factor_all_regions",
@@ -780,10 +843,14 @@ class Rice:
                 region_id=region_id,
             )
             capital = self.get_global_state(
-                "capital_all_regions", timestep=self.timestep - 1, region_id=region_id
+                "capital_all_regions",
+                timestep=self.timestep - 1,
+                region_id=region_id,
             )
             labor = self.get_global_state(
-                "labor_all_regions", timestep=self.timestep - 1, region_id=region_id
+                "labor_all_regions",
+                timestep=self.timestep - 1,
+                region_id=region_id,
             )
             gov_balance_prev = self.get_global_state(
                 "current_balance_all_regions",
@@ -803,7 +870,9 @@ class Rice:
                 intensity,
             )
 
-            damages = get_damages(t_at, const["xa_1"], const["xa_2"], const["xa_3"])
+            damages = get_damages(
+                t_at, const["xa_1"], const["xa_2"], const["xa_3"]
+            )
             abatement_cost = get_abatement_cost(
                 mitigation_rate, mitigation_cost, const["xtheta_2"]
             )
@@ -815,9 +884,10 @@ class Rice:
             )
 
             gross_output = get_gross_output(damages, abatement_cost, production)
-            gov_balance_prev = gov_balance_prev * (1 + self.balance_interest_rate)
+            gov_balance_prev = gov_balance_prev * (
+                1 + self.balance_interest_rate
+            )
             investment = get_investment(savings, gross_output)
-
 
             for j in range(self.num_regions):
                 scaled_imports[region_id][j] = (
@@ -837,7 +907,9 @@ class Rice:
 
             # Scale imports based on gov balance
             init_capital_multiplier = 10.0
-            debt_ratio = gov_balance_prev / init_capital_multiplier * const["xK_0"]
+            debt_ratio = (
+                gov_balance_prev / init_capital_multiplier * const["xK_0"]
+            )
             debt_ratio = min(0.0, debt_ratio)
             debt_ratio = max(-1.0, debt_ratio)
             debt_ratio = np.array(debt_ratio).astype(self.float_dtype)
@@ -850,7 +922,10 @@ class Rice:
                 region_id=region_id,
             )
             self.set_global_state(
-                "damages_all_regions", damages, self.timestep, region_id=region_id
+                "damages_all_regions",
+                damages,
+                self.timestep,
+                region_id=region_id,
             )
             self.set_global_state(
                 "abatement_cost_all_regions",
@@ -859,7 +934,10 @@ class Rice:
                 region_id=region_id,
             )
             self.set_global_state(
-                "production_all_regions", production, self.timestep, region_id=region_id
+                "production_all_regions",
+                production,
+                self.timestep,
+                region_id=region_id,
             )
             self.set_global_state(
                 "gross_output_all_regions",
@@ -919,7 +997,9 @@ class Rice:
             const = constants[region_id]
 
             # get variables from global state
-            savings = self.get_global_state("savings_all_regions", region_id=region_id)
+            savings = self.get_global_state(
+                "savings_all_regions", region_id=region_id
+            )
             gross_output = self.get_global_state(
                 "gross_output_all_regions", region_id=region_id
             )
@@ -932,16 +1012,18 @@ class Rice:
 
             # calculate tariffed imports, tariff revenue and budget balance
             for j in range(self.num_regions):
-                tariffed_imports[region_id, j] = scaled_imports[region_id, j] * (
-                    1 - prev_tariffs[region_id, j]
-                )
+                tariffed_imports[region_id, j] = scaled_imports[
+                    region_id, j
+                ] * (1 - prev_tariffs[region_id, j])
             tariff_revenue = np.sum(
                 scaled_imports[region_id, :] * prev_tariffs[region_id, :]
             )
 
             # Aggregate consumption from domestic and foreign goods
             # domestic consumption
-            c_dom = get_consumption(gross_output, investment, exports=scaled_imports[:, region_id])
+            c_dom = get_consumption(
+                gross_output, investment, exports=scaled_imports[:, region_id]
+            )
 
             consumption = get_armington_agg(
                 c_dom=c_dom,
@@ -958,7 +1040,10 @@ class Rice:
             )
 
             self.set_global_state(
-                "tariff_revenue", tariff_revenue, self.timestep, region_id=region_id
+                "tariff_revenue",
+                tariff_revenue,
+                self.timestep,
+                region_id=region_id,
             )
             self.set_global_state(
                 "consumption_all_regions",
@@ -1011,9 +1096,9 @@ class Rice:
         )
 
         # Update temperature
-        m_at = self.get_global_state("global_carbon_mass", timestep=self.timestep - 1)[
-            0
-        ]
+        m_at = self.get_global_state(
+            "global_carbon_mass", timestep=self.timestep - 1
+        )[0]
         prev_global_temperature = self.get_global_state(
             "global_temperature", timestep=self.timestep - 1
         )
@@ -1040,7 +1125,9 @@ class Rice:
 
         for region_id in range(self.num_regions):
             intensity = self.get_global_state(
-                "intensity_all_regions", timestep=self.timestep - 1, region_id=region_id
+                "intensity_all_regions",
+                timestep=self.timestep - 1,
+                region_id=region_id,
             )
             mitigation_rate = self.get_global_state(
                 "mitigation_rate_all_regions", region_id=region_id
@@ -1069,14 +1156,20 @@ class Rice:
             const["xB_M"],
             np.sum(aux_m_all_regions),
         )
-        self.set_global_state("global_carbon_mass", global_carbon_mass, self.timestep)
+        self.set_global_state(
+            "global_carbon_mass", global_carbon_mass, self.timestep
+        )
 
         for region_id in range(self.num_regions):
             capital = self.get_global_state(
-                "capital_all_regions", timestep=self.timestep - 1, region_id=region_id
+                "capital_all_regions",
+                timestep=self.timestep - 1,
+                region_id=region_id,
             )
             labor = self.get_global_state(
-                "labor_all_regions", timestep=self.timestep - 1, region_id=region_id
+                "labor_all_regions",
+                timestep=self.timestep - 1,
+                region_id=region_id,
             )
             production_factor = self.get_global_state(
                 "production_factor_all_regions",
@@ -1089,7 +1182,9 @@ class Rice:
                 region_id=region_id,
             )
             investment = self.get_global_state(
-                "investment_all_regions", timestep=self.timestep, region_id=region_id
+                "investment_all_regions",
+                timestep=self.timestep,
+                region_id=region_id,
             )
 
             const = constants[region_id]
@@ -1168,7 +1263,13 @@ class Rice:
         return obs, rew, done, info
 
     def set_global_state(
-        self, key=None, value=None, timestep=None, norm=None, region_id=None, dtype=None
+        self,
+        key=None,
+        value=None,
+        timestep=None,
+        norm=None,
+        region_id=None,
+        dtype=None,
     ):
         """
         Set a specific slice of the environment global state with a key and value pair.
@@ -1205,7 +1306,9 @@ class Rice:
             else:
                 self.global_state[key] = {
                     "value": np.zeros(
-                        (self.episode_length + 1,) + (self.num_regions,) + value.shape,
+                        (self.episode_length + 1,)
+                        + (self.num_regions,)
+                        + value.shape,
                         dtype=dtype,
                     ),
                     "norm": norm,
