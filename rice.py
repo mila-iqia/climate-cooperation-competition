@@ -837,7 +837,7 @@ class Rice:
 
             # Scale imports based on gov balance
             init_capital_multiplier = 10.0
-            debt_ratio = gov_balance_prev / init_capital_multiplier * const["xK_0"]
+            debt_ratio = gov_balance_prev * init_capital_multiplier / const["xK_0"]
             debt_ratio = min(0.0, debt_ratio)
             debt_ratio = max(-1.0, debt_ratio)
             debt_ratio = np.array(debt_ratio).astype(self.float_dtype)
