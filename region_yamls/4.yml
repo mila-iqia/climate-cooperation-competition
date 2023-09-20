@@ -11,3 +11,15 @@ _RICE_CONSTANT:
   xgamma: 0.3
   xl_g: -0.052512175141607595
   xsigma_0: 0.8402859337043421
+  savings_action_lower_bound: 0.0
+  savings_action_upper_bound: 1.0
+  mitigation_rate_action_lower_bound: 0.0
+  mitigation_rate_action_upper_bound: 1.0
+  export_action_lower_bound: 0.0
+  export_action_upper_bound: 1.0
+  # import_action_to_region_0_lower_bound: 0.0  # Specific bound for region 0
+  # import_action_to_region_0_upper_bound: 1.0  # Specific bound for region 0
+  import_actions_common_lower_bound: 0.0 # Common bound for all regions
+  import_actions_common_upper_bound: 1.0 # Common bound for all regions
+  tariff_actions_common_lower_bound: 0.0 # Common bound for all regions
+  tariff_actions_common_upper_bound: 1.0 # Common bound for all regions

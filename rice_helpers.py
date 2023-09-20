@@ -53,6 +53,24 @@ def set_rice_params(yamls_folder=None):
     return dice_params, num_regions
 
 
+# Function to get bounds with default values
+def get_act_bound(region_config, action_name, bound_type):
+    # Try to get the specific bound for the region
+    specific_bound = region_config.get(f"{action_name}_{bound_type}_bound", None)
+    if specific_bound is not None:
+        return specific_bound
+    
+    # Try to get the common bound
+    common_bound = region_config.get(f"{action_name.split('_to_region_')[0]}s_common_{bound_type}_bound", None)
+    if common_bound is not None:
+        return common_bound
+
+    # Use the default bound if neither specific nor common bound is specified
+    return 0 if bound_type == "lower" else 1
+
+# ... Rest of the code remains the same
+
+    
 # RICE dynamics
 def get_mitigation_cost(p_b, theta_2, delta_pb, timestep, intensity):
     """Obtain the cost for mitigation."""

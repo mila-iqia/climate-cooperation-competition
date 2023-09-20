@@ -58,3 +58,16 @@ _RICE_CONSTANT:
   xT_AT_0: 0.85 # in CAP a part of damage function initial condition
   xT_LO_0: 0.0068 # in CAP a part of damage function initial condition
   xK_0: 223 # in CAP initial condition for capital
+
+  savings_action_lower_bound: 0.0
+  savings_action_upper_bound: 1.0
+  mitigation_rate_action_lower_bound: 0.0
+  mitigation_rate_action_upper_bound: 1.0
+  export_action_lower_bound: 0.0
+  export_action_upper_bound: 1.0
+  # import_action_to_region_0_lower_bound: 0.0  # Specific bound for region 0
+  # import_action_to_region_0_upper_bound: 1.0  # Specific bound for region 0
+  import_actions_common_lower_bound: 0.0 # Common bound for all regions
+  import_actions_common_upper_bound: 1.0 # Common bound for all regions
+  tariff_actions_common_lower_bound: 0.0 # Common bound for all regions
+  tariff_actions_common_upper_bound: 1.0 # Common bound for all regions
