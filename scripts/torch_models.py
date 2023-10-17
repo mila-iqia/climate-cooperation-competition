@@ -13,7 +13,7 @@ Custom Pytorch policy models to use with RLlib.
 # https://docs.ray.io/en/latest/rllib/rllib-models.html#custom-pytorch-models
 
 import numpy as np
-from gym.spaces import Box, Dict
+from gymnasium.spaces import Box, Dict
 from ray.rllib.models import ModelCatalog
 from ray.rllib.models.modelv2 import restore_original_dimensions
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2

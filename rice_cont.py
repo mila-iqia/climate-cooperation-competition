@@ -13,7 +13,8 @@ import os
 import sys
 
 import numpy as np
-from gym.spaces import Box
+import gymnasium
+from gymnasium.spaces import Box
 
 
 _PUBLIC_REPO_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -54,7 +55,7 @@ _ACTION_MASK = "action_mask"
 import warnings
 
 
-class Rice:
+class Rice(gymnasium.Env):
     """
     TODO : write docstring for RICE
     Rice class. Includes all regions, interactions, etc.
@@ -80,6 +81,7 @@ class Rice:
         self.balance_interest_rate = 0.1
 
         self.num_regions = num_regions
+        self._agent_ids = [i for i in range(self.num_regions)]
         self.rice_constant = params["_RICE_CONSTANT"]
         self.dice_constant = params["_DICE_CONSTANT"]
         self.all_constants = self.concatenate_world_and_regional_params(
@@ -139,20 +141,36 @@ class Rice:
         )
 
         # Set the env action space
-        action_names = [
-            "savings_action",
-            "mitigation_rate_action",
-            "export_action"
-        ] + [f"import_action_to_region_{i}" for i in range(self.num_regions)] + [f"tariff_action_to_region_{i}" for i in range(self.num_regions)]
+        action_names = (
+            ["savings_action", "mitigation_rate_action", "export_action"]
+            + [f"import_action_to_region_{i}" for i in range(self.num_regions)]
+            + [f"tariff_action_to_region_{i}" for i in range(self.num_regions)]
+        )
 
         # Use the loaded configuration and the function above to define the action space for each region
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore") # ignore WARN: Box bound precision lowered by casting to float32
+            warnings.simplefilter(
+                "ignore"
+            )  # ignore WARN: Box bound precision lowered by casting to float32
             self.action_space = {
                 region_id: Box(
-                    low=np.array([get_act_bound(self.all_constants[region_id], action, "lower") for action in action_names]),
-                    high=np.array([get_act_bound(self.all_constants[region_id], action, "upper") for action in action_names]),
-                    dtype=np.float32
+                    low=np.array(
+                        [
+                            get_act_bound(
+                                self.all_constants[region_id], action, "lower"
+                            )
+                            for action in action_names
+                        ]
+                    ),
+                    high=np.array(
+                        [
+                            get_act_bound(
+                                self.all_constants[region_id], action, "upper"
+                            )
+                            for action in action_names
+                        ]
+                    ),
+                    dtype=np.float32,
                 )
                 for region_id in range(self.num_regions)
             }
@@ -164,7 +182,12 @@ class Rice:
         # Add num_agents attribute (for use with WarpDrive)
         self.num_agents = self.num_regions
 
-    def reset(self):
+    def seed(self, seed=None):
+        # Set the seed for the random number generator
+        super().reset(seed=seed)  # Make sure that gymnasium.Env correctly seeds the RNG
+        return [seed]
+
+    def reset(self, *, seed=None, options=None):
         """
         Reset the environment
         """
@@ -328,8 +351,8 @@ class Rice:
                 value=np.zeros((self.num_regions, self.num_regions)),
                 timestep=self.timestep,
             )
-
-        return self.generate_observation()
+        obs_dict = self.generate_observation()
+        return obs_dict
 
     def step(self, actions=None):
         """
@@ -475,7 +498,6 @@ class Rice:
 
     #     return mask_dict
 
-
     def climate_and_economy_simulation_step(self, actions=None):
         """
         The step function for the climate and economy simulation.
@@ -584,7 +606,6 @@ class Rice:
         scaled_imports = self.get_global_state("scaled_imports")
 
         for region_id in range(self.num_regions):
-
             # Actions
             savings = self.get_global_state("savings_all_regions", region_id=region_id)
             mitigation_rate = self.get_global_state(
@@ -638,7 +659,6 @@ class Rice:
             gross_output = get_gross_output(damages, abatement_cost, production)
             gov_balance_prev = gov_balance_prev * (1 + self.balance_interest_rate)
             investment = get_investment(savings, gross_output)
-
 
             for j in range(self.num_regions):
                 scaled_imports[region_id][j] = (
@@ -762,7 +782,9 @@ class Rice:
 
             # Aggregate consumption from domestic and foreign goods
             # domestic consumption
-            c_dom = get_consumption(gross_output, investment, exports=scaled_imports[:, region_id])
+            c_dom = get_consumption(
+                gross_output, investment, exports=scaled_imports[:, region_id]
+            )
 
             consumption = get_armington_agg(
                 c_dom=c_dom,
@@ -985,8 +1007,9 @@ class Rice:
         # Set current year
         self.current_year += self.all_constants[0]["xDelta"]
         done = {"__all__": self.current_year == self.end_year}
+        truncated = {"__all__": False}
         info = {}
-        return obs, rew, done, info
+        return obs, rew, done, truncated, info
 
     def set_global_state(
         self, key=None, value=None, timestep=None, norm=None, region_id=None, dtype=None
