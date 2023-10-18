@@ -42,10 +42,10 @@ class RiceCuda(Rice, CUDAEnvironmentContext):
         data_feed = DataFeed()
 
         # Add constants
-        for key, value in sorted(self.dice_constant.items()):
+        for key, value in sorted(self.common_params.items()):
             data_feed.add_data(name=key, data=value)
 
-        for key, value in sorted(self.rice_constant.items()):
+        for key, value in sorted(self.region_specific_params.items()):
             data_feed.add_data(name=key, data=value)
 
         # Add all the global states at timestep 0.
@@ -86,15 +86,18 @@ class RiceCuda(Rice, CUDAEnvironmentContext):
         # Armington agg. parameters
         data_feed.add_data_list(
             [
-                ("sub_rate", self.sub_rate),
-                ("dom_pref", self.dom_pref),
-                ("for_pref", self.for_pref),
+                ("sub_rate", self.consumption_substitution_rate),
+                ("dom_pref", self.preference_for_domestic),
+                ("for_pref", self.preference_for_imported),
             ]
         )
 
         # Year parameters
         data_feed.add_data_list(
-            [("current_year", self.current_year, True), ("end_year", self.end_year)]
+            [
+                ("current_year", self.current_simulation_year, True),
+                ("end_year", self.end_year),
+            ]
         )
 
         return data_feed
@@ -108,8 +111,8 @@ class RiceCuda(Rice, CUDAEnvironmentContext):
         return tensor_dict
 
     def step(self):
-        constants_keys = list(sorted(self.dice_constant.keys())) + list(
-            sorted(self.rice_constant.keys())
+        constants_keys = list(sorted(self.common_params.keys())) + list(
+            sorted(self.region_specific_params.keys())
         )
         args = (
             constants_keys
