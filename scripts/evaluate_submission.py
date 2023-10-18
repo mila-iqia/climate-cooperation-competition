@@ -26,7 +26,7 @@ _path = Path(os.path.abspath(__file__))
 
 from fixed_paths import PUBLIC_REPO_DIR
 from run_unittests import fetch_base_env
-from gym.spaces import MultiDiscrete
+from gymnasium.spaces import MultiDiscrete
 
 # climate-cooperation-competition
 sys.path.append(os.path.join(PUBLIC_REPO_DIR, "scripts"))
@@ -115,7 +115,9 @@ def validate_dir(results_dir=None):
             if file not in files:
                 success = False
                 logging.error(
-                    "%s is not present in the results directory: %s!", file, results_dir
+                    "%s is not present in the results directory: %s!",
+                    file,
+                    results_dir,
                 )
                 comment = f"{file} is not present in the results directory!"
                 break
@@ -128,7 +130,9 @@ def validate_dir(results_dir=None):
             if file not in files:
                 success = False
                 logging.error(
-                    "%s is not present in the results directory: %s!", file, results_dir
+                    "%s is not present in the results directory: %s!",
+                    file,
+                    results_dir,
                 )
                 comment = f"{file} is not present in the results directory!"
                 break
@@ -147,7 +151,11 @@ def validate_dir(results_dir=None):
 
 
 def compute_metrics(
-    fetch_episode_states, trainer, framework, num_episodes=1, include_c_e_idx=True
+    fetch_episode_states,
+    trainer,
+    framework,
+    num_episodes=1,
+    include_c_e_idx=True,
 ):
     """
     Generate episode rollouts and compute metrics.
@@ -172,9 +180,9 @@ def compute_metrics(
                     trainer, required_outputs
                 )
             else:
-                episode_states[episode_id] = trainer.fetch_episode_global_states(
-                    required_outputs
-                )
+                episode_states[
+                    episode_id
+                ] = trainer.fetch_episode_global_states(required_outputs)
 
         for feature in desired_outputs:
             feature_values = [None for _ in range(num_episodes)]
@@ -189,18 +197,22 @@ def compute_metrics(
 
             elif feature == "global_carbon_mass":
                 for episode_id in range(num_episodes):
-                    feature_values[episode_id] = episode_states[episode_id][feature][
-                        -1, 0
-                    ]
+                    feature_values[episode_id] = episode_states[episode_id][
+                        feature
+                    ][-1, 0]
 
             elif feature == "gross_output_all_regions":
                 for episode_id in range(num_episodes):
                     # collect gross output results based on activity timestep
-                    activity_timestep = episode_states[episode_id]["activity_timestep"]
+                    activity_timestep = episode_states[episode_id][
+                        "activity_timestep"
+                    ]
                     activity_index = np.append(
                         1.0, np.diff(activity_timestep.squeeze())
                     )
-                    activity_index = [np.isclose(v, 1.0) for v in activity_index]
+                    activity_index = [
+                        np.isclose(v, 1.0) for v in activity_index
+                    ]
                     feature_values[episode_id] = np.sum(
                         episode_states[episode_id]["gross_output_all_regions"][
                             activity_index
@@ -283,18 +295,22 @@ def val_metrics(logged_ts, framework, num_episodes=1, include_c_e_idx=True):
 
             elif feature == "global_carbon_mass":
                 for episode_id in range(num_episodes):
-                    feature_values[episode_id] = episode_states[episode_id][feature][
-                        -1, 0
-                    ]
+                    feature_values[episode_id] = episode_states[episode_id][
+                        feature
+                    ][-1, 0]
 
             elif feature == "gross_output_all_regions":
                 for episode_id in range(num_episodes):
                     # collect gross output results based on activity timestep
-                    activity_timestep = episode_states[episode_id]["activity_timestep"]
+                    activity_timestep = episode_states[episode_id][
+                        "activity_timestep"
+                    ]
                     activity_index = np.append(
                         1.0, np.diff(activity_timestep.squeeze())
                     )
-                    activity_index = [np.isclose(v, 1.0) for v in activity_index]
+                    activity_index = [
+                        np.isclose(v, 1.0) for v in activity_index
+                    ]
                     feature_values[episode_id] = np.sum(
                         episode_states[episode_id]["gross_output_all_regions"][
                             activity_index
@@ -383,7 +399,9 @@ def perform_evaluation(
     try:
         assert os.path.exists(config_file)
     except Exception as err:
-        logging.error(f"The run configuration is missing in {results_directory}.")
+        logging.error(
+            f"The run configuration is missing in {results_directory}."
+        )
         raise err
 
     # Copy the PUBLIC region yamls and rice_build.cu to the results directory.
@@ -543,7 +561,9 @@ if __name__ == "__main__":
     # Validate the submission directory
     framework, results_dir_is_valid, comment = validate_dir(results_dir)
     if not results_dir_is_valid:
-        raise AssertionError(f"{results_dir} is not a valid submission directory.")
+        raise AssertionError(
+            f"{results_dir} is not a valid submission directory."
+        )
 
     # Run unit tests on the simulation files
     skip_unit_tests = True  # = args.skip_unit_tests

@@ -13,7 +13,7 @@ Custom Pytorch policy models to use with RLlib.
 # https://docs.ray.io/en/latest/rllib/rllib-models.html#custom-pytorch-models
 
 import numpy as np
-from gym.spaces import Box, Dict
+from gymnasium.spaces import Box, Dict
 from ray.rllib.models import ModelCatalog
 from ray.rllib.models.modelv2 import restore_original_dimensions
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
@@ -33,9 +33,17 @@ class TorchLinear(TorchModelV2, nn.Module):
     custom_name = "torch_linear"
 
     def __init__(
-        self, obs_space, action_space, num_outputs, model_config, name, fc_dims=None
+        self,
+        obs_space,
+        action_space,
+        num_outputs,
+        model_config,
+        name,
+        fc_dims=None,
     ):
-        super().__init__(obs_space, action_space, num_outputs, model_config, name)
+        super().__init__(
+            obs_space, action_space, num_outputs, model_config, name
+        )
         nn.Module.__init__(self)
 
         if fc_dims is None:
@@ -102,7 +110,9 @@ class TorchLinear(TorchModelV2, nn.Module):
                 else:
                     obs_size += np.prod(self.observation_space[key].shape)
         else:
-            raise NotImplementedError("Observation space must be of Box or Dict type")
+            raise NotImplementedError(
+                "Observation space must be of Box or Dict type"
+            )
         return int(obs_size)
 
     def get_flattened_obs(self, obs):
@@ -116,10 +126,14 @@ class TorchLinear(TorchModelV2, nn.Module):
                 if key == _ACTION_MASK:
                     self.action_mask = self.reshape_and_flatten_obs(obs[key])
                 else:
-                    flattened_obs_dict[key] = self.reshape_and_flatten_obs(obs[key])
+                    flattened_obs_dict[key] = self.reshape_and_flatten_obs(
+                        obs[key]
+                    )
             flattened_obs = torch.cat(list(flattened_obs_dict.values()), dim=-1)
             return flattened_obs
-        raise NotImplementedError("Observation space must be of Box or Dict type")
+        raise NotImplementedError(
+            "Observation space must be of Box or Dict type"
+        )
 
     @staticmethod
     def reshape_and_flatten_obs(obs):
@@ -178,7 +192,10 @@ class TorchLinear(TorchModelV2, nn.Module):
         self.values = self.vf_head(logits)[..., 0]
 
         concatenated_action_logits = torch.cat(action_logits, dim=-1)
-        return torch.reshape(concatenated_action_logits, [-1, self.num_outputs]), state
+        return (
+            torch.reshape(concatenated_action_logits, [-1, self.num_outputs]),
+            state,
+        )
 
 
 ModelCatalog.register_custom_model("torch_linear", TorchLinear)
