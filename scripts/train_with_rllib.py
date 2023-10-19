@@ -528,7 +528,7 @@ if __name__ == "__main__":
     num_episodes = trainer_config["num_episodes"]
     train_batch_size = trainer_config["train_batch_size"]
     # Fetch the env object from the trainer
-    env_obj = trainer.workers.local_worker().env.env
+    env_obj = trainer.workers.local_worker().env.env.env
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
 
