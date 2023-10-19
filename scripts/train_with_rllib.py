@@ -363,7 +363,7 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
         # API below for speed-up when there are many agents.
         for region_id in range(env.num_agents):
             if (
-                len(agent_states[region_id]) == 0
+                    len(agent_states[region_id]) == 0
             ):  # stateless, with a linear model, for example
                 actions[region_id] = trainer_obj.compute_action(
                     obs[region_id],
@@ -385,21 +385,21 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
             for state in episode_states:
                 outputs[state][timestep + 1] = env.global_state[state]["value"][
                     timestep + 1
-                ]
+                    ]
             break
 
     return outputs
 
 
 def trainer(
-    negotiation_on=0,
-    num_envs=100,
-    train_batch_size=1024,
-    num_episodes=30000,
-    lr=0.0005,
-    model_params_save_freq=5000,
-    desired_outputs=desired_outputs,
-    num_workers=4,
+        negotiation_on=0,
+        num_envs=100,
+        train_batch_size=1024,
+        num_episodes=30000,
+        lr=0.0005,
+        model_params_save_freq=5000,
+        desired_outputs=desired_outputs,
+        num_workers=4,
 ):
     print("Training with RLlib...")
 
@@ -460,8 +460,8 @@ def trainer(
         result = trainer.train()
         total_timesteps = result.get("timesteps_total")
         if (
-            iteration % run_config["saving"]["model_params_save_freq"] == 0
-            or iteration == num_iters - 1
+                iteration % run_config["saving"]["model_params_save_freq"] == 0
+                or iteration == num_iters - 1
         ):
             save_model_checkpoint(trainer, save_dir, total_timesteps)
             logging.info(result)
@@ -497,7 +497,7 @@ if __name__ == "__main__":
     # Read the run configurations specific to the environment.
     # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
     # -----------------------------------------------------------------------------
-    config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", "rice_rllib.yaml")
+    config_path = os.getenv("CONFIG_FILE", os.path.join(PUBLIC_REPO_DIR, "scripts", "rice_rllib.yaml"))
     if not os.path.exists(config_path):
         raise ValueError(
             "The run configuration is missing. Please make sure the correct path "
@@ -546,8 +546,8 @@ if __name__ == "__main__":
         result = trainer.train()
         total_timesteps = result.get("timesteps_total")
         if (
-            iteration % run_config["saving"]["model_params_save_freq"] == 0
-            or iteration == num_iters - 1
+                iteration % run_config["saving"]["model_params_save_freq"] == 0
+                or iteration == num_iters - 1
         ):
             save_model_checkpoint(trainer, save_dir, total_timesteps)
             logging.info(result)

@@ -1,0 +1,30 @@
+name: Python package
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.7"]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ray[rllib]==1.0.0
+# TODO fix flake8 errors and enable
+#      - name: Lint with flake8
+#        run: |
+#          ./scripts/lint.sh
+      - name: Test with pytest
+        run: |
+          pytest
