@@ -181,8 +181,7 @@ def get_rllib_config(exp_run_config=None, env_class=None, seed=None):
     }
 
     # Function mapping agent ids to policy ids.
-    def policy_mapping_fn(agent_id=None):
-        assert agent_id is not None
+    def policy_mapping_fn(agent_id, episode, worker, **kwargs):
         return "regions"
 
     # Optional list of policies to train, or None for all policies.
