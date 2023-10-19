@@ -8,7 +8,7 @@ tensorflow==1.13.1
 torch==1.9.0
 # optional: RLlib and WarpDrive for training
 # For CPU
-# ray[rllib]==1.0.0 
+ray[rllib]==2.7.1
 # For GPU
 # rl-warp-drive==1.7.0
 matplotlib==3.5.3
