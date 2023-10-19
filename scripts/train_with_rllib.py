@@ -298,7 +298,7 @@ def create_trainer(
 
     # Create the A2C trainer.
     exp_run_config["env"]["source_dir"] = source_dir
-    rllib_trainer = A2CTrainer(
+    rllib_trainer = A2C(
         env=EnvWrapper,
         config=get_rllib_config(
             exp_run_config=exp_run_config, env_class=EnvWrapper, seed=seed
