@@ -18,10 +18,17 @@ import sys
 import time
 
 import numpy as np
+import ray
+import torch
 import yaml
 from desired_outputs import desired_outputs
 from fixed_paths import PUBLIC_REPO_DIR
+from gym.spaces import Box, Dict
+from ray.rllib.algorithms.a2c import A2C
+from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from run_unittests import import_class_from_path
+from torch_models import TorchLinear
+
 from opt_helper import save
 from rice import Rice
 
@@ -29,43 +36,6 @@ sys.path.append(PUBLIC_REPO_DIR)
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.DEBUG)
-
-
-def perform_other_imports():
-    """
-    RLlib-related imports.
-    """
-    import ray
-    import torch
-    from gym.spaces import Box, Dict
-    from ray.rllib.agents.a3c import A2CTrainer
-    from ray.rllib.env.multi_agent_env import MultiAgentEnv
-    from ray.tune.logger import NoopLogger
-
-    return ray, torch, Box, Dict, MultiAgentEnv, A2CTrainer, NoopLogger
-
-
-print("Do imports")
-
-try:
-    other_imports = perform_other_imports()
-except ImportError:
-    print("Installing requirements...")
-
-    # Install gym
-    subprocess.call(["pip", "install", "gym==0.21.0"])
-    # Install RLlib v1.0.0
-    subprocess.call(["pip", "install", "ray[rllib]==1.0.0"])
-    # Install PyTorch
-    subprocess.call(["pip", "install", "torch==1.9.0"])
-
-    other_imports = perform_other_imports()
-
-ray, torch, Box, Dict, MultiAgentEnv, A2CTrainer, NoopLogger = other_imports
-
-from torch_models import TorchLinear
-
-logging.info("Finished imports")
 
 
 _BIG_NUMBER = 1e20
@@ -211,8 +181,7 @@ def get_rllib_config(exp_run_config=None, env_class=None, seed=None):
     }
 
     # Function mapping agent ids to policy ids.
-    def policy_mapping_fn(agent_id=None):
-        assert agent_id is not None
+    def policy_mapping_fn(agent_id, episode, worker, **kwargs):
         return "regions"
 
     # Optional list of policies to train, or None for all policies.
@@ -241,6 +210,7 @@ def get_rllib_config(exp_run_config=None, env_class=None, seed=None):
         if train_config["num_workers"] > 0
         else train_config["num_envs"],
         "train_batch_size": train_config["train_batch_size"],
+        "disable_env_checking": True,
     }
     if seed is not None:
         rllib_config["seed"] = seed
@@ -329,7 +299,7 @@ def create_trainer(
 
     # Create the A2C trainer.
     exp_run_config["env"]["source_dir"] = source_dir
-    rllib_trainer = A2CTrainer(
+    rllib_trainer = A2C(
         env=EnvWrapper,
         config=get_rllib_config(
             exp_run_config=exp_run_config, env_class=EnvWrapper, seed=seed
@@ -559,7 +529,7 @@ if __name__ == "__main__":
     num_episodes = trainer_config["num_episodes"]
     train_batch_size = trainer_config["train_batch_size"]
     # Fetch the env object from the trainer
-    env_obj = trainer.workers.local_worker().env.env
+    env_obj = trainer.workers.local_worker().env.env.env
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
 
