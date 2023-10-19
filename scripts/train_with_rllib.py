@@ -18,10 +18,17 @@ import sys
 import time
 
 import numpy as np
+import ray
+import torch
 import yaml
 from desired_outputs import desired_outputs
 from fixed_paths import PUBLIC_REPO_DIR
+from gym.spaces import Box, Dict
+from ray.rllib.algorithms.a2c import A2C
+from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from run_unittests import import_class_from_path
+from torch_models import TorchLinear
+
 from opt_helper import save
 from rice import Rice
 
@@ -29,43 +36,6 @@ sys.path.append(PUBLIC_REPO_DIR)
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.DEBUG)
-
-
-def perform_other_imports():
-    """
-    RLlib-related imports.
-    """
-    import ray
-    import torch
-    from gym.spaces import Box, Dict
-    from ray.rllib.agents.a3c import A2CTrainer
-    from ray.rllib.env.multi_agent_env import MultiAgentEnv
-    from ray.tune.logger import NoopLogger
-
-    return ray, torch, Box, Dict, MultiAgentEnv, A2CTrainer, NoopLogger
-
-
-print("Do imports")
-
-try:
-    other_imports = perform_other_imports()
-except ImportError:
-    print("Installing requirements...")
-
-    # Install gym
-    subprocess.call(["pip", "install", "gym==0.21.0"])
-    # Install RLlib v1.0.0
-    subprocess.call(["pip", "install", "ray[rllib]==1.0.0"])
-    # Install PyTorch
-    subprocess.call(["pip", "install", "torch==1.9.0"])
-
-    other_imports = perform_other_imports()
-
-ray, torch, Box, Dict, MultiAgentEnv, A2CTrainer, NoopLogger = other_imports
-
-from torch_models import TorchLinear
-
-logging.info("Finished imports")
 
 
 _BIG_NUMBER = 1e20
