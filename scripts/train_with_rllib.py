@@ -210,6 +210,7 @@ def get_rllib_config(exp_run_config=None, env_class=None, seed=None):
         if train_config["num_workers"] > 0
         else train_config["num_envs"],
         "train_batch_size": train_config["train_batch_size"],
+        "disable_env_checking": True,
     }
     if seed is not None:
         rllib_config["seed"] = seed
