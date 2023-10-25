@@ -1007,9 +1007,9 @@ class Rice(gymnasium.Env):
         # Set current year
         self.current_year += self.all_constants[0]["xDelta"]
         done = {"__all__": self.current_year == self.end_year}
-        truncated = {"__all__": False}
+        # truncated = {"__all__": False}
         info = {}
-        return obs, rew, done, truncated, info
+        return obs, rew, done, info
 
     def set_global_state(
         self, key=None, value=None, timestep=None, norm=None, region_id=None, dtype=None

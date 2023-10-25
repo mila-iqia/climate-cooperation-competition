@@ -27,7 +27,7 @@ from gym.spaces import Box, Dict
 from ray.rllib.algorithms.a2c import A2C
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from run_unittests import import_class_from_path
-from torch_models import TorchLinear
+from torch_models_cont import TorchLinear
 
 from opt_helper import save
 from rice_cont import Rice
@@ -136,35 +136,21 @@ class EnvWrapper(MultiAgentEnv):
 
         self.action_space = self.env.action_space
 
-        self.observation_space = recursive_obs_dict_to_spaces_dict(self.env.reset())
-        self._agent_ids = self.env._agent_ids
+        self.observation_space = recursive_obs_dict_to_spaces_dict(
+            self.env.reset()
+        )
 
-    def reset(self, *, seed: Optional[int] = None, options: Optional[dict] = None):
+    def reset(self):
         """Reset the env."""
-        # Use old `seed()` method.
-        if seed is not None:
-            self.env.seed(seed)
-        # Options are ignored
-
-        if self.render_mode == "human":
-            self.render()
         obs = self.env.reset()
-        infos = {k: {} for k in obs.keys()}
-        return recursive_list_to_np_array(obs), infos
+        return recursive_list_to_np_array(obs)
 
     def step(self, actions=None):
         """Step through the env."""
         assert actions is not None
         assert isinstance(actions, dict)
         obs, rew, done, info = self.env.step(actions)
-        # Truncated should always be False by default.
-        truncateds = {k: False for k in done.keys()}
-
-        return recursive_list_to_np_array(obs), rew, done, truncateds, info
-
-    def render(self):
-        # Use the old `render()` API, where we have to pass in the mode to each call.
-        return self.env.render(mode=self.render_mode)
+        return recursive_list_to_np_array(obs), rew, done, info
 
 
 def get_rllib_config(exp_run_config=None, env_class=None, seed=None):
@@ -195,8 +181,7 @@ def get_rllib_config(exp_run_config=None, env_class=None, seed=None):
     }
 
     # Function mapping agent ids to policy ids.
-    def policy_mapping_fn(agent_id=None):
-        assert agent_id is not None
+    def policy_mapping_fn(agent_id, episode, worker, **kwargs):
         return "regions"
 
     # Optional list of policies to train, or None for all policies.
@@ -219,10 +204,13 @@ def get_rllib_config(exp_run_config=None, env_class=None, seed=None):
         "multiagent": multiagent_config,
         "num_workers": train_config["num_workers"],
         "num_gpus": train_config["num_gpus"],
-        "num_envs_per_worker": (train_config["num_envs"] // train_config["num_workers"])
+        "num_envs_per_worker": (
+            train_config["num_envs"] // train_config["num_workers"]
+        )
         if train_config["num_workers"] > 0
         else train_config["num_envs"],
         "train_batch_size": train_config["train_batch_size"],
+        "disable_env_checking": True,
     }
     if seed is not None:
         rllib_config["seed"] = seed
@@ -230,7 +218,9 @@ def get_rllib_config(exp_run_config=None, env_class=None, seed=None):
     return rllib_config
 
 
-def save_model_checkpoint(trainer_obj=None, save_directory=None, current_timestep=0):
+def save_model_checkpoint(
+    trainer_obj=None, save_directory=None, current_timestep=0
+):
     """
     Save trained model checkpoints.
     """
@@ -270,7 +260,9 @@ def load_model_checkpoints(trainer_obj=None, save_directory=None, ckpt_idx=-1):
     model_params = trainer_obj.get_weights()
     for policy in model_params:
         policy_models = [
-            os.path.join(save_directory, file) for file in files if policy in file
+            os.path.join(save_directory, file)
+            for file in files
+            if policy in file
         ]
         # If there are multiple files, then use the ckpt_idx to specify the checkpoint
         assert ckpt_idx < len(policy_models)
@@ -282,21 +274,18 @@ def load_model_checkpoints(trainer_obj=None, save_directory=None, ckpt_idx=-1):
     trainer_obj.set_weights(model_params)
 
 
-import os
-import time
-from ray import tune
-from ray.rllib.algorithms.a2c import A2CConfig
-
-
-def create_trainer(exp_run_config=None, source_dir=None, results_dir=None, seed=None):
+def create_trainer(
+    exp_run_config=None, source_dir=None, results_dir=None, seed=None
+):
     """
-    Create the RLlib trainer using Ray 2.7.1 based on the YAML configuration.
+    Create the RLlib trainer.
     """
     assert exp_run_config is not None
-
     if results_dir is None:
         # Use the current time as the name for the results directory.
         results_dir = f"{time.time():10.0f}"
+
+    # Directory to save model checkpoints and metrics
 
     save_config = exp_run_config["saving"]
     results_save_dir = os.path.join(
@@ -306,25 +295,17 @@ def create_trainer(exp_run_config=None, source_dir=None, results_dir=None, seed=
         results_dir,
     )
 
-    # Construct the A2C configuration based on the provided YAML configuration.
-    a2c_config = A2CConfig()
+    ray.init(ignore_reinit_error=True)
 
-    # Trainer settings
-    trainer_config = exp_run_config["trainer"]
-    a2c_config = a2c_config.training(
-        lr=exp_run_config["policy"]["regions"]["lr"],
-        grad_clip=exp_run_config["policy"]["regions"]["max_grad_norm"]
-        if exp_run_config["policy"]["regions"]["clip_grad_norm"]
-        else None,
+    # Create the A2C trainer.
+    exp_run_config["env"]["source_dir"] = source_dir
+    rllib_trainer = A2C(
+        env=EnvWrapper,
+        config=get_rllib_config(
+            exp_run_config=exp_run_config, env_class=EnvWrapper, seed=seed
+        ),
     )
-    a2c_config = a2c_config.resources(num_gpus=trainer_config["num_gpus"])
-    a2c_config = a2c_config.rollouts(num_rollout_workers=trainer_config["num_workers"])
-    # env_instance = EnvWrapper(env_config=exp_run_config["env"])
-    a2c_config = a2c_config.environment(env=EnvWrapper)
-
-    algo = a2c_config.build()
-
-    return algo, results_save_dir
+    return rllib_trainer, results_save_dir
 
 
 def fetch_episode_states(trainer_obj=None, episode_states=None):
@@ -361,7 +342,9 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
 
     for timestep in range(env.episode_length):
         for state in episode_states:
-            outputs[state][timestep] = env.global_state[state]["value"][timestep]
+            outputs[state][timestep] = env.global_state[state]["value"][
+                timestep
+            ]
 
         actions = {}
         # TODO: Consider using the `compute_actions` (instead of `compute_action`)
@@ -411,7 +394,7 @@ def trainer(
     # Read the run configurations specific to the environment.
     # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
     # -----------------------------------------------------------------------------
-    config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", "rice_rllib.yaml")
+    config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", "rice_rllib_cont.yaml")
     if not os.path.exists(config_path):
         raise ValueError(
             "The run configuration is missing. Please make sure the correct path "
@@ -436,7 +419,7 @@ def trainer(
     # Copy the source files into the results directory
     # ------------------------------------------------
     os.makedirs(save_dir)
-    with open(os.path.join(save_dir, "rice_rllib.yaml"), "w") as yaml_file:
+    with open(os.path.join(save_dir, "rice_rllib_cont.yaml"), "w") as yaml_file:
         yaml.dump(run_config, yaml_file)
     # Copy source files to the saving directory
     for file in ["rice.py", "rice_helpers.py"]:
@@ -461,7 +444,9 @@ def trainer(
     num_iters = (num_episodes * episode_length) // train_batch_size
 
     for iteration in range(num_iters):
-        print(f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********")
+        print(
+            f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"
+        )
         result = trainer.train()
         total_timesteps = result.get("timesteps_total")
         if (
@@ -486,7 +471,9 @@ def trainer(
     subprocess.call(
         [
             "python",
-            os.path.join(PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"),
+            os.path.join(
+                PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"
+            ),
             "--results_dir",
             save_dir,
         ]
@@ -502,7 +489,7 @@ if __name__ == "__main__":
     # Read the run configurations specific to the environment.
     # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
     # -----------------------------------------------------------------------------
-    config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", "rice_rllib.yaml")
+    config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", "rice_rllib_cont.yaml")
     if not os.path.exists(config_path):
         raise ValueError(
             "The run configuration is missing. Please make sure the correct path "
@@ -525,7 +512,7 @@ if __name__ == "__main__":
             os.path.join(PUBLIC_REPO_DIR, file),
             os.path.join(save_dir, file),
         )
-    for file in ["rice_rllib.yaml"]:
+    for file in ["rice_rllib_cont.yaml"]:
         shutil.copyfile(
             os.path.join(PUBLIC_REPO_DIR, "scripts", file),
             os.path.join(save_dir, file),
@@ -542,12 +529,14 @@ if __name__ == "__main__":
     num_episodes = trainer_config["num_episodes"]
     train_batch_size = trainer_config["train_batch_size"]
     # Fetch the env object from the trainer
-    env_obj = trainer.workers.local_worker().env.env
+    env_obj = trainer.workers.local_worker().env.env.env
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
 
     for iteration in range(num_iters):
-        print(f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********")
+        print(
+            f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"
+        )
         result = trainer.train()
         total_timesteps = result.get("timesteps_total")
         if (
@@ -563,7 +552,9 @@ if __name__ == "__main__":
     subprocess.call(
         [
             "python",
-            os.path.join(PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"),
+            os.path.join(
+                PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"
+            ),
             "--results_dir",
             save_dir,
         ]

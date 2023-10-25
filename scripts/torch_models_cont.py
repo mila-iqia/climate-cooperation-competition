@@ -78,11 +78,11 @@ class TorchLinear(TorchModelV2, nn.Module):
         policy_heads = [None for _ in range(action_space.shape[0])]
         self.output_dims = []  # Network output dimension(s)
 
-        for idx, act_space in enumerate(action_space):
-            # print(f"Action space {idx} is {act_space}")
-            output_dim = act_space.n
-            self.output_dims += [output_dim]
-            policy_heads[idx] = nn.Linear(fc_dims[-1], output_dim)
+
+        self.output_dims = [action_space.shape[0]]
+        # print(self.output_dims)
+        for idx in range(action_space.shape[0]):
+            policy_heads[idx] = nn.Linear(fc_dims[-1], 2)
         self.policy_head = nn.ModuleList(policy_heads)
 
         # value-function network head
@@ -136,13 +136,8 @@ class TorchLinear(TorchModelV2, nn.Module):
 
     @staticmethod
     def apply_logit_mask(logits, mask):
-        """
-        Mask values of 1 are valid actions.
-        Add huge negative values to logits with 0 mask values.
-        """
-        logit_mask = torch.ones_like(logits) * -10000000
-        logit_mask = logit_mask * (1 - mask)
-        return logits + logit_mask
+        # to do
+        return logits
 
     @override(TorchModelV2)
     def forward(self, input_dict, state, seq_lens):
@@ -172,18 +167,15 @@ class TorchLinear(TorchModelV2, nn.Module):
             for idx, dim in enumerate(self.output_dims):
                 action_masks[idx] = self.action_mask[..., start : start + dim]
                 start = start + dim
-        action_logits = [
-            self.apply_logit_mask(ph(logits), action_masks[idx])
-            for idx, ph in enumerate(self.policy_head)
+            action_logits = [
+                self.apply_logit_mask(ph(logits), action_masks[idx])
+                for idx, ph in enumerate(self.policy_head)
         ]
+        else:
+            action_logits = [ph(logits) for ph in self.policy_head]
         self.values = self.vf_head(logits)[..., 0]
 
         concatenated_action_logits = torch.cat(action_logits, dim=-1)
-        from collections import Counter
-        count = []
-        for i in range(len(action_logits)):
-            count.append(action_logits[i].shape)
-        print(Counter(count))
         return torch.reshape(concatenated_action_logits, [-1, self.num_outputs]), state
 
 
