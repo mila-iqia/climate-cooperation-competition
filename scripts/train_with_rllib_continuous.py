@@ -27,10 +27,10 @@ from gym.spaces import Box, Dict
 from ray.rllib.algorithms.a2c import A2C
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from run_unittests import import_class_from_path
-from torch_models import TorchLinear
+from scripts.torch_models_continuous import TorchLinear
 
 from opt_helper import save
-from rice import Rice
+from rice_continuous import Rice
 
 sys.path.append(PUBLIC_REPO_DIR)
 
@@ -394,7 +394,7 @@ def trainer(
     # Read the run configurations specific to the environment.
     # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
     # -----------------------------------------------------------------------------
-    config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", "rice_rllib.yaml")
+    config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", "rice_rllib_continuous.yaml")
     if not os.path.exists(config_path):
         raise ValueError(
             "The run configuration is missing. Please make sure the correct path "
@@ -419,10 +419,10 @@ def trainer(
     # Copy the source files into the results directory
     # ------------------------------------------------
     os.makedirs(save_dir)
-    with open(os.path.join(save_dir, "rice_rllib.yaml"), "w") as yaml_file:
+    with open(os.path.join(save_dir, "rice_rllib_continuous.yaml"), "w") as yaml_file:
         yaml.dump(run_config, yaml_file)
     # Copy source files to the saving directory
-    for file in ["rice.py", "rice_helpers.py"]:
+    for file in ["rice_continuous.py", "rice_helpers.py"]:
         shutil.copyfile(
             os.path.join(PUBLIC_REPO_DIR, file),
             os.path.join(save_dir, file),
@@ -489,7 +489,7 @@ if __name__ == "__main__":
     # Read the run configurations specific to the environment.
     # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
     # -----------------------------------------------------------------------------
-    config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", "rice_rllib.yaml")
+    config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", "rice_rllib_continuous.yaml")
     if not os.path.exists(config_path):
         raise ValueError(
             "The run configuration is missing. Please make sure the correct path "
@@ -507,12 +507,12 @@ if __name__ == "__main__":
     # ------------------------------------------------
     os.makedirs(save_dir)
     # Copy source files to the saving directory
-    for file in ["rice.py", "rice_helpers.py"]:
+    for file in ["rice_continuous.py", "rice_helpers.py"]:
         shutil.copyfile(
             os.path.join(PUBLIC_REPO_DIR, file),
             os.path.join(save_dir, file),
         )
-    for file in ["rice_rllib.yaml"]:
+    for file in ["rice_rllib_continuous.yaml"]:
         shutil.copyfile(
             os.path.join(PUBLIC_REPO_DIR, "scripts", file),
             os.path.join(save_dir, file),

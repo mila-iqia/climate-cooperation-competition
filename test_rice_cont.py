@@ -1,6 +1,6 @@
 from gymnasium.spaces import Box
 import gymnasium as gym
-from rice_cont import Rice  # Assuming the class is in rice.py
+from rice_continuous import Rice  # Assuming the class is in rice.py
 import numpy as np
 
 

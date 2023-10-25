@@ -179,11 +179,11 @@ class TorchLinear(TorchModelV2, nn.Module):
         self.values = self.vf_head(logits)[..., 0]
 
         concatenated_action_logits = torch.cat(action_logits, dim=-1)
-        from collections import Counter
-        count = []
-        for i in range(len(action_logits)):
-            count.append(action_logits[i].shape)
-        print(Counter(count))
+        # from collections import Counter # debug
+        # count = []
+        # for i in range(len(action_logits)):
+        #     count.append(action_logits[i].shape)
+        # print(Counter(count))
         return torch.reshape(concatenated_action_logits, [-1, self.num_outputs]), state
 
 

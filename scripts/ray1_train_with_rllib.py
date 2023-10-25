@@ -62,7 +62,7 @@ except ImportError:
 
 ray, torch, Box, Dict, MultiAgentEnv, A2CTrainer, NoopLogger = other_imports
 
-from torch_models import TorchLinear
+from scripts.torch_models_discreted import TorchLinear
 
 logging.info("Finished imports")
 
