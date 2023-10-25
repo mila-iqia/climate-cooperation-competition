@@ -559,7 +559,8 @@ class Rice(gym.Env):
     ):
 
         global_exogenous_emissions = self.calc_exogenous_emissions()
-        prev_carbon_mass = self.get_prev_state("global_carbon_mass")[0]
+        prev_carbon_mass = self.get_prev_state("global_carbon_mass")
+        prev_global_temperature = self.get_prev_state("global_temperature")
         # TODO: why the zero index?
         # global_exogenous_emissions = global_exogenous_emissions[0]
         prev_atmospheric_carbon_mass = prev_carbon_mass[0]
@@ -568,7 +569,7 @@ class Rice(gym.Env):
         f_2x = np.array(self.all_regions_params[0]["xF_2x"])
         atmospheric_carbon_mass = np.array(self.all_regions_params[0]["xM_AT_1750"])
 
-        global_temperature = np.dot(phi_t, np.asarray(prev_carbon_mass)) + np.dot(
+        global_temperature = np.dot(phi_t, np.asarray(prev_global_temperature)) + np.dot(
             b_t,
             f_2x * np.log(prev_atmospheric_carbon_mass / atmospheric_carbon_mass) / np.log(2) + global_exogenous_emissions,
         )
@@ -624,7 +625,7 @@ class Rice(gym.Env):
         if action_type == "proposal":
             return [self.num_discrete_action_levels] * 2 * self.num_regions
 
-        if action_type == "evaluation":
+        if action_type == 'proposal_decisions':
             return [2] * self.num_regions
 
     def calc_total_possible_actions(self, negotiation_on):
@@ -750,7 +751,7 @@ class Rice(gym.Env):
             self.global_state["requested_mitigation_rate"]["value"][
                 self.current_timestep, j, region_id
             ]
-            * self.global_state["evaluation"]["value"][
+            * self.global_state['proposal_decisions']["value"][
                 self.current_timestep, region_id, j
             ]
             for j in range(self.num_regions)
@@ -769,7 +770,7 @@ class Rice(gym.Env):
 
     def get_action_space(self):
         return {
-            region_id: MultiDiscrete(self.total_possible_actions)
+            str(region_id): MultiDiscrete(self.total_possible_actions)
             for region_id in range(self.num_regions)
         }
 
@@ -826,14 +827,15 @@ class Rice(gym.Env):
             proposal_actions_index_start = self.get_actions_index("proposal")
             num_proposal_actions = len(self.proposal_possible_actions)
 
-            return [
-                actions[region_id][
-                    proposal_actions_index_start : proposal_actions_index_start
-                    + num_proposal_actions : 2
-                ]
+            value = [
+                actions[
+                    region_id][
+                        proposal_actions_index_start : proposal_actions_index_start + num_proposal_actions : 2
+                        ]
                 / self.num_discrete_action_levels
                 for region_id in range(self.num_regions)
             ]
+            return value
 
         if action_type == "requested_mitigation_rate":
             proposal_actions_index_start = self.get_actions_index("proposal")
@@ -849,9 +851,9 @@ class Rice(gym.Env):
                 for region_id in range(self.num_regions)
             ]
 
-        if action_type == "evaluation":
+        if action_type == 'proposal_decisions':
             proposal_decisions_index_start = self.get_actions_index(
-                "evaluation"
+                'proposal_decisions'
             )
             num_evaluation_actions = len(self.evaluation_possible_actions)
 
@@ -901,7 +903,7 @@ class Rice(gym.Env):
                 + self.import_tariff_possible_actions
             )
 
-        if action_type == "evaluation":
+        if action_type == 'proposal_decisions':
             return len(
                 self.savings_possible_actions
                 + self.mitigation_rate_possible_actions
@@ -986,7 +988,7 @@ class Rice(gym.Env):
                 "proposal"
             )
             self.evaluation_possible_actions = self.calc_possible_actions(
-                "evaluation"
+                'proposal_decisions'
             )
 
     def set_default_agent_action_mask(self):
@@ -1185,7 +1187,8 @@ class Rice(gym.Env):
         return obs_dict
 
     def get_rewards(self):
-        return {self.get_state("reward_all_regions", region_id=region_id) for region_id in range(self.num_regions)}
+        # regions Ids must be strings
+        return {str(region_id): self.get_state("reward_all_regions", region_id=region_id) for region_id in range(self.num_regions)}
 
     def reset_state(self, key):
         # timesteps
@@ -1279,11 +1282,13 @@ class Rice(gym.Env):
             assert isinstance(value, np.ndarray)
 
         if key not in self.global_state:
-            logging.info("Adding %s to global state.", key)
+            logging.info(f"Adding {key} to global state.")
             if region_id is None:
                 self.global_state[key] = {
                     "value": np.zeros(
-                        (self.episode_length + 1,) + value.shape, dtype=dtype
+                        (self.episode_length + 1,)
+                        + value.shape,
+                        dtype=dtype
                     ),
                     "norm": norm,
                 }
