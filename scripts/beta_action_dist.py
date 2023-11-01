@@ -68,20 +68,3 @@ class BetaActionDistribution(TorchDistributionWrapper):
     def sampled_action_logp(self) -> TensorType:
         assert self.last_sample is not None
         return self.logp(self.last_sample)
-    # def sampled_action_logp(self):
-    #     if self.last_sample is None:
-    #         # Use an example shape for the dummy batch. Here, I assume inputs shape is (batch_size, num_actions * 2).
-    #         dummy_batch_size = self.inputs.shape[0]
-    #         return torch.tensor([-float('inf')] * dummy_batch_size).squeeze(-1)
-        
-    #     logp = self.logp(self.last_sample)
-    #     return logp
-
-    # def sample(self, deterministic=False):
-    #     if deterministic:
-    #         action = self.deterministic_sample()
-    #     else:
-    #         action = self.dist.sample()
-
-    #     self.last_sample = action  # Logging the sampled action
-    #     return action
