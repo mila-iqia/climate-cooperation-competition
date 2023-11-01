@@ -12,7 +12,10 @@ from ray.rllib.utils.typing import TensorType, List, Union, Tuple, ModelConfigDi
 torch, _ = try_import_torch()
 
 class BetaActionDistribution(TorchDistributionWrapper):
-    # refer to the TorchDiagGaussian Class in miniconda3\envs\ai4gcc\lib\python3.7\site-packages\ray\rllib\models\torch\torch_action_dist.py
+    # refer to the TorchDiagGaussian Class in \ray\rllib\models\torch\torch_action_dist.py
+    # paper refer to Improving Stochastic Policy Gradients in Continuous Control 
+    # with Deep Reinforcement Learning using the Beta Distribution
+    # http://proceedings.mlr.press/v70/chou17a/chou17a.pdf
     @override(ActionDistribution)
     def __init__(
         self,
