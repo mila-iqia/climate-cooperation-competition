@@ -29,6 +29,7 @@ logging.getLogger().setLevel(logging.ERROR)
 _FEATURES = "features"
 _ACTION_MASK = "action_mask"
 
+
 class Rice(gym.Env):
     name = "Rice"
 
@@ -42,12 +43,10 @@ class Rice(gym.Env):
         self.set_discrete_action_levels(num_discrete_action_levels)
         self.set_dtypes()
 
-
         self.set_all_region_params()
         self.set_trade_params()
         self.num_regions = len(self.all_regions_params)
         self.num_agents = self.num_regions  # for env wrapper
-
 
         self.start_year = self.get_start_year()
         self.end_year = self.calc_end_year()
@@ -73,55 +72,56 @@ class Rice(gym.Env):
         return self.all_regions_params[0]["xt_0"]
 
     def reset(self, *, seed=None, options=None):
-
         self.current_timestep = 0
         self.activity_timestep = 0
         self.current_simulation_year = self.start_year
-        self.reset_state('timestep')
-        self.reset_state('activity_timestep')
+        self.reset_state("timestep")
+        self.reset_state("activity_timestep")
 
         # climate states
-        self.reset_state('global_temperature')
-        self.reset_state('global_carbon_mass')
-        self.reset_state('global_exogenous_emissions')
-        self.reset_state('global_land_emissions')
-        self.reset_state('intensity_all_regions')
-        self.reset_state('mitigation_rates_all_regions')
+        self.reset_state("global_temperature")
+        self.reset_state("global_carbon_mass")
+        self.reset_state("global_exogenous_emissions")
+        self.reset_state("global_land_emissions")
+        self.reset_state("intensity_all_regions")
+        self.reset_state("mitigation_rates_all_regions")
 
         # economic states
-        self.reset_state('production_all_regions')
-        self.reset_state('gross_output_all_regions')
-        self.reset_state('aggregate_consumption')
-        self.reset_state('investment_all_regions')
-        self.reset_state('capital_all_regions')
-        self.reset_state('capital_depreciation_all_regions')
-        self.reset_state('labor_all_regions')
-        self.reset_state('production_factor_all_regions')
-        self.reset_state('current_balance_all_regions')
-        self.reset_state('abatement_cost_all_regions')
-        self.reset_state('mitigation_cost_all_regions')
-        self.reset_state('damages_all_regions')
-        self.reset_state('utility_all_regions')
-        self.reset_state('social_welfare_all_regions')
-        self.reset_state('reward_all_regions')
+        self.reset_state("production_all_regions")
+        self.reset_state("gross_output_all_regions")
+        self.reset_state("aggregate_consumption")
+        self.reset_state("investment_all_regions")
+        self.reset_state("capital_all_regions")
+        self.reset_state("capital_depreciation_all_regions")
+        self.reset_state("labor_all_regions")
+        self.reset_state("production_factor_all_regions")
+        self.reset_state("current_balance_all_regions")
+        self.reset_state("abatement_cost_all_regions")
+        self.reset_state("mitigation_cost_all_regions")
+        self.reset_state("damages_all_regions")
+        self.reset_state("utility_all_regions")
+        self.reset_state("social_welfare_all_regions")
+        self.reset_state("reward_all_regions")
 
         # trade states
-        self.reset_state('tariffs')
-        self.reset_state('import_tariffs')
-        self.reset_state('normalized_import_bids_all_regions')
-        self.reset_state('import_bids_all_regions')
-        self.reset_state('imports_minus_tariffs')
-        self.reset_state('export_limit_all_regions')
+        self.reset_state("tariffs")
+        self.reset_state("import_tariffs")
+        self.reset_state("normalized_import_bids_all_regions")
+        self.reset_state("import_bids_all_regions")
+        self.reset_state("imports_minus_tariffs")
+        self.reset_state("export_limit_all_regions")
 
         # negotiation states
-        self.reset_state('negotiation_stage')
-        self.reset_state('savings_all_regions')
-        self.reset_state('minimum_mitigation_rate_all_regions')
-        self.reset_state('promised_mitigation_rate')
-        self.reset_state('requested_mitigation_rate')
-        self.reset_state('proposal_decisions')
+        self.reset_state("negotiation_stage")
+        self.reset_state("savings_all_regions")
+        self.reset_state("minimum_mitigation_rate_all_regions")
+        self.reset_state("promised_mitigation_rate")
+        self.reset_state("requested_mitigation_rate")
+        self.reset_state("proposal_decisions")
 
-        info = { region:{} for region in range(self.num_regions)}  # for the new ray rllib env format
+        info = {
+            region: {} for region in range(self.num_regions)
+        }  # for the new ray rllib env format
         return self.get_observations(), info
 
     def step(self, actions):
@@ -144,10 +144,16 @@ class Rice(gym.Env):
         self.is_valid_negotiation_stage(negotiation_stage=1)
         self.is_valid_actions_dict(actions)
 
-        promised_mitigation_rates = self.get_actions("promised_mitigation_rate", actions)
+        promised_mitigation_rates = self.get_actions(
+            "promised_mitigation_rate", actions
+        )
         self.set_state("promised_mitigation_rate", np.array(promised_mitigation_rates))
-        requested_mitigation_rates = self.get_actions("requested_mitigation_rate", actions)
-        self.set_state("requested_mitigation_rate", np.array(requested_mitigation_rates))
+        requested_mitigation_rates = self.get_actions(
+            "requested_mitigation_rate", actions
+        )
+        self.set_state(
+            "requested_mitigation_rate", np.array(requested_mitigation_rates)
+        )
 
         observations = self.get_observations()
         rewards = {region_id: 0.0 for region_id in range(self.num_regions)}
@@ -172,7 +178,7 @@ class Rice(gym.Env):
 
             self.set_state(
                 "minimum_mitigation_rate_all_regions", min_mitigation, region_id
-                )
+            )
 
         observations = self.get_observations()
         rewards = {region_id: 0.0 for region_id in range(self.num_regions)}
@@ -208,7 +214,8 @@ class Rice(gym.Env):
         tariff_revenues, net_imports = self.calc_tariff_revenues(gross_imports)
 
         consumptions = self.calc_consumptions(
-            gross_outputs, investments, gross_imports, net_imports)
+            gross_outputs, investments, gross_imports, net_imports
+        )
         utilities = self.calc_utilities(consumptions)
 
         self.calc_social_welfares(utilities)
@@ -237,22 +244,28 @@ class Rice(gym.Env):
     def calc_carbon_intensities(self, save_state=True):
         for region_id in range(self.num_regions):
             regional_params = self.all_regions_params[region_id]
-            carbon_intensity = self.get_prev_state("intensity_all_regions", region_id=region_id) * np.exp(
-            -regional_params["xg_sigma"]
-            * pow(
-                1 - regional_params["xdelta_sigma"],
-                regional_params["xDelta"] * (self.activity_timestep - 1),
-            )
-            * regional_params["xDelta"]
+            carbon_intensity = self.get_prev_state(
+                "intensity_all_regions", region_id=region_id
+            ) * np.exp(
+                -regional_params["xg_sigma"]
+                * pow(
+                    1 - regional_params["xdelta_sigma"],
+                    regional_params["xDelta"] * (self.activity_timestep - 1),
+                )
+                * regional_params["xDelta"]
             )
             if save_state:
-                self.set_state("intensity_all_regions", carbon_intensity, region_id=region_id)
+                self.set_state(
+                    "intensity_all_regions", carbon_intensity, region_id=region_id
+                )
 
     def calc_production_factors(self, save_state=True):
         production_factors = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             regional_params = self.all_regions_params[region_id]
-            production_factors[region_id] = self.get_prev_state("production_factor_all_regions", region_id=region_id) * (
+            production_factors[region_id] = self.get_prev_state(
+                "production_factor_all_regions", region_id=region_id
+            ) * (
                 np.exp(0.0033)
                 + regional_params["xg_A"]
                 * np.exp(
@@ -263,18 +276,27 @@ class Rice(gym.Env):
             )
 
             if save_state:
-                self.set_state("production_factor_all_regions", production_factors[region_id], region_id=region_id)
+                self.set_state(
+                    "production_factor_all_regions",
+                    production_factors[region_id],
+                    region_id=region_id,
+                )
 
     def calc_labors(self, save_state=True):
         labors = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             regional_params = self.all_regions_params[region_id]
-            labors[region_id] = self.get_prev_state("labor_all_regions", region_id=region_id) * pow(
-                (1 + regional_params["xL_a"]) / (1 + self.get_prev_state("labor_all_regions", region_id=region_id)),
+            labors[region_id] = self.get_prev_state(
+                "labor_all_regions", region_id=region_id
+            ) * pow(
+                (1 + regional_params["xL_a"])
+                / (1 + self.get_prev_state("labor_all_regions", region_id=region_id)),
                 regional_params["xl_g"],
             )
             if save_state:
-                self.set_state("labor_all_regions", labors[region_id], region_id=region_id) #TODO check all save_states for region_id
+                self.set_state(
+                    "labor_all_regions", labors[region_id], region_id=region_id
+                )  # TODO check all save_states for region_id
         return labors
 
     def calc_capitals(self, investments, save_state=True):
@@ -285,14 +307,23 @@ class Rice(gym.Env):
             x_delta = regional_params["xDelta"]
             capital_depreciation = pow(1 - x_delta_k, x_delta)
             if save_state:
-                self.set_state("capital_depreciation_all_regions", capital_depreciation, region_id=region_id)
-            capitals[region_id] =  (
-                capital_depreciation * self.get_prev_state("capital_all_regions", region_id=region_id)
-                + regional_params["xDelta"] * investments[region_id]
+                self.set_state(
+                    "capital_depreciation_all_regions",
+                    capital_depreciation,
+                    region_id=region_id,
+                )
+            capitals[region_id] = (
+                capital_depreciation
+                * self.get_prev_state("capital_all_regions", region_id=region_id)
+                + (1 - regional_params["xtax"])
+                * regional_params["xDelta"]
+                * investments[region_id]
             )
 
             if save_state:
-                self.set_state("capital_all_regions", capitals[region_id], region_id=region_id)
+                self.set_state(
+                    "capital_all_regions", capitals[region_id], region_id=region_id
+                )
 
         return capitals
 
@@ -300,21 +331,29 @@ class Rice(gym.Env):
         rewards = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             rewards[region_id] = utilities[region_id]
-            self.set_state("reward_all_regions", utilities[region_id], region_id=region_id)
+            self.set_state(
+                "reward_all_regions", utilities[region_id], region_id=region_id
+            )
         return rewards
 
-    def calc_gov_balances_post_trade(self, gov_balances, gross_imports, save_state=True):
+    def calc_gov_balances_post_trade(
+        self, gov_balances, gross_imports, save_state=True
+    ):
         gov_balances_post_trade = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             regional_params = self.all_regions_params[region_id]
             trade_balance = regional_params["xDelta"] * (
-                    np.sum(gross_imports[:, region_id])
-                    - np.sum(gross_imports[region_id, :])
-                )
+                np.sum(gross_imports[:, region_id])
+                - np.sum(gross_imports[region_id, :])
+            )
             gov_balances_post_trade[region_id] = gov_balances[region_id] + trade_balance
 
             if save_state:
-                self.set_state("current_balance_all_regions", gov_balances_post_trade[region_id], region_id=region_id)
+                self.set_state(
+                    "current_balance_all_regions",
+                    gov_balances_post_trade[region_id],
+                    region_id=region_id,
+                )
 
         return gov_balances_post_trade
 
@@ -325,32 +364,53 @@ class Rice(gym.Env):
             rho = regional_params["xrho"]
             delta = regional_params["xDelta"]
             """Compute social welfare"""
-            social_welfares[region_id] =  utilities[region_id] / pow(1 + rho, delta * self.activity_timestep)
+            social_welfares[region_id] = utilities[region_id] / pow(
+                1 + rho, delta * self.activity_timestep
+            )
             if save_state:
-                self.set_state("social_welfare_all_regions", social_welfares[region_id], region_id=region_id)
+                self.set_state(
+                    "social_welfare_all_regions",
+                    social_welfares[region_id],
+                    region_id=region_id,
+                )
         return social_welfares
 
     def calc_utilities(self, consumptions, save_state=True):
         utilities = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             regional_params = self.all_regions_params[region_id]
-            utilities[region_id] =  (
-                (self.get_prev_state("labor_all_regions",region_id) / 1000.0)
-                * (pow(consumptions[region_id] / (self.get_prev_state("labor_all_regions",region_id) / 1000.0) + _SMALL_NUM, 1 - regional_params["xalpha"]) - 1)
+            utilities[region_id] = (
+                (self.get_prev_state("labor_all_regions", region_id) / 1000.0)
+                * (
+                    pow(
+                        consumptions[region_id]
+                        / (self.get_prev_state("labor_all_regions", region_id) / 1000.0)
+                        + _SMALL_NUM,
+                        1 - regional_params["xalpha"],
+                    )
+                    - 1
+                )
                 / (1 - regional_params["xalpha"])
             )
             if save_state:
-                self.set_state("utility_all_regions", utilities[region_id], region_id=region_id)
+                self.set_state(
+                    "utility_all_regions", utilities[region_id], region_id=region_id
+                )
         return utilities
 
-    def calc_consumptions(self, gross_outputs, investments, gross_imports, net_imports, save_state=True):
+    def calc_consumptions(
+        self, gross_outputs, investments, gross_imports, net_imports, save_state=True
+    ):
         consumptions = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             total_exports = np.sum(gross_imports[:, region_id])
             assert (
-                gross_outputs[region_id] - investments[region_id] - total_exports > -1e-5
+                gross_outputs[region_id] - investments[region_id] - total_exports
+                > -1e-5
             ), "consumption cannot be negative."
-            domestic_consumption =  max(0.0, gross_outputs[region_id] - investments[region_id] - total_exports)
+            domestic_consumption = max(
+                0.0, gross_outputs[region_id] - investments[region_id] - total_exports
+            )
 
             c_dom_pref = self.preference_for_domestic * (
                 domestic_consumption**self.consumption_substitution_rate
@@ -366,7 +426,11 @@ class Rice(gym.Env):
 
             # TODO: fix for region-specific state saving
             if save_state:
-                self.set_state("aggregate_consumption", consumptions[region_id], region_id=region_id)
+                self.set_state(
+                    "aggregate_consumption",
+                    consumptions[region_id],
+                    region_id=region_id,
+                )
         return consumptions
 
     def calc_debt_ratios(self, gov_balances, save_state=True):
@@ -381,33 +445,58 @@ class Rice(gym.Env):
             debt_ratio = max(-1.0, debt_ratio)
             debt_ratios[region_id] = np.array(debt_ratio).astype(self.float_dtype)
         if save_state:
-            self.set_state("debt_ratio_all_regions", debt_ratios[region_id], region_id=region_id)
+            self.set_state(
+                "debt_ratio_all_regions", debt_ratios[region_id], region_id=region_id
+            )
 
         return debt_ratios
 
     def calc_gov_balances_post_interest(self, save_state=True):
         gov_balances_post_interest = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
-            gov_balances_post_interest[region_id] = self.get_prev_state("current_balance_all_regions", region_id) * (1 + self.balance_interest_rate)
+            gov_balances_post_interest[region_id] = self.get_prev_state(
+                "current_balance_all_regions", region_id
+            ) * (1 + self.balance_interest_rate)
             if save_state:
-                self.set_state("current_balance_all_regions", gov_balances_post_interest[region_id], region_id=region_id)
+                self.set_state(
+                    "current_balance_all_regions",
+                    gov_balances_post_interest[region_id],
+                    region_id=region_id,
+                )
         return gov_balances_post_interest
 
     def calc_investments(self, gross_outputs, save_state=True):
         investments = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
-            investments[region_id] = self.get_state("savings_all_regions", region_id) * gross_outputs[region_id]
+            investments[region_id] = (
+                self.get_state("savings_all_regions", region_id)
+                * gross_outputs[region_id]
+            )
             if save_state:
-                self.set_state("investment_all_regions", investments[region_id], region_id=region_id)
+                self.set_state(
+                    "investment_all_regions",
+                    investments[region_id],
+                    region_id=region_id,
+                )
         return investments
 
-    def calc_gross_outputs(self, damages, abatement_costs, productions, save_state=True):
+    def calc_gross_outputs(
+        self, damages, abatement_costs, productions, save_state=True
+    ):
         gross_outputs = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
-            gross_outputs[region_id] =  damages[region_id] * (1 - abatement_costs[region_id]) * productions[region_id]
+            gross_outputs[region_id] = (
+                damages[region_id]
+                * (1 - abatement_costs[region_id])
+                * productions[region_id]
+            )
 
             if save_state:
-                self.set_state("gross_output_all_regions", gross_outputs[region_id], region_id=region_id)
+                self.set_state(
+                    "gross_output_all_regions",
+                    gross_outputs[region_id],
+                    region_id=region_id,
+                )
 
         return gross_outputs
 
@@ -415,13 +504,21 @@ class Rice(gym.Env):
         productions = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             productions[region_id] = (
-            self.get_prev_state("production_factor_all_regions", region_id)
-            * pow(self.get_prev_state("capital_all_regions", region_id), self.all_regions_params[region_id]["xgamma"])
-            * pow(self.get_prev_state("labor_all_regions", region_id) / 1000, 1 - self.all_regions_params[region_id]["xgamma"])
+                self.get_prev_state("production_factor_all_regions", region_id)
+                * pow(
+                    self.get_prev_state("capital_all_regions", region_id),
+                    self.all_regions_params[region_id]["xgamma"],
+                )
+                * pow(
+                    self.get_prev_state("labor_all_regions", region_id) / 1000,
+                    1 - self.all_regions_params[region_id]["xgamma"],
+                )
             )
 
         if save_state:
-            self.set_state("production_all_regions", productions[region_id], region_id=region_id)
+            self.set_state(
+                "production_all_regions", productions[region_id], region_id=region_id
+            )
 
         return productions
 
@@ -429,15 +526,21 @@ class Rice(gym.Env):
         damages = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             prev_atmospheric_temperature = self.get_prev_state("global_temperature")[0]
-            damages[region_id] =  1 / (
+            damages[region_id] = 1 / (
                 1
-                + self.all_regions_params[region_id]["xa_1"] * prev_atmospheric_temperature
+                + self.all_regions_params[region_id]["xa_1"]
+                * prev_atmospheric_temperature
                 + self.all_regions_params[region_id]["xa_2"]
-                * pow(prev_atmospheric_temperature, self.all_regions_params[region_id]["xa_3"])
+                * pow(
+                    prev_atmospheric_temperature,
+                    self.all_regions_params[region_id]["xa_3"],
+                )
             )
 
             if save_state:
-                self.set_state("damages_all_regions", damages[region_id], region_id=region_id)
+                self.set_state(
+                    "damages_all_regions", damages[region_id], region_id=region_id
+                )
 
         return damages
 
@@ -445,9 +548,16 @@ class Rice(gym.Env):
         mitigation_costs = self.calc_mitigation_costs()
         abatement_costs = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
-            abatement_costs[region_id] = mitigation_costs[region_id] * pow(self.get_state("mitigation_rates_all_regions", region_id), self.all_regions_params[region_id]["xtheta_2"])
+            abatement_costs[region_id] = mitigation_costs[region_id] * pow(
+                self.get_state("mitigation_rates_all_regions", region_id),
+                self.all_regions_params[region_id]["xtheta_2"],
+            )
             if save_state:
-                self.set_state("abatement_cost_all_regions", abatement_costs[region_id], region_id=region_id)
+                self.set_state(
+                    "abatement_cost_all_regions",
+                    abatement_costs[region_id],
+                    region_id=region_id,
+                )
         return abatement_costs
 
     def calc_mitigation_costs(self, save_state=True):
@@ -455,71 +565,82 @@ class Rice(gym.Env):
         for region_id in range(self.num_regions):
             regional_params = self.all_regions_params[region_id]
             mitigation_costs[region_id] = (
-            regional_params["xp_b"]
-            / (1000 * regional_params["xtheta_2"])
-            * pow(1 - regional_params["xdelta_pb"], self.activity_timestep - 1)
-            * self.get_prev_state("intensity_all_regions", region_id)
-        )
+                regional_params["xp_b"]
+                / (1000 * regional_params["xtheta_2"])
+                * pow(1 - regional_params["xdelta_pb"], self.activity_timestep - 1)
+                * self.get_prev_state("intensity_all_regions", region_id)
+            )
 
             if save_state:
-                self.set_state("mitigation_cost_all_regions", mitigation_costs[region_id], region_id=region_id)
+                self.set_state(
+                    "mitigation_cost_all_regions",
+                    mitigation_costs[region_id],
+                    region_id=region_id,
+                )
 
         return mitigation_costs
 
-    def calc_gross_imports(self, gross_outputs, investments, debt_ratios, save_state=True):
-        import_bids=self.get_state("import_bids_all_regions")
-        potential_import_bids = np.zeros((self.num_regions, self.num_regions), dtype=self.float_dtype)
+    def calc_gross_imports(
+        self, gross_outputs, investments, debt_ratios, save_state=True
+    ):
+        import_bids = self.get_state("import_bids_all_regions")
+        potential_import_bids = np.zeros(
+            (self.num_regions, self.num_regions), dtype=self.float_dtype
+        )
 
         for region_id in range(self.num_regions):
             gross_output = gross_outputs[region_id]
             debt_ratio = debt_ratios[region_id]
-            potential_import_bids = np.zeros((self.num_regions, self.num_regions), dtype=self.float_dtype)
+            potential_import_bids = np.zeros(
+                (self.num_regions, self.num_regions), dtype=self.float_dtype
+            )
 
             import_bids[region_id][region_id] = 0
 
             total_import_bids = np.sum(import_bids[region_id])
             if total_import_bids * gross_output > gross_output:
                 potential_import_bids[region_id] = (
-                    import_bids[region_id]
-                    / total_import_bids
-                    * gross_output
+                    import_bids[region_id] / total_import_bids * gross_output
                 )
             else:
-                potential_import_bids[region_id] = (
-                    import_bids[region_id] * gross_output
-                )
+                potential_import_bids[region_id] = import_bids[region_id] * gross_output
 
             potential_import_bids[region_id] *= 1 + debt_ratio
 
-
         normalized_import_bids_all_regions = self.calc_normalized_import_bids(
-            potential_import_bids,
-            gross_outputs,
-            investments)
+            potential_import_bids, gross_outputs, investments
+        )
 
         if save_state:
-            self.set_state("normalized_import_bids_all_regions", normalized_import_bids_all_regions)
+            self.set_state(
+                "normalized_import_bids_all_regions", normalized_import_bids_all_regions
+            )
         return normalized_import_bids_all_regions
 
     def calc_tariff_revenues(self, gross_imports, save_state=True):
         import_tariffs = self.get_prev_state("import_tariffs")
-        net_imports = np.zeros((self.num_regions, self.num_regions), dtype=self.float_dtype)
+        net_imports = np.zeros(
+            (self.num_regions, self.num_regions), dtype=self.float_dtype
+        )
         for region_id in range(self.num_regions):
             # TODO: calculate using arrays?
             for exporting_region in range(self.num_regions):
-                net_imports[region_id, exporting_region] = \
-                    gross_imports[region_id, exporting_region] * \
-                    (1 - import_tariffs[region_id, exporting_region])
+                net_imports[region_id, exporting_region] = gross_imports[
+                    region_id, exporting_region
+                ] * (1 - import_tariffs[region_id, exporting_region])
 
         if save_state:
             self.set_state("imports_minus_tariffs", net_imports)
 
-        tariff_revenues = np.zeros((self.num_regions, self.num_regions), dtype=self.float_dtype)
+        tariff_revenues = np.zeros(
+            (self.num_regions, self.num_regions), dtype=self.float_dtype
+        )
         for region_id in range(self.num_regions):
             for exporting_region in range(self.num_regions):
-                tariff_revenues[region_id, exporting_region] = \
-                    gross_imports[region_id, exporting_region] * \
-                    import_tariffs[region_id, exporting_region]
+                tariff_revenues[region_id, exporting_region] = (
+                    gross_imports[region_id, exporting_region]
+                    * import_tariffs[region_id, exporting_region]
+                )
 
         if save_state:
             self.set_state("tariff_revenues", tariff_revenues)
@@ -532,7 +653,9 @@ class Rice(gym.Env):
         f_1 = self.all_regions_params[0]["xf_1"]
         t_f = self.all_regions_params[0]["xt_f"]
 
-        exogenous_emissions = f_0 + min(f_1 - f_0, (f_1 - f_0) / t_f * (self.activity_timestep - 1))
+        exogenous_emissions = f_0 + min(
+            f_1 - f_0, (f_1 - f_0) / t_f * (self.activity_timestep - 1)
+        )
         if save_state:
             self.set_state("global_exogenous_emissions", exogenous_emissions)
         return exogenous_emissions
@@ -542,7 +665,9 @@ class Rice(gym.Env):
         e_l0 = self.all_regions_params[0]["xE_L0"]
         delta_el = self.all_regions_params[0]["xdelta_EL"]
 
-        global_land_emissions = e_l0 * pow(1 - delta_el, self.activity_timestep - 1) / self.num_regions
+        global_land_emissions = (
+            e_l0 * pow(1 - delta_el, self.activity_timestep - 1) / self.num_regions
+        )
         if save_state:
             self.set_state("global_land_emissions", global_land_emissions)
         return global_land_emissions
@@ -557,7 +682,6 @@ class Rice(gym.Env):
         self,
         save_state=True,
     ):
-
         global_exogenous_emissions = self.calc_exogenous_emissions()
         prev_carbon_mass = self.get_prev_state("global_carbon_mass")
         prev_global_temperature = self.get_prev_state("global_temperature")
@@ -569,32 +693,41 @@ class Rice(gym.Env):
         f_2x = np.array(self.all_regions_params[0]["xF_2x"])
         atmospheric_carbon_mass = np.array(self.all_regions_params[0]["xM_AT_1750"])
 
-        global_temperature = np.dot(phi_t, np.asarray(prev_global_temperature)) + np.dot(
+        global_temperature = np.dot(
+            phi_t, np.asarray(prev_global_temperature)
+        ) + np.dot(
             b_t,
-            f_2x * np.log(prev_atmospheric_carbon_mass / atmospheric_carbon_mass) / np.log(2) + global_exogenous_emissions,
+            f_2x
+            * np.log(prev_atmospheric_carbon_mass / atmospheric_carbon_mass)
+            / np.log(2)
+            + global_exogenous_emissions,
         )
 
         if save_state:
-            self.set_state("global_temperature",global_temperature)
+            self.set_state("global_temperature", global_temperature)
 
         return global_temperature
 
-    def calc_global_carbon_mass(
-        self,
-        productions,
-        save_state=True
-    ):
+    def calc_global_carbon_mass(self, productions, save_state=True):
         global_land_emissions = self.calc_land_emissions()
         # prev_global_carbon_mass = self.get_prev_global_state("global_carbon_mass")[0]
         mitigation_rates = self.get_state("mitigation_rates_all_regions")
         # TODO: fix aux_m treatment
         aux_m_all_regions = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
-            prev_intensity = self.get_prev_state("intensity_all_regions", region_id=region_id)
+            prev_intensity = self.get_prev_state(
+                "intensity_all_regions", region_id=region_id
+            )
 
-            aux_m_all_regions[region_id] = prev_intensity * (1 - mitigation_rates[region_id]) * productions[region_id] + global_land_emissions
-            self.set_state("aux_m_all_regions", aux_m_all_regions[region_id], region_id=region_id)
-
+            aux_m_all_regions[region_id] = (
+                prev_intensity
+                * (1 - mitigation_rates[region_id])
+                * productions[region_id]
+                + global_land_emissions
+            )
+            self.set_state(
+                "aux_m_all_regions", aux_m_all_regions[region_id], region_id=region_id
+            )
 
         """Get the carbon mass level."""
         sum_aux_m = np.sum(aux_m_all_regions)
@@ -625,23 +758,21 @@ class Rice(gym.Env):
         if action_type == "proposal":
             return [self.num_discrete_action_levels] * 2 * self.num_regions
 
-        if action_type == 'proposal_decisions':
+        if action_type == "proposal_decisions":
             return [2] * self.num_regions
 
     def calc_total_possible_actions(self, negotiation_on):
-
         total_possible_actions = (
-                self.savings_possible_actions
-                + self.mitigation_rate_possible_actions
-                + self.export_limit_possible_actions
-                + self.import_bids_possible_actions
-                + self.import_tariff_possible_actions
-            )
+            self.savings_possible_actions
+            + self.mitigation_rate_possible_actions
+            + self.export_limit_possible_actions
+            + self.import_bids_possible_actions
+            + self.import_tariff_possible_actions
+        )
 
         if negotiation_on:
             total_possible_actions += (
-                self.proposal_possible_actions
-                + self.evaluation_possible_actions
+                self.proposal_possible_actions + self.evaluation_possible_actions
             )
 
         return total_possible_actions
@@ -654,8 +785,7 @@ class Rice(gym.Env):
     def calc_end_year(self):
         return (
             self.start_year
-            + self.all_regions_params[0]["xDelta"]
-            * self.all_regions_params[0]["xN"]
+            + self.all_regions_params[0]["xDelta"] * self.all_regions_params[0]["xN"]
         )
 
     def calc_mitigation_rate_lower_bound(self, region_id):
@@ -667,28 +797,34 @@ class Rice(gym.Env):
         )
 
         min_mitigation = max(
-            outgoing_accepted_mitigation_rates
-            + incoming_accepted_mitigation_rates
+            outgoing_accepted_mitigation_rates + incoming_accepted_mitigation_rates
         )
 
         return min_mitigation
 
-    def calc_normalized_import_bids(self, potential_import_bids_all_regions, gross_outputs, investments):
-        normalized_import_bids_all_regions = np.zeros((self.num_regions, self.num_regions), dtype=self.float_dtype)
+    def calc_normalized_import_bids(
+        self, potential_import_bids_all_regions, gross_outputs, investments
+    ):
+        normalized_import_bids_all_regions = np.zeros(
+            (self.num_regions, self.num_regions), dtype=self.float_dtype
+        )
         for region_id in range(self.num_regions):
-            max_export_rate = self.get_state("export_limit_all_regions",region_id=region_id)
+            max_export_rate = self.get_state(
+                "export_limit_all_regions", region_id=region_id
+            )
 
             max_exports_from_region_id = self.calc_max_exports(
-                max_export_rate,
-                gross_outputs[region_id],
-                investments[region_id])
+                max_export_rate, gross_outputs[region_id], investments[region_id]
+            )
 
-            desired_exports_from_region_id = np.sum(normalized_import_bids_all_regions[:, region_id])
+            desired_exports_from_region_id = np.sum(
+                normalized_import_bids_all_regions[:, region_id]
+            )
 
             if desired_exports_from_region_id > max_exports_from_region_id:
                 for exporting_region in range(self.num_regions):
-                    normalized_import_bids_all_regions[exporting_region][region_id] = \
-                    (potential_import_bids_all_regions[exporting_region][region_id]
+                    normalized_import_bids_all_regions[exporting_region][region_id] = (
+                        potential_import_bids_all_regions[exporting_region][region_id]
                         / desired_exports_from_region_id
                         * max_exports_from_region_id
                     )
@@ -705,9 +841,9 @@ class Rice(gym.Env):
             if self.negotiation_on:
                 minimum_mitigation_rate = int(
                     round(
-                        self.global_state[
-                            "minimum_mitigation_rate_all_regions"
-                        ]["value"][self.current_timestep, region_id]
+                        self.global_state["minimum_mitigation_rate_all_regions"][
+                            "value"
+                        ][self.current_timestep, region_id]
                         * self.num_discrete_action_levels
                     )
                 )
@@ -716,22 +852,18 @@ class Rice(gym.Env):
                     + [
                         1
                         for _ in range(
-                            self.num_discrete_action_levels
-                            - minimum_mitigation_rate
+                            self.num_discrete_action_levels - minimum_mitigation_rate
                         )
                     ]
                 )
                 mask_start = sum(self.savings_possible_actions)
-                mask_end = mask_start + sum(
-                    self.mitigation_rate_possible_actions
-                )
+                mask_end = mask_start + sum(self.mitigation_rate_possible_actions)
                 mask[mask_start:mask_end] = mitigation_mask
             mask_dict[region_id] = mask
 
         return mask_dict
 
     def calc_current_simulation_year(self):
-
         self.current_simulation_year += self.all_regions_params[0]["xDelta"]
         return self.current_simulation_year
 
@@ -751,7 +883,7 @@ class Rice(gym.Env):
             self.global_state["requested_mitigation_rate"]["value"][
                 self.current_timestep, j, region_id
             ]
-            * self.global_state['proposal_decisions']["value"][
+            * self.global_state["proposal_decisions"]["value"][
                 self.current_timestep, region_id, j
             ]
             for j in range(self.num_regions)
@@ -784,9 +916,7 @@ class Rice(gym.Env):
             ]
 
         if action_type == "mitigation_rate":
-            mitigation_rate_action_index = self.get_actions_index(
-                "mitigation_rate"
-            )
+            mitigation_rate_action_index = self.get_actions_index("mitigation_rate")
             return [
                 actions[region_id][mitigation_rate_action_index]
                 / self.num_discrete_action_levels
@@ -805,8 +935,7 @@ class Rice(gym.Env):
             tariffs_action_index = self.get_actions_index("import_bids")
             return [
                 actions[region_id][
-                    tariffs_action_index : tariffs_action_index
-                    + self.num_regions
+                    tariffs_action_index : tariffs_action_index + self.num_regions
                 ]
                 / self.num_discrete_action_levels
                 for region_id in range(self.num_regions)
@@ -816,8 +945,7 @@ class Rice(gym.Env):
             tariffs_action_index = self.get_actions_index("import_tariffs")
             return [
                 actions[region_id][
-                    tariffs_action_index : tariffs_action_index
-                    + self.num_regions
+                    tariffs_action_index : tariffs_action_index + self.num_regions
                 ]
                 / self.num_discrete_action_levels
                 for region_id in range(self.num_regions)
@@ -828,10 +956,10 @@ class Rice(gym.Env):
             num_proposal_actions = len(self.proposal_possible_actions)
 
             value = [
-                actions[
-                    region_id][
-                        proposal_actions_index_start : proposal_actions_index_start + num_proposal_actions : 2
-                        ]
+                actions[region_id][
+                    proposal_actions_index_start : proposal_actions_index_start
+                    + num_proposal_actions : 2
+                ]
                 / self.num_discrete_action_levels
                 for region_id in range(self.num_regions)
             ]
@@ -851,9 +979,9 @@ class Rice(gym.Env):
                 for region_id in range(self.num_regions)
             ]
 
-        if action_type == 'proposal_decisions':
+        if action_type == "proposal_decisions":
             proposal_decisions_index_start = self.get_actions_index(
-                'proposal_decisions'
+                "proposal_decisions"
             )
             num_evaluation_actions = len(self.evaluation_possible_actions)
 
@@ -903,7 +1031,7 @@ class Rice(gym.Env):
                 + self.import_tariff_possible_actions
             )
 
-        if action_type == 'proposal_decisions':
+        if action_type == "proposal_decisions":
             return len(
                 self.savings_possible_actions
                 + self.mitigation_rate_possible_actions
@@ -927,7 +1055,9 @@ class Rice(gym.Env):
         if self.negotiation_on:
             assert self.negotiation_stage == negotiation_stage
         if not self.negotiation_on:
-            assert negotiation_stage == 0, "Negotiation is not on, so why is negotiation_stage anything other than 0?"
+            assert (
+                negotiation_stage == 0
+            ), "Negotiation is not on, so why is negotiation_stage anything other than 0?"
 
     def is_valid_actions_dict(self, actions):
         assert isinstance(actions, dict)
@@ -935,9 +1065,7 @@ class Rice(gym.Env):
 
     def set_actions_in_global_state(self, actions):
         savings_all_regions = self.get_actions("savings", actions)
-        mitigation_rate_all_regions = self.get_actions(
-            "mitigation_rate", actions
-        )
+        mitigation_rate_all_regions = self.get_actions("mitigation_rate", actions)
         export_limit_all_regions = self.get_actions("export_limit", actions)
         import_bids_all_regions = self.get_actions("import_bids", actions)
         import_tariffs_all_regions = self.get_actions("import_tariffs", actions)
@@ -973,22 +1101,16 @@ class Rice(gym.Env):
         self.mitigation_rate_possible_actions = self.calc_possible_actions(
             "mitigation_rate"
         )
-        self.export_limit_possible_actions = self.calc_possible_actions(
-            "export_limit"
-        )
-        self.import_bids_possible_actions = self.calc_possible_actions(
-            "import_bids"
-        )
+        self.export_limit_possible_actions = self.calc_possible_actions("export_limit")
+        self.import_bids_possible_actions = self.calc_possible_actions("import_bids")
         self.import_tariff_possible_actions = self.calc_possible_actions(
             "import_tariffs"
         )
 
         if self.negotiation_on:
-            self.proposal_possible_actions = self.calc_possible_actions(
-                "proposal"
-            )
+            self.proposal_possible_actions = self.calc_possible_actions("proposal")
             self.evaluation_possible_actions = self.calc_possible_actions(
-                'proposal_decisions'
+                "proposal_decisions"
             )
 
     def set_default_agent_action_mask(self):
@@ -1018,9 +1140,9 @@ class Rice(gym.Env):
         self.consumption_substitution_rate = np.array(
             [self.consumption_substitution_rate]
         ).astype(self.float_dtype)
-        self.preference_for_domestic = np.array(
-            [self.preference_for_domestic]
-        ).astype(self.float_dtype)
+        self.preference_for_domestic = np.array([self.preference_for_domestic]).astype(
+            self.float_dtype
+        )
         self.preference_for_imported = np.array(
             self.preference_for_imported, dtype=self.float_dtype
         )
@@ -1040,8 +1162,9 @@ class Rice(gym.Env):
     def set_current_global_state_to_past_global_state(self):
         for key in self.global_state:
             if key != "reward_all_regions":
-                self.global_state[key]["value"][self.current_timestep] = \
-                    self.global_state[key]["value"][self.current_timestep - 1].copy()
+                self.global_state[key]["value"][
+                    self.current_timestep
+                ] = self.global_state[key]["value"][self.current_timestep - 1].copy()
 
     def get_observations(self):
         """
@@ -1121,18 +1244,13 @@ class Rice(gym.Env):
         features_dict = {}
         for region_id in range(self.num_regions):
             # Add a region indicator array to the observation
-            region_indicator = np.zeros(
-                self.num_regions, dtype=self.float_dtype
-            )
+            region_indicator = np.zeros(self.num_regions, dtype=self.float_dtype)
             region_indicator[region_id] = 1
 
             all_features = np.append(region_indicator, shared_features)
 
             for feature in private_features:
-                assert (
-                    self.global_state[feature]["value"].shape[1]
-                    == self.num_regions
-                )
+                assert self.global_state[feature]["value"].shape[1] == self.num_regions
                 all_features = np.append(
                     all_features,
                     self.flatten_array(
@@ -1144,14 +1262,8 @@ class Rice(gym.Env):
                 )
 
             for feature in bilateral_features:
-                assert (
-                    self.global_state[feature]["value"].shape[1]
-                    == self.num_regions
-                )
-                assert (
-                    self.global_state[feature]["value"].shape[2]
-                    == self.num_regions
-                )
+                assert self.global_state[feature]["value"].shape[1] == self.num_regions
+                assert self.global_state[feature]["value"].shape[2] == self.num_regions
                 all_features = np.append(
                     all_features,
                     self.flatten_array(
@@ -1188,53 +1300,123 @@ class Rice(gym.Env):
 
     def get_rewards(self):
         # regions Ids must be strings
-        return {str(region_id): self.get_state("reward_all_regions", region_id=region_id) for region_id in range(self.num_regions)}
+        return {
+            str(region_id): self.get_state("reward_all_regions", region_id=region_id)
+            for region_id in range(self.num_regions)
+        }
 
     def reset_state(self, key):
         # timesteps
-        if key == 'timestep': self.set_state(key, value=self.current_timestep, dtype=self.int_dtype, norm=1e2)
-        if key == 'activity_timestep': self.set_state(key, value=self.activity_timestep, dtype=self.int_dtype)
+        if key == "timestep":
+            self.set_state(
+                key, value=self.current_timestep, dtype=self.int_dtype, norm=1e2
+            )
+        if key == "activity_timestep":
+            self.set_state(key, value=self.activity_timestep, dtype=self.int_dtype)
 
         # scalars
-        if key == 'negotiation_stage': self.set_state(key, value=np.zeros(1,), dtype=self.int_dtype)
-        if key in ['global_land_emissions', 'global_exogenous_emissions']:
-            self.set_state(key, value=np.zeros(1,))
+        if key == "negotiation_stage":
+            self.set_state(
+                key,
+                value=np.zeros(
+                    1,
+                ),
+                dtype=self.int_dtype,
+            )
+        if key in ["global_land_emissions", "global_exogenous_emissions"]:
+            self.set_state(
+                key,
+                value=np.zeros(
+                    1,
+                ),
+            )
 
         # num_regions vectors
-        if key in ['minimum_mitigation_rate_all_regions', 'reward_all_regions', 'social_welfare_all_regions',
-                   'utility_all_regions', 'abatement_cost_all_regions', 'damages_all_regions',
-                   'mitigation_cost_all_regions', 'export_limit_all_regions', 'mitigation_rates_all_regions',
-                   'savings_all_regions', 'capital_depreciation_all_regions']:
+        if key in [
+            "minimum_mitigation_rate_all_regions",
+            "reward_all_regions",
+            "social_welfare_all_regions",
+            "utility_all_regions",
+            "abatement_cost_all_regions",
+            "damages_all_regions",
+            "mitigation_cost_all_regions",
+            "export_limit_all_regions",
+            "mitigation_rates_all_regions",
+            "savings_all_regions",
+            "capital_depreciation_all_regions",
+        ]:
             self.set_state(key, value=np.zeros(self.num_regions))
-        if key in ['production_all_regions', 'investment_all_regions', 'gross_output_all_regions',
-                   'current_balance_all_regions', 'aggregate_consumption']:
+        if key in [
+            "production_all_regions",
+            "investment_all_regions",
+            "gross_output_all_regions",
+            "current_balance_all_regions",
+            "aggregate_consumption",
+        ]:
             self.set_state(key, value=np.zeros(self.num_regions), norm=1e3)
         region_ids = range(self.num_regions)
         params = self.all_regions_params
-        if key == 'intensity_all_regions':
-            self.set_state(key, value=np.array([params[region]["xsigma_0"] for region in region_ids]), norm=1e-1)
+        if key == "intensity_all_regions":
+            self.set_state(
+                key,
+                value=np.array([params[region]["xsigma_0"] for region in region_ids]),
+                norm=1e-1,
+            )
 
-        if key == 'production_factor_all_regions':
-            self.set_state(key, value=np.array([params[region]["xA_0"] for region in region_ids]), norm=1e2, )
+        if key == "production_factor_all_regions":
+            self.set_state(
+                key,
+                value=np.array([params[region]["xA_0"] for region in region_ids]),
+                norm=1e2,
+            )
 
-        if key == 'labor_all_regions':
-            self.set_state(key, value=np.array([params[region]["xL_0"] for region in region_ids]), norm=1e4, )
+        if key == "labor_all_regions":
+            self.set_state(
+                key,
+                value=np.array([params[region]["xL_0"] for region in region_ids]),
+                norm=1e4,
+            )
 
-        if key == 'capital_all_regions':
-            self.set_state(key, value=np.array([params[region]["xK_0"] for region in region_ids]), norm=1e4, )
+        if key == "capital_all_regions":
+            self.set_state(
+                key,
+                value=np.array([params[region]["xK_0"] for region in region_ids]),
+                norm=1e4,
+            )
 
-        if key == 'global_temperature':
-            self.set_state(key, value=np.array([params[0]["xT_AT_0"], params[0]["xT_LO_0"]]), norm=1e1)
+        if key == "global_temperature":
+            self.set_state(
+                key,
+                value=np.array([params[0]["xT_AT_0"], params[0]["xT_LO_0"]]),
+                norm=1e1,
+            )
 
-        if key == 'global_carbon_mass':
-            self.set_state(key, value=np.array([params[0]["xM_AT_0"], params[0]["xM_UP_0"], params[0]["xM_LO_0"]]), norm=1e4)
+        if key == "global_carbon_mass":
+            self.set_state(
+                key,
+                value=np.array(
+                    [params[0]["xM_AT_0"], params[0]["xM_UP_0"], params[0]["xM_LO_0"]]
+                ),
+                norm=1e4,
+            )
 
         # num_regions x num_regions matrices
-        if key in ['proposal_decisions', 'requested_mitigation_rate', 'promised_mitigation_rate']:
+        if key in [
+            "proposal_decisions",
+            "requested_mitigation_rate",
+            "promised_mitigation_rate",
+        ]:
             self.set_state(key, value=np.zeros((self.num_regions, self.num_regions)))
-        if key in ['imports_minus_tariffs', 'desired_imports', 'import_tariffs', 'tariffs',
-                   'normalized_import_bids_all_regions']:
-            self.set_state(key, value=np.zeros((self.num_regions, self.num_regions)), norm=1e2)
+        if key in [
+            "imports_minus_tariffs",
+            "desired_imports",
+            "import_tariffs",
+            "tariffs",
+            "normalized_import_bids_all_regions",
+        ]:
+            self.set_state(
+                key, value=np.zeros((self.num_regions, self.num_regions)), norm=1e2
+            )
 
     def get_state(self, key=None, region_id=None, timestep=None):
         assert key in self.global_state, f"Invalid key '{key}' in global state!"
@@ -1246,10 +1428,13 @@ class Rice(gym.Env):
 
     def get_prev_state(self, key, region_id=None):
         return self.get_state(
-            key, region_id=region_id, timestep=self.current_timestep - 1,
+            key,
+            region_id=region_id,
+            timestep=self.current_timestep - 1,
         )
 
-    def set_state(self,
+    def set_state(
+        self,
         key=None,
         value=None,
         timestep=None,
@@ -1286,18 +1471,14 @@ class Rice(gym.Env):
             if region_id is None:
                 self.global_state[key] = {
                     "value": np.zeros(
-                        (self.episode_length + 1,)
-                        + value.shape,
-                        dtype=dtype
+                        (self.episode_length + 1,) + value.shape, dtype=dtype
                     ),
                     "norm": norm,
                 }
             else:
                 self.global_state[key] = {
                     "value": np.zeros(
-                        (self.episode_length + 1,)
-                        + (self.num_regions,)
-                        + value.shape,
+                        (self.episode_length + 1,) + (self.num_regions,) + value.shape,
                         dtype=dtype,
                     ),
                     "norm": norm,
@@ -1312,7 +1493,9 @@ class Rice(gym.Env):
     def read_rice_param_yamls(self, yamls_folder=None):
         """Helper function to read yaml data and set environment configs."""
         assert yamls_folder is not None
-        dice_params = self.read_yaml_data(str(os.path.join(yamls_folder, "default.yml")))
+        dice_params = self.read_yaml_data(
+            str(os.path.join(yamls_folder, "default.yml"))
+        )
         file_list = sorted(os.listdir(yamls_folder))  #
         yaml_files = []
         for file in file_list:
