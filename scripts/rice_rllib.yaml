@@ -24,6 +24,7 @@ trainer:
     # === Hardware Settings ===
     num_workers: 0 # number of rollout worker actors to create for parallel sampling.
     # Note: Setting the num_workers to 0 will force rollouts to be done in the trainer actor.
+    num_cpus_per_worker: 1
     num_gpus: 0 # number of GPUs to allocate to the trainer process. This can also be fractional (e.g., 0.3 GPUs).
 
 # Environment configuration
