@@ -199,6 +199,7 @@ def get_rllib_config(config_yaml=None, env_class=None, seed=None):
         "multiagent": multiagent_policies_config,
         "num_workers": trainer_config["num_workers"],
         "num_gpus": trainer_config["num_gpus"],
+        "num_cpus_per_worker": trainer_config["num_cpus_per_worker"],
         "num_envs_per_worker": trainer_config["num_envs_per_worker"],
         "train_batch_size": trainer_config["train_batch_size"],
     }
