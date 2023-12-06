@@ -199,11 +199,7 @@ def get_rllib_config(config_yaml=None, env_class=None, seed=None):
         "multiagent": multiagent_policies_config,
         "num_workers": trainer_config["num_workers"],
         "num_gpus": trainer_config["num_gpus"],
-        "num_envs_per_worker": (
-            trainer_config["num_envs"] // trainer_config["num_workers"]
-        )
-        if trainer_config["num_workers"] > 0
-        else trainer_config["num_envs"],
+        "num_envs_per_worker": trainer_config["num_envs_per_worker"],
         "train_batch_size": trainer_config["train_batch_size"],
     }
     if seed is not None:
