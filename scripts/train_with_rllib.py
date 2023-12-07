@@ -25,11 +25,18 @@ from fixed_paths import PUBLIC_REPO_DIR
 from run_unittests import import_class_from_path
 from opt_helper import save
 from rice import Rice
-
+from scenarios import *
 sys.path.append(PUBLIC_REPO_DIR)
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.DEBUG)
+
+#scenarios
+SCENARIO_MAPPING = {
+    "default":Rice,
+    "OptimalMitigation":OptimalMitigation,
+    "BasicClub":BasicClub
+}
 
 
 import ray
@@ -138,7 +145,7 @@ class EnvWrapper(MultiAgentEnv):
         if source_dir is None:
             source_dir = PUBLIC_REPO_DIR
         assert isinstance(env_config_copy, dict)
-        self.env = Rice(**env_config_copy)
+        self.env = SCENARIO_MAPPING[env_config["scenario"]](**env_config_copy)
 
         self.action_space = self.env.action_space
 

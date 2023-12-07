@@ -31,6 +31,7 @@ trainer:
 env:
     num_discrete_action_levels: 10 # number of discrete levels for the saving and mitigation actions
     negotiation_on: True # flag to indicate whether negotiation is allowed or not
+    scenario: BasicClub # key that maps to either Rice or and alternate Rice class
 
 # Policy network settings
 policy:
