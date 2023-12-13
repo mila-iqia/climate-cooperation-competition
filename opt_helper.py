@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
 from sklearn import linear_model
+import yaml
+
 
 default = {
     "_RICE_CONSTANT": {
@@ -33,6 +35,8 @@ default = {
     }
 }
 
+def MAPE(y_true, y_pred):
+    return np.mean(np.abs((y_true - y_pred) / y_true))
 
 def logdiff(List):
     loglist = np.log(List)
@@ -323,7 +327,7 @@ def save(obj, filename):
 
 def load(filename):
     # import pickle
-    import pickle5 as pickle  # on Python 3.7
+    import pickle
 
     with open(filename, "rb") as file:
         z = pickle.load(file)
@@ -659,6 +663,7 @@ def make_aggregate_data_across_three_groups(
 
 
 def compute_correlation_across_groups(
+    groups,
     aggregate_stats_across_groups,
     data_ts,
     feature_name,
@@ -686,3 +691,27 @@ def compute_correlation_across_groups(
     r2 = np.corrcoef(all_x, all_y)[0, 1] ** 2
 
     return r2
+
+def avg_of_value_in_yaml(folder_path, value_key):
+    total_value = 0
+    count = 0
+
+    # Loop through all files in the folder
+    for filename in os.listdir(folder_path):
+        # Check if the file is a YAML file and has an integer name
+        if filename.endswith(".yml") and "d" not in filename:
+            filepath = os.path.join(folder_path, filename)
+
+            # Open and read the YAML file
+            with open(filepath, 'r') as file:
+                try:
+                    data = yaml.safe_load(file)
+                    # Extract the value and add it to the total
+                    if value_key in data["_RICE_CONSTANT"]:
+                        total_value += data["_RICE_CONSTANT"][value_key]
+                        count += 1
+                except yaml.YAMLError as error:
+                    print(f"Error reading {filename}: {error}")
+
+    # Calculate and return the average
+    return total_value / count if count > 0 else 0
