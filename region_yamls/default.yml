@@ -16,7 +16,7 @@ _DICE_CONSTANT:
 
   xM_AT_1750: 588 # atmospheric mass of carbon in the year of 1750
   xf_0: 0.5 # in Eq 3  param to effect of greenhouse gases other than carbon dioxide
-  xf_1: 1 # in Eq 3  param to effect of greenhouse gases other than carbon dioxide
+  xf_1: 1.0 # in Eq 3  param to effect of greenhouse gases other than carbon dioxide
   xt_f: 20 # in Eq 3  time step param to effect of greenhouse gases other than carbon dioxide
   xE_L0: 2.6 # 2.6 # in Eq 4 param to the emissions due to land use changes
   xdelta_EL: 0.001 # 0.115 # 0.115 # in Eq 4 param to the emissions due to land use changes
