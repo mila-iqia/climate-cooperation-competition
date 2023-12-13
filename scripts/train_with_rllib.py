@@ -25,11 +25,18 @@ from fixed_paths import PUBLIC_REPO_DIR
 from run_unittests import import_class_from_path
 from opt_helper import save
 from rice import Rice
-
+from scenarios import *
 sys.path.append(PUBLIC_REPO_DIR)
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.DEBUG)
+
+#scenarios
+SCENARIO_MAPPING = {
+    "default":Rice,
+    "OptimalMitigation":OptimalMitigation,
+    "BasicClub":BasicClub
+}
 
 
 import ray
@@ -138,7 +145,7 @@ class EnvWrapper(MultiAgentEnv):
         if source_dir is None:
             source_dir = PUBLIC_REPO_DIR
         assert isinstance(env_config_copy, dict)
-        self.env = Rice(**env_config_copy)
+        self.env = SCENARIO_MAPPING[env_config["scenario"]](**env_config_copy)
 
         self.action_space = self.env.action_space
 
@@ -199,11 +206,8 @@ def get_rllib_config(config_yaml=None, env_class=None, seed=None):
         "multiagent": multiagent_policies_config,
         "num_workers": trainer_config["num_workers"],
         "num_gpus": trainer_config["num_gpus"],
-        "num_envs_per_worker": (
-            trainer_config["num_envs"] // trainer_config["num_workers"]
-        )
-        if trainer_config["num_workers"] > 0
-        else trainer_config["num_envs"],
+        "num_cpus_per_worker": trainer_config["num_cpus_per_worker"],
+        "num_envs_per_worker": trainer_config["num_envs_per_worker"],
         "train_batch_size": trainer_config["train_batch_size"],
     }
     if seed is not None:
