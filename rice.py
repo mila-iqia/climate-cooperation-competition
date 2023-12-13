@@ -325,8 +325,8 @@ class Rice(gym.Env):
             capitals[region_id] = (
                 capital_depreciation
                 * self.get_prev_state("capital_all_regions", region_id=region_id)
-                # + (1 - regional_params["xtax"])
-                + regional_params["xDelta"]
+                + (1 - regional_params["xtax"])
+                * regional_params["xDelta"]
                 * investments[region_id]
             )
 
