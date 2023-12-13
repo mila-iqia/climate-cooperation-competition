@@ -35,7 +35,8 @@ class Rice(gym.Env):
     def __init__(
         self,
         num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
-        negotiation_on=False,  # If True then negotiation is on, else off
+        negotiation_on=False,
+        scenario="default"  # If True then negotiation is on, else off
     ):
         self.global_state = {}
 
