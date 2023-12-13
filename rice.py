@@ -54,7 +54,6 @@ class Rice(gym.Env):
         self.current_timestep = None
         self.activity_timestep = None
         self.negotiation_on = negotiation_on
-        self.apply_welfloss = True
         if self.negotiation_on:
             self.negotiation_stage = 0
             self.num_negotiation_stages = 2
@@ -195,22 +194,15 @@ class Rice(gym.Env):
         self.is_valid_negotiation_stage(negotiation_stage=0)
         self.is_valid_actions_dict(actions)
 
-        actions_dict = {
-            "savings_all_regions" : self.get_actions("savings", actions),
-            "mitigation_rate_all_regions" : self.get_actions("mitigation_rate", actions),
-            "export_limit_all_regions" : self.get_actions("export_limit", actions),
-            "import_bids_all_regions" : self.get_actions("import_bids", actions),
-            "import_tariffs_all_regions" : self.get_actions("import_tariffs", actions),
-        }
-
-        self.set_actions_in_global_state(actions_dict)
+        # TODO: make dependencies on actions explicit
+        self.set_actions_in_global_state(actions)
 
         damages = self.calc_damages()
-        abatement_costs = self.calc_abatement_costs(actions_dict["mitigation_rate_all_regions"])
+        abatement_costs = self.calc_abatement_costs()
         productions = self.calc_productions()
 
         gross_outputs = self.calc_gross_outputs(damages, abatement_costs, productions)
-        investments = self.calc_investments(gross_outputs, actions_dict["savings_all_regions"])
+        investments = self.calc_investments(gross_outputs)
 
         gov_balances_post_interest = self.calc_gov_balances_post_interest()
         debt_ratios = self.calc_debt_ratios(gov_balances_post_interest)
@@ -218,10 +210,8 @@ class Rice(gym.Env):
         # TODO: self.set_global_state("tariffs", self.global_state["import_tariffs"]["value"][self.current_timestep])
         # TODO: fix dependency on gross_output_all_regions
         # TODO: government should reuse tariff revenue
-        gross_imports = self.calc_gross_imports(actions_dict['import_bids_all_regions'], gross_outputs, investments, debt_ratios)
-
-        tariff_revenues, net_imports = self.calc_trade_sanctions(gross_imports)
-        welfloss_multipliers = self.calc_welfloss_multiplier(gross_outputs, gross_imports)
+        gross_imports = self.calc_gross_imports(gross_outputs, investments, debt_ratios)
+        tariff_revenues, net_imports = self.calc_tariff_revenues(gross_imports)
 
         consumptions = self.calc_consumptions(
             gross_outputs, investments, gross_imports, net_imports
@@ -229,7 +219,7 @@ class Rice(gym.Env):
         utilities = self.calc_utilities(consumptions)
 
         self.calc_social_welfares(utilities)
-        self.calc_rewards(utilities, welfloss_multipliers)
+        self.calc_rewards(utilities)
 
         self.calc_capitals(investments)
         self.calc_labors()
@@ -337,11 +327,13 @@ class Rice(gym.Env):
 
         return capitals
 
-    def calc_rewards(self, utilities, welfloss_multipliers, save_state=True):
+    def calc_rewards(self, utilities):
         rewards = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
-            rewards[region_id] = utilities[region_id] * welfloss_multipliers[region_id]
-            self.set_state("reward_all_regions", utilities[region_id], region_id=region_id)
+            rewards[region_id] = utilities[region_id]
+            self.set_state(
+                "reward_all_regions", utilities[region_id], region_id=region_id
+            )
         return rewards
 
     def calc_gov_balances_post_trade(
@@ -473,10 +465,13 @@ class Rice(gym.Env):
                 )
         return gov_balances_post_interest
 
-    def calc_investments(self, gross_outputs, savings, save_state=True):
+    def calc_investments(self, gross_outputs, save_state=True):
         investments = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
-            investments[region_id] = savings[region_id] * gross_outputs[region_id]
+            investments[region_id] = (
+                self.get_state("savings_all_regions", region_id)
+                * gross_outputs[region_id]
+            )
             if save_state:
                 self.set_state(
                     "investment_all_regions",
@@ -549,11 +544,14 @@ class Rice(gym.Env):
 
         return damages
 
-    def calc_abatement_costs(self, mitigation_rates_all_regions, save_state=True):
+    def calc_abatement_costs(self, save_state=True):
         mitigation_costs = self.calc_mitigation_costs()
         abatement_costs = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
-            abatement_costs[region_id] = mitigation_costs[region_id] * pow(mitigation_rates_all_regions[region_id], self.all_regions_params[region_id]["xtheta_2"])
+            abatement_costs[region_id] = mitigation_costs[region_id] * pow(
+                self.get_state("mitigation_rates_all_regions", region_id),
+                self.all_regions_params[region_id]["xtheta_2"],
+            )
             if save_state:
                 self.set_state(
                     "abatement_cost_all_regions",
@@ -582,8 +580,13 @@ class Rice(gym.Env):
 
         return mitigation_costs
 
-    def calc_gross_imports(self, import_bids, gross_outputs, investments, debt_ratios, save_state=True):
-        potential_import_bids = np.zeros((self.num_regions, self.num_regions), dtype=self.float_dtype)
+    def calc_gross_imports(
+        self, gross_outputs, investments, debt_ratios, save_state=True
+    ):
+        import_bids = self.get_state("import_bids_all_regions")
+        potential_import_bids = np.zeros(
+            (self.num_regions, self.num_regions), dtype=self.float_dtype
+        )
 
         for region_id in range(self.num_regions):
             gross_output = gross_outputs[region_id]
@@ -614,7 +617,7 @@ class Rice(gym.Env):
             )
         return normalized_import_bids_all_regions
 
-    def calc_trade_sanctions(self, gross_imports, save_state=True):
+    def calc_tariff_revenues(self, gross_imports, save_state=True):
         import_tariffs = self.get_prev_state("import_tariffs")
         net_imports = np.zeros(
             (self.num_regions, self.num_regions), dtype=self.float_dtype
@@ -643,28 +646,6 @@ class Rice(gym.Env):
             self.set_state("tariff_revenues", tariff_revenues)
 
         return tariff_revenues, net_imports
-
-    def calc_welfloss_multiplier(self, gross_outputs, gross_imports, welfare_loss_per_unit_tariff=None, save_state=True):
-        """Calculate the welfare loss multiplier of exporting region due to being tariffed."""
-        if not self.apply_welfloss:
-            return np.zeros((self.num_regions), dtype=self.float_dtype)
-
-        if welfare_loss_per_unit_tariff is None:
-            welfare_loss_per_unit_tariff = 0.4 # From Nordhaus 2015
-
-        import_tariffs = self.get_prev_state("import_tariffs")
-        welfloss = np.zeros((self.num_regions), dtype=self.float_dtype)
-
-        for region_id in range(self.num_regions):
-            for exporting_region in range(self.num_regions):
-                welfloss[region_id] += \
-                    (gross_imports[region_id, exporting_region] / gross_outputs[region_id]) * \
-                        import_tariffs[region_id, exporting_region] * welfare_loss_per_unit_tariff
-
-        if save_state:
-            self.set_state("welfloss", welfloss)
-
-        return welfloss
 
     def calc_exogenous_emissions(self, save_state=True):
         """Obtain the amount of exogeneous emissions."""
@@ -1082,14 +1063,18 @@ class Rice(gym.Env):
         assert isinstance(actions, dict)
         assert len(actions) == self.num_regions
 
-    def set_actions_in_global_state(self, actions_dict):
-        for (action_name, action_value) in actions_dict.items():
-            self.set_state(
-                key=action_name,
-                value=action_value,
-                timestep=self.current_timestep,
-                dtype=self.float_dtype,
-            )
+    def set_actions_in_global_state(self, actions):
+        savings_all_regions = self.get_actions("savings", actions)
+        mitigation_rate_all_regions = self.get_actions("mitigation_rate", actions)
+        export_limit_all_regions = self.get_actions("export_limit", actions)
+        import_bids_all_regions = self.get_actions("import_bids", actions)
+        import_tariffs_all_regions = self.get_actions("import_tariffs", actions)
+
+        self.set_state("savings_all_regions", savings_all_regions)
+        self.set_state("mitigation_rates_all_regions", mitigation_rate_all_regions)
+        self.set_state("export_limit_all_regions", export_limit_all_regions)
+        self.set_state("import_bids_all_regions", import_bids_all_regions)
+        self.set_state("import_tariffs", import_tariffs_all_regions)
 
     def set_dtypes(self):
         self.float_dtype = np.float32
