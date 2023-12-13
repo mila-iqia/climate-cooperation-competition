@@ -284,7 +284,7 @@ def save_model_checkpoint(
         )
         logging.info(
             "Saving the model checkpoints for policy %s to %s.",
-            (policy, filepath),
+            policy, filepath,
         )
         torch.save(model_params[policy], filepath)
 

@@ -47,6 +47,9 @@ _RICE_CONSTANT:
   xA_0: 5.115 # in TFP technology at starting point
   xg_A: 0.076 # in TFP control the rate of increasing of tech larger->faster
   xdelta_A: 0.005 # in TFP control the rate of increasing of tech smaller->faster
+  xmitigation_0:  0.0042 # in CAP initial mitigation rate
+  xsaving_0: 0.22 # in CAP initial saving rate
+  xtax: 0.233 # in CAP initial tax rate
   xsigma_0: 0.3503 # e0/(q0(1-mu0)) in EI emission intensity at the starting point
   xg_sigma: 0.0025 # 0.0152 # 0.0025 in EI control the rate of mitigation larger->reduce more emission
   xdelta_sigma: 0.1 # 0.01 in EI control the rate of mitigation larger->reduce less emission
