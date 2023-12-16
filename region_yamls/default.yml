@@ -58,3 +58,34 @@ _RICE_CONSTANT:
   xT_AT_0: 0.85 # in CAP a part of damage function initial condition
   xT_LO_0: 0.0068 # in CAP a part of damage function initial condition
   xK_0: 223 # in CAP initial condition for capital
+
+  # FAIR model
+  xM_R1_0: 127.159
+  xM_R2_0: 93.313
+  xM_R3_0: 37.840
+  xM_R4_0: 7.721
+  
+  xM_a0: 0.217
+  xM_a1: 0.224
+  xM_a2: 0.282
+  xM_a3: 0.276
+
+  xM_t0: 10000000
+  xM_t1: 394.4
+  xM_t2: 36.54
+  xM_t3: 4.304
+
+  xEcum_0: 400
+  xEcumL_0: 197
+  xEInd_0: 35.85
+  xEL_0: 2.6
+  xalpha_0: 1
+
+  # Temperature model
+  xT_AT_0_FaIR: 1.243
+  xT_LO_0_FaIR: 0.324
+  xT_1: 7.3
+#  xT_2y: 3.6813/3.1 #forcoings of eq co2 doubling/ETS
+  xT_3: 0.73
+  xT_4: 106
+  xT_kappa: 3.6813
