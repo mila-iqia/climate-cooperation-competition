@@ -38,9 +38,9 @@ class Rice(gym.Env):
         self,
         num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
         negotiation_on=False,  # If True then negotiation is on, else off
-        dmg_function="updated",
-        carbon_model="FaIR",
-        temperature_calibration="FaIR",
+        dmg_function="base",
+        carbon_model="base",
+        temperature_calibration="base",
         prescribed_emissions=None,
     ):
         # Potential additions for improved DICE model
