@@ -1,6 +1,7 @@
 _DICE_CONSTANT:
   xt_0: 2015 # starting year of the whole model
   xDelta: 5 # the time interval (year)
+  xpliability: 0.5 # Path dependent abatement cost param
   xN: 20 # total time steps
 
   # Climate diffusion parameters

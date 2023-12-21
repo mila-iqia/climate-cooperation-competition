@@ -68,11 +68,13 @@ class Rice(gymnasium.Env):
     def __init__(
         self,
         negotiation_on=False,  # If True then negotiation is on, else off
+        abatement_type="path_dependent"
     ):
         """TODO : init docstring"""
         self.float_dtype = np.float32
         self.int_dtype = np.int32
-
+        self.negotiation_on = negotiation_on
+        self.abatement_type = abatement_type
         # Constants
         params, num_regions = set_rice_params(
             os.path.join(_PUBLIC_REPO_DIR, "region_yamls"),
@@ -174,7 +176,7 @@ class Rice(gymnasium.Env):
                 )
                 for region_id in range(self.num_regions)
             }
-
+        self.prev_timestep_gap = 1 if not self.negotiation_on else 3
         # Set the default action mask (all ones)
         self.len_actions = sum(self.actions_nvec)
         self.default_agent_action_mask = np.ones(self.len_actions, dtype=self.int_dtype)
@@ -368,7 +370,7 @@ class Rice(gymnasium.Env):
             if key != "reward_all_regions":
                 self.global_state[key]["value"][self.timestep] = self.global_state[key][
                     "value"
-                ][self.timestep - 1].copy()
+                ][self.timestep - self.prev_timestep_gap].copy()
 
         self.set_global_state(
             "timestep", self.timestep, self.timestep, dtype=self.int_dtype
@@ -584,7 +586,7 @@ class Rice(gymnasium.Env):
         aux_m_all_regions = np.zeros(self.num_regions, dtype=self.float_dtype)
 
         prev_global_temperature = self.get_global_state(
-            "global_temperature", self.timestep - 1
+            "global_temperature", self.timestep - self.prev_timestep_gap
         )
         t_at = prev_global_temperature[0]
 
@@ -611,25 +613,30 @@ class Rice(gymnasium.Env):
             mitigation_rate = self.get_global_state(
                 "mitigation_rate_all_regions", region_id=region_id
             )
-
+            if self.timestep == 0:
+                prev_mitigation_rate = mitigation_rate
+            else:
+                prev_mitigation_rate = self.get_global_state(
+                    "mitigation_rate_all_regions", timestep=self.timestep-self.prev_timestep_gap, region_id=region_id
+                )
             # feature values from previous timestep
             intensity = self.get_global_state(
-                "intensity_all_regions", timestep=self.timestep - 1, region_id=region_id
+                "intensity_all_regions", timestep=self.timestep - self.prev_timestep_gap, region_id=region_id
             )
             production_factor = self.get_global_state(
                 "production_factor_all_regions",
-                timestep=self.timestep - 1,
+                timestep=self.timestep - self.prev_timestep_gap,
                 region_id=region_id,
             )
             capital = self.get_global_state(
-                "capital_all_regions", timestep=self.timestep - 1, region_id=region_id
+                "capital_all_regions", timestep=self.timestep - self.prev_timestep_gap, region_id=region_id
             )
             labor = self.get_global_state(
-                "labor_all_regions", timestep=self.timestep - 1, region_id=region_id
+                "labor_all_regions", timestep=self.timestep - self.prev_timestep_gap, region_id=region_id
             )
             gov_balance_prev = self.get_global_state(
                 "current_balance_all_regions",
-                timestep=self.timestep - 1,
+                timestep=self.timestep - self.prev_timestep_gap,
                 region_id=region_id,
             )
 
@@ -647,7 +654,7 @@ class Rice(gymnasium.Env):
 
             damages = get_damages(t_at, const["xa_1"], const["xa_2"], const["xa_3"])
             abatement_cost = get_abatement_cost(
-                mitigation_rate, mitigation_cost, const["xtheta_2"]
+                mitigation_rate, mitigation_cost, const["xtheta_2"], self.all_constants[0]["xDelta"], prev_mitigation_rate=prev_mitigation_rate, type=self.abatement_type, pliability=self.all_constants[0]["xpliability"]
             )
             production = get_production(
                 production_factor,
@@ -750,7 +757,7 @@ class Rice(gymnasium.Env):
 
         # countries with negative gross output cannot import
         prev_tariffs = self.get_global_state(
-            "future_tariffs", timestep=self.timestep - 1
+            "future_tariffs", timestep=self.timestep - self.prev_timestep_gap
         )
         tariffed_imports = self.get_global_state("tariffed_imports")
         scaled_imports = self.get_global_state("scaled_imports")
@@ -767,7 +774,7 @@ class Rice(gymnasium.Env):
             investment = get_investment(savings, gross_output)
             labor = self.get_global_state(
                 "labor_all_regions",
-                timestep=self.timestep - 1,
+                timestep=self.timestep - self.prev_timestep_gap,
                 region_id=region_id,
             )
 
@@ -854,11 +861,11 @@ class Rice(gymnasium.Env):
         )
 
         # Update temperature
-        m_at = self.get_global_state("global_carbon_mass", timestep=self.timestep - 1)[
+        m_at = self.get_global_state("global_carbon_mass", timestep=self.timestep - self.prev_timestep_gap)[
             0
         ]
         prev_global_temperature = self.get_global_state(
-            "global_temperature", timestep=self.timestep - 1
+            "global_temperature", timestep=self.timestep - self.prev_timestep_gap
         )
 
         global_exogenous_emissions = self.get_global_state(
@@ -883,7 +890,7 @@ class Rice(gymnasium.Env):
 
         for region_id in range(self.num_regions):
             intensity = self.get_global_state(
-                "intensity_all_regions", timestep=self.timestep - 1, region_id=region_id
+                "intensity_all_regions", timestep=self.timestep - self.prev_timestep_gap, region_id=region_id
             )
             mitigation_rate = self.get_global_state(
                 "mitigation_rate_all_regions", region_id=region_id
@@ -904,7 +911,7 @@ class Rice(gymnasium.Env):
         # Update carbon mass
         const = constants[0]
         prev_global_carbon_mass = self.get_global_state(
-            "global_carbon_mass", timestep=self.timestep - 1
+            "global_carbon_mass", timestep=self.timestep - self.prev_timestep_gap
         )
         global_carbon_mass = get_global_carbon_mass(
             const["xPhi_M"],
@@ -916,19 +923,19 @@ class Rice(gymnasium.Env):
 
         for region_id in range(self.num_regions):
             capital = self.get_global_state(
-                "capital_all_regions", timestep=self.timestep - 1, region_id=region_id
+                "capital_all_regions", timestep=self.timestep - self.prev_timestep_gap, region_id=region_id
             )
             labor = self.get_global_state(
-                "labor_all_regions", timestep=self.timestep - 1, region_id=region_id
+                "labor_all_regions", timestep=self.timestep - self.prev_timestep_gap, region_id=region_id
             )
             production_factor = self.get_global_state(
                 "production_factor_all_regions",
-                timestep=self.timestep - 1,
+                timestep=self.timestep - self.prev_timestep_gap,
                 region_id=region_id,
             )
             intensity = self.get_global_state(
                 "intensity_all_regions",
-                timestep=self.timestep - 1,
+                timestep=self.timestep - self.prev_timestep_gap,
                 region_id=region_id,
             )
             investment = self.get_global_state(

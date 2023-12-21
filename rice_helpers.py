@@ -97,10 +97,19 @@ def get_damages(t_at, a_1, a_2, a_3):
     return 1 / (1 + a_1 * t_at + a_2 * pow(t_at, a_3))
 
 
-def get_abatement_cost(mitigation_rate, mitigation_cost, theta_2):
+def get_abatement_cost(mitigation_rate, mitigation_cost, theta_2, delta=5, prev_mitigation_rate=None, type="base", pliability=0.5,):
     """Compute the abatement cost."""
-    return mitigation_cost * pow(mitigation_rate, theta_2)
-
+    if type == "base":
+        return mitigation_cost * pow(mitigation_rate, theta_2)
+    elif type == "path_dependent":
+        # https://wires.onlinelibrary.wiley.com/doi/pdfdirect/10.1002/wcc.698 page 14
+        if prev_mitigation_rate is None:
+            return mitigation_cost * pow(mitigation_rate, theta_2)
+        original_part = pow(mitigation_rate, theta_2) * (1-pliability)
+        path_dependent_part = pow(np.abs(mitigation_rate-prev_mitigation_rate), theta_2)*pliability/(theta_2+1)
+        return mitigation_cost * (original_part + path_dependent_part)
+    else:
+        raise NotImplementedError(f"Unknown abatement cost type {type}")
 
 def get_gross_output(damages, abatement_cost, production):
     """Compute the gross production output, taking into account
