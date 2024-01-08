@@ -728,29 +728,16 @@ class Rice(gym.Env):
 
             # DAE determines given concentrations and temperature how much the reservoirs can absorb
             if self.carbon_model == "FaIR":
-                # def DAE(alpha):
-                #     # linear function of temperature and emissions in the reservoirs
-                #     left = 35 + 0.019 * prev_global_acc_pert_carb_stock + 4.165 * prev_global_temperature[0]                
-                #     # IRF_100 equation
-                #     right = np.sum([alpha * a[i] * tau[i] * (1-np.exp(-100/(alpha * tau[i]))) for i in range(4)])
-                #     return (left-right) ** 2    
-                # alpha = minimize_scalar(DAE, method="Brent")
-                # if not alpha['success']:
-                #     print(f" Optimal alpha not found. Value: {alpha}")
-                # global_alpha = alpha['x']
+                prev_global_alpha = self.get_prev_state("global_alpha")
+                
                 def DAE_(oneoveralpha):
                     b = a * tau * (1-np.exp(-100*oneoveralpha/tau))
                     return np.sum(b) - oneoveralpha*(35 + 0.019 * prev_global_acc_pert_carb_stock + 4.165 * prev_global_temperature[0])
-                # def DAE_prime(oneoveralpha):
-                #     return np.sum([100*a[i] * np.exp(-100*oneoveralpha/tau[i]) for i in range(4)]) - (35 + 0.019 * prev_global_acc_pert_carb_stock + 4.165 * prev_global_temperature[0])
-                # def DAE_prime2(oneoveralpha):
-                #     return np.sum([10000*a[i]/tau[i] * np.exp(-100*oneoveralpha/tau[i]) for i in range(4)])
 
-                global_alpha = 1/newton(DAE_, x0=1.5)
+                global_alpha = 1/newton(DAE_, x0=1/prev_global_alpha)
+                assert np.isclose(0, DAE_(1/global_alpha), rtol=1e-2), f"DAE not solved correctly."
+                assert 0.01 <= global_alpha <= 100, f"Value out of bounds: {global_alpha} is not within [0.01, 100]"
 
-                left = 35 + 0.019 * prev_global_acc_pert_carb_stock + 4.165 * prev_global_temperature[0]
-                right = np.sum([global_alpha * a[i] * tau[i] * (1-np.exp(-100/(global_alpha * tau[i]))) for i in range(4)])
-                assert np.isclose(left, right, rtol=1e-2), f"DAE not solved correctly. Left: {left}, Right: {right}"
             elif self.carbon_model == "AR5":
                 global_alpha = 1
                 
@@ -800,16 +787,7 @@ class Rice(gym.Env):
             if save_state:
                 self.set_state("global_cumulative_land_emissions", global_cumulative_land_emissions)
 
-            #TODO: vectorize this
-            # for i in range(4):
-            #     global_carbon_reservoirs[i] = prev_global_carbon_reservoirs[i] ** np.exp(-5/(global_alpha * tau[i])) \
-            #                                     + a[i] * sum_aux_m/5 * np.exp(-5/(global_alpha * tau[i])) * (conv) \
-            #                                     + a[i] * sum_aux_m/5 * np.exp(-4/(global_alpha * tau[i])) * (conv)\
-            #                                     + a[i] * sum_aux_m/5 * np.exp(-3/(global_alpha * tau[i])) * (conv)\
-            #                                     + a[i] * sum_aux_m/5 * np.exp(-2/(global_alpha * tau[i])) * (conv)\
-            #                                     + a[i] * sum_aux_m/5 * np.exp(-1/(global_alpha * tau[i])) * (conv)                                                                                                                                                                               
             global_carbon_reservoirs = prev_global_carbon_reservoirs ** np.exp(-5/(global_alpha * tau)) + a * sum_aux_m/5 * conv * (np.exp(-1/(global_alpha * tau)) - np.exp(-6/(global_alpha * tau)))/(1-np.exp(-1/(global_alpha * tau)))
-            # assert np.allclose(global_carbon_reservoirs, global_carbon_reservoirs_, rtol=1e-2), f"Reservoirs not calculated correctly. Left: {global_carbon_reservoirs}, Right: {global_carbon_reservoirs_}"
             if save_state:
                 self.set_state("global_carbon_reservoirs", global_carbon_reservoirs)
             
