@@ -217,11 +217,9 @@ class Rice(gym.Env):
 
         tariff_revenues, net_imports = self.calc_trade_sanctions(gross_imports)
         welfloss_multipliers = self.calc_welfloss_multiplier(gross_outputs, gross_imports)
-
         consumptions = self.calc_consumptions(
             gross_outputs, investments, gross_imports, net_imports)
         utilities = self.calc_utilities(consumptions)
-
         self.calc_social_welfares(utilities)
         self.calc_rewards(utilities, welfloss_multipliers)
 
@@ -311,7 +309,7 @@ class Rice(gym.Env):
         rewards = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             rewards[region_id] = utilities[region_id] * welfloss_multipliers[region_id]
-            self.set_state("reward_all_regions", utilities[region_id], region_id=region_id)
+            self.set_state("reward_all_regions", rewards[region_id], region_id=region_id)
         return rewards
 
     def calc_gov_balances_post_trade(self, gov_balances, gross_imports, save_state=True):
@@ -483,7 +481,6 @@ class Rice(gym.Env):
         for region_id in range(self.num_regions):
             gross_output = gross_outputs[region_id]
             debt_ratio = debt_ratios[region_id]
-            potential_import_bids = np.zeros((self.num_regions, self.num_regions), dtype=self.float_dtype)
 
             import_bids[region_id][region_id] = 0
 
@@ -512,7 +509,7 @@ class Rice(gym.Env):
         return normalized_import_bids_all_regions
 
     def calc_trade_sanctions(self, gross_imports, save_state=True):
-        import_tariffs = self.get_prev_state("import_tariffs")
+        import_tariffs = self.get_prev_state("import_tariffs_all_regions")
         net_imports = np.zeros((self.num_regions, self.num_regions), dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             # TODO: calculate using arrays?
@@ -539,20 +536,21 @@ class Rice(gym.Env):
     def calc_welfloss_multiplier(self, gross_outputs, gross_imports, welfare_loss_per_unit_tariff=None, save_state=True):
         """Calculate the welfare loss multiplier of exporting region due to being tariffed."""
         if not self.apply_welfloss:
-            return np.zeros((self.num_regions), dtype=self.float_dtype)
+            return np.ones((self.num_regions), dtype=self.float_dtype)
 
         if welfare_loss_per_unit_tariff is None:
             welfare_loss_per_unit_tariff = 0.4 # From Nordhaus 2015
 
-        import_tariffs = self.get_prev_state("import_tariffs")
-        welfloss = np.zeros((self.num_regions), dtype=self.float_dtype)
+        import_tariffs = self.get_prev_state("import_tariffs_all_regions")
+        welfloss = np.ones((self.num_regions), dtype=self.float_dtype)
 
         for region_id in range(self.num_regions):
-            for exporting_region in range(self.num_regions):
-                welfloss[region_id] += \
-                    (gross_imports[region_id, exporting_region] / gross_outputs[region_id]) * \
-                        import_tariffs[region_id, exporting_region] * welfare_loss_per_unit_tariff
+            for destination_region in range(self.num_regions):
+                welfloss[region_id] -= \
+                    (gross_imports[destination_region, region_id] / gross_outputs[region_id]) * \
+                        import_tariffs[destination_region, region_id] * welfare_loss_per_unit_tariff
 
+                
         if save_state:
             self.set_state("welfloss", welfloss)
 
@@ -715,8 +713,7 @@ class Rice(gym.Env):
                 gross_outputs[region_id],
                 investments[region_id])
 
-            desired_exports_from_region_id = np.sum(normalized_import_bids_all_regions[:, region_id])
-
+            desired_exports_from_region_id = np.sum(potential_import_bids_all_regions[:, region_id])
             if desired_exports_from_region_id > max_exports_from_region_id:
                 for exporting_region in range(self.num_regions):
                     normalized_import_bids_all_regions[exporting_region][region_id] = \
@@ -1328,6 +1325,8 @@ class Rice(gym.Env):
                     ),
                     "norm": norm,
                 }
+
+        
 
         # Set the value
         if region_id is None:
