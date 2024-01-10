@@ -543,11 +543,12 @@ class Rice(gym.Env):
 
         import_tariffs = self.get_prev_state("import_tariffs_all_regions")
         welfloss = np.ones((self.num_regions), dtype=self.float_dtype)
+
         for region_id in range(self.num_regions):
-            for exporting_region in range(self.num_regions):
+            for destination_region in range(self.num_regions):
                 welfloss[region_id] -= \
-                    (gross_imports[region_id, exporting_region] / gross_outputs[region_id]) * \
-                        import_tariffs[region_id, exporting_region] * welfare_loss_per_unit_tariff
+                    (gross_imports[destination_region, region_id] / gross_outputs[region_id]) * \
+                        import_tariffs[destination_region, region_id] * welfare_loss_per_unit_tariff
 
                 
         if save_state:
