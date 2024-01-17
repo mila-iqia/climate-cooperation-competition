@@ -86,16 +86,6 @@ def run_single_experiment():
     wandb.finish()
 
 
-# def main():
-#     env = Rice()
-#     env.reset()
-#     mitigation_rates = list(np.array(range(10)) / 100) + [0.3, 0.5, 0.7, 0.9]
-#     savings_rate = 0.1
-
-#     for mitigation_rate in mitigation_rates:
-#         run_single_experiment(env, "Updated", mitigation_rate, savings_rate)
-
-
 sweep_config = {
     "method": "grid",  # or 'random' for random search
     "metric": {

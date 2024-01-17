@@ -541,6 +541,7 @@ class Rice(gymnasium.Env):
             ],
             self.timestep,
         )
+
         self.set_global_state(
             "mitigation_rate_all_regions",
             [

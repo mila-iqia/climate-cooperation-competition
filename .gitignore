@@ -238,3 +238,4 @@ scripts/dev.ipynb
 scripts/dev.py
 scripts/eval_by_logs.py
 *Zone.Identifier
+wandb
