@@ -241,6 +241,10 @@ class Rice(gym.Env):
         truncateds = {"__all__": current_simulation_year == self.episode_length}
         info = {}
 
+        if terminateds["__all__"]:
+            print("############MEAN#######")
+            print(np.mean(np.array([x for x in rewards.values()])))
+
         return observations, rewards, terminateds, truncateds, info
 
     def calc_carbon_intensities(self, save_state=True):
@@ -1211,7 +1215,7 @@ class Rice(gym.Env):
 
     def get_rewards(self):
         # regions Ids must be strings
-        return {str(region_id): self.get_state("reward_all_regions", region_id=region_id) for region_id in range(self.num_regions)}
+        return {region_id: self.get_state("reward_all_regions", region_id=region_id) for region_id in range(self.num_regions)}
 
     def reset_state(self, key):
         # timesteps
@@ -1253,7 +1257,7 @@ class Rice(gym.Env):
             self.set_state(key, value=np.array([params[0]["xM_AT_0"], params[0]["xM_UP_0"], params[0]["xM_LO_0"]]), norm=1e4)
 
         # num_regions x num_regions matrices
-        if key in ['proposal_decisions', 'requested_mitigation_rate', 'promised_mitigation_rate']:
+        if key in ['proposal_decisions','export_regions_all_regions', 'requested_mitigation_rate', 'promised_mitigation_rate']:
             self.set_state(key, value=np.zeros((self.num_regions, self.num_regions)))
         if key in ['imports_minus_tariffs', 'desired_imports', 'import_tariffs', 'tariffs',
                    'normalized_import_bids_all_regions']:

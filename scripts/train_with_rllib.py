@@ -17,8 +17,9 @@ import os
 import subprocess
 import sys
 import time
-
+import wandb
 import numpy as np
+from tqdm import tqdm
 import yaml
 from desired_outputs import desired_outputs
 from fixed_paths import PUBLIC_REPO_DIR
@@ -35,7 +36,9 @@ logging.getLogger().setLevel(logging.DEBUG)
 SCENARIO_MAPPING = {
     "default":Rice,
     "OptimalMitigation":OptimalMitigation,
-    "BasicClub":BasicClub
+    "BasicClub":BasicClub,
+    "TariffTest":TariffTest,
+    "ExportAction":ExportAction
 }
 
 
@@ -368,6 +371,8 @@ def create_trainer(config_yaml=None, source_dir=None, seed=None):
     return rllib_trainer
 
 
+
+
 def create_save_dir_path(exp_run_config, results_dir=None):
     assert exp_run_config is not None
     if results_dir is None:
@@ -397,8 +402,19 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
 
     outputs = {}
 
+    def access_env(worker):
+        # Access the environment from the worker
+        env = worker.env
+        # Perform operations on the env or print it
+        print(env)
+        # You can return something if needed
+        return env
+
     # Fetch the env object from the trainer
-    env_object = trainer_obj.workers.local_worker().env
+    envs = trainer.workers.foreach_worker(access_env)
+
+    env_object = envs[0].env 
+    # env_object = trainer_obj.workers.local_worker().env
     obs = env_object.reset()
 
     env = env_object.env
@@ -581,7 +597,7 @@ if __name__ == "__main__":
     # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
     # -----------------------------------------------------------------------------
 
-    ray.init(ignore_reinit_error=True)
+    ray.init(ignore_reinit_error=True, local_mode=True)
 
     config_yaml = get_config_yaml(yaml_path="rice_rllib.yaml")
 
@@ -594,12 +610,37 @@ if __name__ == "__main__":
     trainer_config = config_yaml["trainer"]
     num_episodes = trainer_config["num_episodes"]
     train_batch_size = trainer_config["train_batch_size"]
-    # Fetch the env object from the trainer
-    env_obj = trainer.workers.local_worker().env.env
+
+    if trainer_config["num_workers"] > 0:
+
+        # Fetch the env object from the trainer
+        def access_env(worker):
+            # Access the environment from the worker
+            env = worker.env
+            # Perform operations on the env or print it
+            # You can return something if needed
+            return env
+
+        # Fetch the env object from the trainer
+        envs = trainer.workers.foreach_worker(access_env)
+        env_obj = envs[1].env 
+    else:
+
+        env_obj = trainer.workers.local_worker().env.env
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
 
-    for iteration in range(num_iters):
+    if config_yaml["logging"]["enabled"]:
+        wandb_config = config_yaml["logging"]["wandb_config"]
+        wandb.login(key=wandb_config["login"])
+        wandb.init(
+            project=wandb_config["project"],
+            name=f'{wandb_config["run"]}_train',
+            entity=wandb_config["entity"],
+        )
+    num_iters = 100
+    
+    for iteration in tqdm(range(num_iters)):
         print(
             f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"
         )
@@ -610,7 +651,20 @@ if __name__ == "__main__":
             or iteration == num_iters - 1
         ):
             save_model_checkpoint(trainer, save_dir, total_timesteps)
-            logging.info(result)
+        logging.info(result)
+        if config_yaml["logging"]["enabled"]:
+            wandb.log(
+                    {
+                        "episode_reward_min": result["episode_reward_min"],
+                        "episode_reward_mean": result["episode_reward_mean"],
+                        "episode_reward_max": result["episode_reward_max"],
+                    },
+                    step=result["episodes_total"],
+                )
+            wandb.log(
+                    result["info"]["learner"]["regions"]["learner_stats"],
+                    step=result["episodes_total"],
+                )
         print(f"""episode_reward_mean: {result.get('episode_reward_mean')}""")
 
     # Create a (zipped) submission file
@@ -625,6 +679,7 @@ if __name__ == "__main__":
     #         save_dir,
     #     ]
     # )
-
+    if config_yaml["logging"]["enabled"]:
+        wandb.finish()
     # Close Ray gracefully after completion
     ray.shutdown()
