@@ -1211,7 +1211,7 @@ class Rice(gym.Env):
 
     def get_rewards(self):
         # regions Ids must be strings
-        return {str(region_id): self.get_state("reward_all_regions", region_id=region_id) for region_id in range(self.num_regions)}
+        return {region_id: self.get_state("reward_all_regions", region_id=region_id) for region_id in range(self.num_regions)}
 
     def reset_state(self, key):
         # timesteps
