@@ -48,7 +48,7 @@ def get_state_at_time_t(global_state, t, nb_region=27):
 def run_single_experiment(is_wandb=False, mitigation_rate=None, savings_rate=None, pliability=None, damage_type=None, abatement_cost_type=None, debugging_folder=None):
     if is_wandb:
         # Initialize a wandb run
-        run = wandb.init(project="ricen-abatement-function-debugging", entity="tianyuzhang")
+        run = wandb.init(project="ricen-abatement-function-debugging")
 
     # Create the Rice environment
     env = Rice(dmg_function=damage_type, abatement_cost_type=abatement_cost_type, pliability=pliability, debugging_folder=debugging_folder)
