@@ -56,8 +56,17 @@ def run_single_experiment():
     damage_type = run.config.damage_type
     abatement_cost_type = run.config.abatement_cost_type
     debugging_folder = run.config.debugging_folder
+    carbon_model = run.config.carbon_model
+    prescribed_emissions = run.config.prescribed_emissions
+    if run.config.temperature_calibration is not None:
+        temperature_calibration = run.config.temperature_calibration
+    else:
+        if carbon_model == "base":
+            temperature_calibration = "base"
+        elif carbon_model in ["FaIR", "AR5"]:
+            temperature_calibration = "FaIR"
     # Create the Rice environment
-    env = Rice(dmg_function=damage_type, abatement_cost_type=abatement_cost_type, pliability=pliability, debugging_folder=debugging_folder)
+    env = Rice(dmg_function=damage_type, abatement_cost_type=abatement_cost_type, pliability=pliability, debugging_folder=debugging_folder, carbon_model=carbon_model, prescribed_emissions=prescribed_emissions, temperature_calibration=temperature_calibration)
     env.reset()
     # Create a unique name for the experiment based on the parameters
     if debugging_folder == "2_region":
@@ -66,7 +75,7 @@ def run_single_experiment():
         num_region = 27
     else:
         raise ValueError("Invalid debugging folder")
-    experiment_name = f"m_{mitigation_rate}_s_{savings_rate}_p_{pliability}_d_{damage_type}_a_{abatement_cost_type}_v_{num_region}"
+    experiment_name = f"m_{mitigation_rate}_s_{savings_rate}_p_{pliability}_d_{damage_type}_a_{abatement_cost_type}_v_{num_region}_c_{carbon_model}_pe_{prescribed_emissions}_tc_{temperature_calibration}"
     wandb.run.name = experiment_name
 
     if isinstance(mitigation_rate, (list, tuple, np.ndarray)):
@@ -118,13 +127,15 @@ sweep_config = {
         "mitigation_rate": {
             "values": [0,5,9,[9,9,9,9,9,9,9,9,9,9,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,9,9,9,9,9,9,9,9,9,9],[0,0,0,0,0,0,0,0,0,9,9,9,9,9,9,9,9,9,9], [0,9,0,9,0,9,0,9,0,9,0,9,0,9,0,9,0,9,0], [0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9], [0,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9]]
         },
-        "savings_rate": {"values": [1]},  # Or any other values you want to try
-        "pliability": {"values": [0]},
-        "damage_type": {"values": ["Updated"]},
-        "abatement_cost_type": {"values": ["base_abatement", "path_dependent"]},
+        "savings_rate": {"values": [2.5]},  # Or any other values you want to try
+        "pliability": {"values": [0,0.5,0.7,0.9]},
+        "damage_type": {"values": ["updated"]},
+        "abatement_cost_type": {"values": ["path_dependent"]},
         # "debugging_folder": {"values": ["2_region", "region_yamls"]},
         "debugging_folder": {"values": ["region_yamls"]},
-        
+        "carbon_model": {"values": ["FaIR", "AR5","base"]},
+        "prescribed_emissions": {"values": [None]},
+        "temperature_calibration": {"values": ["FaIR", "base"]},
     },
     # "parameters": {
     #     "mitigation_rate": {
@@ -132,14 +143,14 @@ sweep_config = {
     #     },
     #     "savings_rate": {"values": [1]},  # Or any other values you want to try
     #     "pliability": {"values": [0.5, 0.7, 0.9]},
-    #     "damage_type": {"values": ["Base", "Updated"]},
+    #     "damage_type": {"values": ["base", "updated"]},
     #     "abatement_cost_type": {"values": ["path_dependent"]},
         
     # },
 }
 
 sweep_id = wandb.sweep(
-    sweep_config, project="ricen-abatement-function-debugging", entity="tianyuzhang"
+    sweep_config, project="ricen-fair-abatement-function-debugging", entity="tianyuzhang"
 )
 
 
