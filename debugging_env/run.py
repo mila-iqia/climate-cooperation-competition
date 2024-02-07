@@ -120,7 +120,7 @@ sweep_config = {
         },
         "savings_rate": {"values": [1]},  # Or any other values you want to try
         "pliability": {"values": [0]},
-        "damage_type": {"values": ["Updated"]},
+        "damage_type": {"values": ["updated"]},
         "abatement_cost_type": {"values": ["base_abatement", "path_dependent"]},
         # "debugging_folder": {"values": ["2_region", "region_yamls"]},
         "debugging_folder": {"values": ["region_yamls"]},
@@ -132,7 +132,7 @@ sweep_config = {
     #     },
     #     "savings_rate": {"values": [1]},  # Or any other values you want to try
     #     "pliability": {"values": [0.5, 0.7, 0.9]},
-    #     "damage_type": {"values": ["Base", "Updated"]},
+    #     "damage_type": {"values": ["base", "updated"]},
     #     "abatement_cost_type": {"values": ["path_dependent"]},
         
     # },

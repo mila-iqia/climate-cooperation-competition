@@ -37,7 +37,7 @@ class Rice(gym.Env):
         self,
         num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
         negotiation_on=False,  # If True then negotiation is on, else off
-        dmg_function="Updated",
+        dmg_function="updated",
         abatement_cost_type="base_abatement",
         pliability=None,
         debugging_folder=None
@@ -533,7 +533,7 @@ class Rice(gym.Env):
         for region_id in range(self.num_regions):
             # prev_atmospheric_temperature = self.get_prev_state("global_temperature")[0] - 1 why - 1?
             prev_atmospheric_temperature = self.get_prev_state("global_temperature")[0]
-            if self.dmg_function == "Base":
+            if self.dmg_function == "base":
                 damages[region_id] = 1 / (
                     1
                     + self.all_regions_params[region_id]["xa_1"]
@@ -544,7 +544,7 @@ class Rice(gym.Env):
                         self.all_regions_params[region_id]["xa_3"],
                     )
                 )
-            elif self.dmg_function == "Updated":
+            elif self.dmg_function == "updated":
                 damages[region_id] = (
                     1 - (0.7438 * (prev_atmospheric_temperature**2)) / 100
                 )
