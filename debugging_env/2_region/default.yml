@@ -1,0 +1,60 @@
+_DICE_CONSTANT:
+  xt_0: 2015 # starting year of the whole model
+  xDelta: 5 # the time interval (year)
+  xN: 20 # total time steps
+
+  # Climate diffusion parameters
+  xPhi_T: [[0.8718, 0.0088], [0.025, 0.975]]
+  xB_T: [0.1005, 0]
+  # xB_T: [0.03, 0]
+
+  # Carbon cycle diffusion parameters (the zeta matrix in the paper)
+  xPhi_M: [[0.88, 0.196, 0], [0.12, 0.797, 0.001465], [0, 0.007, 0.99853488]]
+  # xB_M: [0.2727272727272727, 0, 0] # 12/44
+  xB_M: [1.36388, 0, 0] # 12/44
+  xeta: 3.6813 #?? I don't find where it's used
+
+  xM_AT_1750: 588 # atmospheric mass of carbon in the year of 1750
+  xf_0: 0.5 # in Eq 3  param to effect of greenhouse gases other than carbon dioxide
+  xf_1: 1 # in Eq 3  param to effect of greenhouse gases other than carbon dioxide
+  xt_f: 20 # in Eq 3  time step param to effect of greenhouse gases other than carbon dioxide
+  xE_L0: 2.6 # 2.6 # in Eq 4 param to the emissions due to land use changes
+  xdelta_EL: 0.001 # 0.115 # 0.115 # in Eq 4 param to the emissions due to land use changes
+
+  xM_AT_0: 851 # in CAP the atmospheric mass of carbon in the year t
+  xM_UP_0: 460 # in CAP the atmospheric upper bound of mass of carbon in the year t
+  xM_LO_0: 1740 # in CAP the atmospheric lower bound of mass of carbon in the year t
+  xe_0: 35.85 # in EI define the initial simga_0: e0/(q0(1-mu0))
+  xq_0: 105.5 # in EI define the initial simga_0: e0/(q0(1-mu0))
+  xmu_0: 0.03 # in EI define the initial simga_0: e0/(q0(1-mu0))
+
+  # From Python implementation PyDICE
+  xF_2x: 3.6813 # 3.6813 # Forcing that doubles equilibrium carbon.
+  xT_2x: 3.1 # 3.1 # Equilibrium temperature increase at double carbon eq.
+
+_RICE_CONSTANT:
+  xgamma: 0.3 # in CAP Eq 5 the capital elasticty
+  xtheta_2: 2.6 # in CAP Eq 6
+  xa_1: 0
+  xa_2: 0.00236 # in CAP Eq 6
+  xa_3: 2 # in CAP Eq 6
+  xdelta_K: 0.1 # in CAP Eq 9 param discribe the depreciate of the capital
+  xalpha: 1.45 # Utility function param
+  xrho: 0.015 # discount factor of the utility
+  xL_0: 7403 # in POP population at the staring point
+  xL_a: 11500 # in POP the expected population at convergence
+  xl_g: 0.134 # in POP control the rate to converge
+  xA_0: 5.115 # in TFP technology at starting point
+  xg_A: 0.076 # in TFP control the rate of increasing of tech larger->faster
+  xdelta_A: 0.005 # in TFP control the rate of increasing of tech smaller->faster
+  xsigma_0: 0.3503 # e0/(q0(1-mu0)) in EI emission intensity at the starting point
+  xg_sigma: 0.0025 # 0.0152 # 0.0025 in EI control the rate of mitigation larger->reduce more emission
+  xdelta_sigma: 0.1 # 0.01 in EI control the rate of mitigation larger->reduce less emission
+  xp_b: 550 # 550 # in Eq 2 (estimate of the cost of mitigation)  represents the price of a backstop technology that can remove carbon dioxide from the atmosphere
+  xdelta_pb: 0.001 # 0.025 # in Eq 2 control the how the cost of mitigation change through time larger->cost less as time goes by
+  xscale_1: 0.030245527 # in Eq 29 Nordhaus scaled cost function param
+  xscale_2: 10993.704 # in Eq 29 Nordhaus scaled cost function param
+
+  xT_AT_0: 0.85 # in CAP a part of damage function initial condition
+  xT_LO_0: 0.0068 # in CAP a part of damage function initial condition
+  xK_0: 223 # in CAP initial condition for capital
