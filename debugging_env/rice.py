@@ -37,9 +37,15 @@ class Rice(gym.Env):
         self,
         num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
         negotiation_on=False,  # If True then negotiation is on, else off
-        dmg_function="Base",
+        dmg_function="Updated",
+        abatement_cost_type="base_abatement",
+        pliability=None,
+        debugging_folder=None
     ):
+        self.debugging_folder = debugging_folder
         self.dmg_function = dmg_function
+        self.abatement_cost_type = abatement_cost_type
+        self.pliability = pliability
         self.global_state = {}
 
         self.set_discrete_action_levels(num_discrete_action_levels)
@@ -525,8 +531,8 @@ class Rice(gym.Env):
     def calc_damages(self, save_state=True):
         damages = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
-            prev_atmospheric_temperature = self.get_prev_state("global_temperature")[0] - 1
-
+            # prev_atmospheric_temperature = self.get_prev_state("global_temperature")[0] - 1 why - 1?
+            prev_atmospheric_temperature = self.get_prev_state("global_temperature")[0]
             if self.dmg_function == "Base":
                 damages[region_id] = 1 / (
                     1
@@ -553,17 +559,36 @@ class Rice(gym.Env):
     def calc_abatement_costs(self, save_state=True):
         mitigation_costs = self.calc_mitigation_costs()
         abatement_costs = np.zeros(self.num_regions, dtype=self.float_dtype)
-        for region_id in range(self.num_regions):
-            abatement_costs[region_id] = mitigation_costs[region_id] * pow(
-                self.get_state("mitigation_rates_all_regions", region_id),
-                self.all_regions_params[region_id]["xtheta_2"],
-            )
-            if save_state:
-                self.set_state(
-                    "abatement_cost_all_regions",
-                    abatement_costs[region_id],
-                    region_id=region_id,
+
+        if self.abatement_cost_type == "base_abatement":
+
+            for region_id in range(self.num_regions):
+                abatement_costs[region_id] = mitigation_costs[region_id] * pow(
+                    self.get_state("mitigation_rates_all_regions", region_id),
+                    self.all_regions_params[region_id]["xtheta_2"],
                 )
+                if save_state:
+                    self.set_state(
+                        "abatement_cost_all_regions",
+                        abatement_costs[region_id],
+                        region_id=region_id,
+                    )
+        elif self.abatement_cost_type == "path_dependent":
+            for region_id in range(self.num_regions):
+                current_mitigation_rate = self.get_state("mitigation_rates_all_regions", region_id)
+                prev_mitigation_rate = self.get_prev_state("mitigation_rates_all_regions", region_id)
+                theta_2 = self.all_regions_params[region_id]["xtheta_2"]
+                original_part = pow(current_mitigation_rate,theta_2) * (1-self.pliability)
+                path_dependent_part = pow(np.abs(current_mitigation_rate-prev_mitigation_rate), theta_2)*self.pliability/(theta_2+1)
+                abatement_costs[region_id] = mitigation_costs[region_id] * (original_part + path_dependent_part)
+                if save_state:
+                    self.set_state(
+                        "abatement_cost_all_regions",
+                        abatement_costs[region_id],
+                        region_id=region_id,
+                    )
+        else:
+            raise NotImplementedError(f"Unknown abatement cost type {self.abatement_cost_type}")
         return abatement_costs
 
     def calc_mitigation_costs(self, save_state=True):
@@ -1100,7 +1125,10 @@ class Rice(gym.Env):
         self.num_discrete_action_levels = num_discrete_action_levels
 
     def set_all_region_params(self):
-        param_path = os.path.join(_PUBLIC_REPO_DIR, "region_yamls")
+        if self.debugging_folder is not None:
+            param_path = os.path.join(_PUBLIC_REPO_DIR, self.debugging_folder)
+        else:
+            param_path = os.path.join(_PUBLIC_REPO_DIR, "region_yamls")
         num_regions, raw_params = self.read_rice_param_yamls(param_path)
         self.num_regions = num_regions
         self.region_specific_params = raw_params["_RICE_CONSTANT"]
