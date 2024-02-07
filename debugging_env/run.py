@@ -150,7 +150,7 @@ sweep_config = {
 }
 
 sweep_id = wandb.sweep(
-    sweep_config, project="ricen-fair-abatement-function-debugging", entity="tianyuzhang"
+    sweep_config, project="ricen-fair-abatement-function-debugging"
 )
 
 

@@ -48,9 +48,14 @@ def get_state_at_time_t(global_state, t, nb_region=27):
 def run_single_experiment(is_wandb=False, mitigation_rate=None, savings_rate=None, pliability=None, damage_type=None, abatement_cost_type=None, debugging_folder=None, carbon_model=None, prescribed_emissions=None, temperature_calibration=None):
     if is_wandb:
         # Initialize a wandb run
-        run = wandb.init(project="ricen-fair-abatement-function-debugging", entity="tianyuzhang")
+        run = wandb.init(project="ricen-fair-abatement-function-debugging")
 
     # Create the Rice environment
+    if temperature_calibration is None:
+        if carbon_model == "base":
+            temperature_calibration = "base"
+        elif carbon_model in ["FaIR", "AR5"]:
+            temperature_calibration = "FaIR"
     env = Rice(dmg_function=damage_type, abatement_cost_type=abatement_cost_type, pliability=pliability, debugging_folder=debugging_folder, carbon_model=carbon_model, prescribed_emissions=prescribed_emissions, temperature_calibration=temperature_calibration)
     env.reset()
 
@@ -117,4 +122,4 @@ if __name__ == "__main__":
     # run_single_experiment(is_wandb=True, mitigation_rate = [0,0,0,0,0,0,0,0,0,9,9,9,9,9,9,9,9,9,9], savings_rate=1)
     # run_single_experiment(is_wandb=False, mitigation_rate = [0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9], savings_rate=1, pliability=0.9, damage_type="updated", abatement_cost_type="path_dependent")
     # run_single_experiment(is_wandb=True, mitigation_rate = [0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9], savings_rate=1, pliability=0, damage_type="updated", abatement_cost_type="path_dependent")
-    run_single_experiment(is_wandb=True, mitigation_rate = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], savings_rate=2.5, pliability=0.9, damage_type="updated", abatement_cost_type="path_dependent", debugging_folder=None, carbon_model="FaIR", prescribed_emissions=None)
+    run_single_experiment(is_wandb=True, mitigation_rate = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], savings_rate=2.5, pliability=0.9, damage_type="updated", abatement_cost_type="path_dependent", debugging_folder=None, carbon_model="FaIR", prescribed_emissions=None, temperature_calibration=None)
