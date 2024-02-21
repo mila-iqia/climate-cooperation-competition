@@ -26,7 +26,7 @@ trainer:
     # Note: Setting the num_workers to 0 will force rollouts to be done in the trainer actor.
     # do not set to -1
     num_cpus_per_worker: 1 # do not set to -1
-    num_gpus: 0 # number of GPUs to allocate to the trainer process. This can also be fractional (e.g., 0.3 GPUs).
+    num_gpus: 1 # number of GPUs to allocate to the trainer process. This can also be fractional (e.g., 0.3 GPUs).
 
 # Environment configuration
 env:

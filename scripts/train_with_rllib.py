@@ -585,7 +585,7 @@ if __name__ == "__main__":
 
     config_yaml = get_config_yaml(yaml_path="rice_rllib.yaml")
 
-    ray.init(ignore_reinit_error=True, num_gpus=0, num_cpus=config_yaml["trainer"]["num_workers"])
+    ray.init(ignore_reinit_error=True, num_gpus=config_yaml["trainer"]["num_gpus"], num_cpus=config_yaml["trainer"]["num_workers"])
 
     trainer = create_trainer(config_yaml)
     save_dir = create_save_dir_path(config_yaml)
