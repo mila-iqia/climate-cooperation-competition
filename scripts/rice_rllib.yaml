@@ -22,7 +22,7 @@ trainer:
     framework: torch # framework setting.
     # Note: RLlib supports TF as well, but our end-to-end pipeline is built for Pytorch only.
     # === Hardware Settings ===
-    num_workers: 50 # number of rollout worker actors to create for parallel sampling.
+    num_workers: 29 # number of rollout worker actors to create for parallel sampling.
     # Note: Setting the num_workers to 0 will force rollouts to be done in the trainer actor.
     # do not set to -1
     num_cpus_per_worker: 1 # do not set to -1
