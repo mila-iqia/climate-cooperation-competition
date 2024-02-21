@@ -198,4 +198,4 @@ class TorchLinear(TorchModelV2, nn.Module):
         )
 
 
-ModelCatalog.register_custom_model("torch_linear", TorchLinear)
+ModelCatalog.register_custom_model("torch_linear_cont", TorchLinear)

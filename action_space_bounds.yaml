@@ -1,0 +1,22 @@
+# action_space_bounds.yaml
+savings:
+  min: 0.0
+  max: 1.0
+mitigation_rate:
+  min: 0.0
+  max: 1.0
+export_limit:
+  min: 0.0
+  max: 1.0
+import_bids:
+  min: 0.0
+  max: 1.0
+import_tariffs:
+  min: 0.0
+  max: 1.0
+proposal:
+  min: 0.0
+  max: 1.0
+proposal_decisions:
+  min: 0.0
+  max: 1.0

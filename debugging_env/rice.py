@@ -16,7 +16,9 @@ import numpy as np
 import gymnasium as gym
 from gymnasium.spaces import MultiDiscrete
 import yaml
-
+from scipy.optimize import minimize_scalar
+from scipy.optimize import newton
+import time
 
 _PUBLIC_REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 _SMALL_NUM = 1e-0  # small number added to handle consumption blow-up
@@ -36,18 +38,25 @@ class Rice(gym.Env):
         self,
         num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
         negotiation_on=False,  # If True then negotiation is on, else off
-        dmg_function="base",
+        dmg_function="updated",
+        abatement_cost_type="base_abatement",
+        pliability=None,
+        debugging_folder=None,
         carbon_model="base",
         temperature_calibration="base",
         prescribed_emissions=None,
     ):
+        # Potential additions for improved DICE model
+        self.debugging_folder = debugging_folder
         self.dmg_function = dmg_function
+        self.abatement_cost_type = abatement_cost_type
+        self.pliability = pliability
         self.carbon_model = carbon_model
         self.temperature_calibration = temperature_calibration
         
         # Add option to define own emissions path as a list of 21 emission values in CO2
         self.prescribed_emissions = prescribed_emissions
-
+        
         self.global_state = {}
 
         self.set_discrete_action_levels(num_discrete_action_levels)
@@ -99,6 +108,14 @@ class Rice(gym.Env):
         self.reset_state('global_land_emissions')
         self.reset_state('intensity_all_regions')
         self.reset_state('mitigation_rates_all_regions')
+        
+        # additional climate states for carbon model
+        self.reset_state("global_alpha")
+        self.reset_state("global_carbon_reservoirs")
+        self.reset_state("global_cumulative_emissions")
+        self.reset_state("global_cumulative_land_emissions")
+        self.reset_state("global_emissions")
+        self.reset_state("global_acc_pert_carb_stock")
 
         # economic states
         self.reset_state('production_all_regions')
@@ -227,9 +244,11 @@ class Rice(gym.Env):
 
         tariff_revenues, net_imports = self.calc_trade_sanctions(gross_imports)
         welfloss_multipliers = self.calc_welfloss_multiplier(gross_outputs, gross_imports)
+
         consumptions = self.calc_consumptions(
             gross_outputs, investments, gross_imports, net_imports)
         utilities = self.calc_utilities(consumptions)
+
         self.calc_social_welfares(utilities)
         self.calc_rewards(utilities, welfloss_multipliers)
 
@@ -319,7 +338,7 @@ class Rice(gym.Env):
         rewards = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             rewards[region_id] = utilities[region_id] * welfloss_multipliers[region_id]
-            self.set_state("reward_all_regions", rewards[region_id], region_id=region_id)
+            self.set_state("reward_all_regions", utilities[region_id], region_id=region_id)
         return rewards
 
     def calc_gov_balances_post_trade(self, gov_balances, gross_imports, save_state=True):
@@ -439,8 +458,8 @@ class Rice(gym.Env):
             * pow(self.get_prev_state("labor_all_regions", region_id) / 1000, 1 - self.all_regions_params[region_id]["xgamma"])
             )
 
-        if save_state:
-            self.set_state("production_all_regions", productions[region_id], region_id=region_id)
+            if save_state:
+                self.set_state("production_all_regions", productions[region_id], region_id=region_id)
 
         return productions
 
@@ -463,12 +482,11 @@ class Rice(gym.Env):
                 )
             elif self.dmg_function == "updated":
                 damages[region_id] = (
-                    
-                    
                     1 - (0.7438 * (prev_atmospheric_temperature**2)) / 100
                 )
                 
-
+            else:
+                raise NotImplementedError(f"Unknown damage function {self.dmg_function}")
             if save_state:
                 self.set_state(
                     "damages_all_regions", damages[region_id], region_id=region_id
@@ -479,10 +497,35 @@ class Rice(gym.Env):
     def calc_abatement_costs(self, mitigation_rates_all_regions, save_state=True):
         mitigation_costs = self.calc_mitigation_costs()
         abatement_costs = np.zeros(self.num_regions, dtype=self.float_dtype)
-        for region_id in range(self.num_regions):
-            abatement_costs[region_id] = mitigation_costs[region_id] * pow(mitigation_rates_all_regions[region_id], self.all_regions_params[region_id]["xtheta_2"])
-            if save_state:
-                self.set_state("abatement_cost_all_regions", abatement_costs[region_id], region_id=region_id)
+        if self.abatement_cost_type == "base_abatement":
+
+            for region_id in range(self.num_regions):
+                abatement_costs[region_id] = mitigation_costs[region_id] * pow(
+                    mitigation_rates_all_regions[region_id],
+                    self.all_regions_params[region_id]["xtheta_2"],
+                )
+                if save_state:
+                    self.set_state(
+                        "abatement_cost_all_regions",
+                        abatement_costs[region_id],
+                        region_id=region_id,
+                    )
+        elif self.abatement_cost_type == "path_dependent":
+            for region_id in range(self.num_regions):
+                current_mitigation_rate = mitigation_rates_all_regions[region_id]
+                prev_mitigation_rate = self.get_prev_state("mitigation_rates_all_regions", region_id)
+                theta_2 = self.all_regions_params[region_id]["xtheta_2"]
+                original_part = pow(current_mitigation_rate,theta_2) * (1-self.pliability)
+                path_dependent_part = pow(np.abs(current_mitigation_rate-prev_mitigation_rate), theta_2)*self.pliability/(theta_2+1)
+                abatement_costs[region_id] = mitigation_costs[region_id] * (original_part + path_dependent_part)
+                if save_state:
+                    self.set_state(
+                        "abatement_cost_all_regions",
+                        abatement_costs[region_id],
+                        region_id=region_id,
+                    )
+        else:
+            raise NotImplementedError(f"Unknown abatement cost type {self.abatement_cost_type}")
         return abatement_costs
 
     def calc_mitigation_costs(self, save_state=True):
@@ -507,6 +550,7 @@ class Rice(gym.Env):
         for region_id in range(self.num_regions):
             gross_output = gross_outputs[region_id]
             debt_ratio = debt_ratios[region_id]
+            potential_import_bids = np.zeros((self.num_regions, self.num_regions), dtype=self.float_dtype)
 
             import_bids[region_id][region_id] = 0
 
@@ -535,7 +579,7 @@ class Rice(gym.Env):
         return normalized_import_bids_all_regions
 
     def calc_trade_sanctions(self, gross_imports, save_state=True):
-        import_tariffs = self.get_prev_state("import_tariffs_all_regions")
+        import_tariffs = self.get_prev_state("import_tariffs")
         net_imports = np.zeros((self.num_regions, self.num_regions), dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             # TODO: calculate using arrays?
@@ -562,21 +606,20 @@ class Rice(gym.Env):
     def calc_welfloss_multiplier(self, gross_outputs, gross_imports, welfare_loss_per_unit_tariff=None, save_state=True):
         """Calculate the welfare loss multiplier of exporting region due to being tariffed."""
         if not self.apply_welfloss:
-            return np.ones((self.num_regions), dtype=self.float_dtype)
+            return np.zeros((self.num_regions), dtype=self.float_dtype)
 
         if welfare_loss_per_unit_tariff is None:
             welfare_loss_per_unit_tariff = 0.4 # From Nordhaus 2015
 
-        import_tariffs = self.get_prev_state("import_tariffs_all_regions")
-        welfloss = np.ones((self.num_regions), dtype=self.float_dtype)
+        import_tariffs = self.get_prev_state("import_tariffs")
+        welfloss = np.zeros((self.num_regions), dtype=self.float_dtype)
 
         for region_id in range(self.num_regions):
-            for destination_region in range(self.num_regions):
-                welfloss[region_id] -= \
-                    (gross_imports[destination_region, region_id] / gross_outputs[region_id]) * \
-                        import_tariffs[destination_region, region_id] * welfare_loss_per_unit_tariff
+            for exporting_region in range(self.num_regions):
+                welfloss[region_id] += \
+                    (gross_imports[region_id, exporting_region] / gross_outputs[region_id]) * \
+                        import_tariffs[region_id, exporting_region] * welfare_loss_per_unit_tariff
 
-                
         if save_state:
             self.set_state("welfloss", welfloss)
 
@@ -675,7 +718,8 @@ class Rice(gym.Env):
                 self.set_state("global_temperature", global_temperature)
 
             return global_temperature
-
+        else:
+            raise NotImplementedError(f"Unknown temperature calibration {self.temperature_calibration}")
     def calc_global_carbon_mass(self, productions, save_state=True):
         if self.carbon_model == "base":
             global_land_emissions = self.calc_land_emissions()
@@ -864,7 +908,8 @@ class Rice(gym.Env):
                 gross_outputs[region_id],
                 investments[region_id])
 
-            desired_exports_from_region_id = np.sum(potential_import_bids_all_regions[:, region_id])
+            desired_exports_from_region_id = np.sum(normalized_import_bids_all_regions[:, region_id])
+
             if desired_exports_from_region_id > max_exports_from_region_id:
                 for exporting_region in range(self.num_regions):
                     normalized_import_bids_all_regions[exporting_region][region_id] = \
@@ -1051,6 +1096,13 @@ class Rice(gym.Env):
 
             return proposal_decisions
 
+    def get_actions_len(self, action_type):
+        action_mappings = {
+            "savings": self.savings_possible_actions,
+            "mitigation_rate": self.mitigation_rate_possible_actions,
+        }
+        return len(action_mappings[action_type])
+
     def get_actions_index(self, action_type):
         if action_type == "savings":
             return 0
@@ -1233,6 +1285,12 @@ class Rice(gym.Env):
             "global_exogenous_emissions",
             "global_land_emissions",
             "timestep",
+            "global_carbon_reservoirs",
+            "global_cumulative_emissions",
+            "global_cumulative_land_emissions",
+            "global_alpha",
+            "global_emissions",
+            "global_acc_pert_carb_stock"
         ]
 
         # Public features that are observable by all regions
@@ -1362,7 +1420,7 @@ class Rice(gym.Env):
 
     def get_rewards(self):
         # regions Ids must be strings
-        return {region_id: self.get_state("reward_all_regions", region_id=region_id) for region_id in range(self.num_regions)}
+        return {str(region_id): self.get_state("reward_all_regions", region_id=region_id) for region_id in range(self.num_regions)}
 
     def reset_state(self, key):
         # timesteps
@@ -1396,7 +1454,7 @@ class Rice(gym.Env):
 
         if key == 'capital_all_regions':
             self.set_state(key, value=np.array([params[region]["xK_0"] for region in region_ids]), norm=1e4, )
-
+        
         if key == "global_temperature":
             if self.temperature_calibration == 'base':
                 self.set_state(key, value=np.array([params[0]["xT_AT_0"], params[0]["xT_LO_0"]]), norm=1e1, )
@@ -1404,8 +1462,26 @@ class Rice(gym.Env):
                 self.set_state(key, value=np.array([params[0]["xT_AT_0_FaIR"], params[0]["xT_LO_0_FaIR"]]), norm=1e1, )
                 
         if key == 'global_carbon_mass':
-            self.set_state(key, value=np.array([params[0]["xM_AT_0"], params[0]["xM_UP_0"], params[0]["xM_LO_0"]]), norm=1e4)
-
+            self.set_state(key, value=np.array([params[0]["xM_AT_0"], params[0]["xM_UP_0"], params[0]["xM_LO_0"]]), norm=1e4)        
+            
+        if key == "global_carbon_reservoirs":
+            self.set_state(key, value=np.array([params[0]["xM_R1_0"], params[0]["xM_R2_0"], params[0]["xM_R3_0"], params[0]["xM_R4_0"]]), norm=1e4, )
+            
+        if key == "global_cumulative_emissions":
+            self.set_state(key, value=np.array(params[0]["xEcum_0"]), norm=1e4, )
+            
+        if key == "global_cumulative_land_emissions":
+            self.set_state(key, value=np.array(params[0]["xEcumL_0"]), norm=1e4, )
+            
+        if key == "global_alpha":
+            self.set_state(key, value=np.array(params[0]["xalpha_0"]), norm=1e4, )
+            
+        if key == "global_emissions":
+            self.set_state(key, value=np.array(params[0]["xEInd_0"] + params[0]["xEL_0"]), norm=1e4, )
+            
+        if key == "global_acc_pert_carb_stock":
+            self.set_state(key, value=np.array(params[0]["xEcum_0"] + params[0]["xEcumL_0"]  - (params[0]["xM_R1_0"]+params[0]["xM_R2_0"]+params[0]["xM_R3_0"]+params[0]["xM_R4_0"])), norm=1e4, )
+            
         # num_regions x num_regions matrices
         if key in ['proposal_decisions', 'requested_mitigation_rate', 'promised_mitigation_rate']:
             self.set_state(key, value=np.zeros((self.num_regions, self.num_regions)))
@@ -1479,8 +1555,6 @@ class Rice(gym.Env):
                     ),
                     "norm": norm,
                 }
-
-        
 
         # Set the value
         if region_id is None:

@@ -14,7 +14,6 @@ import sys
 
 import numpy as np
 import gymnasium as gym
-from gymnasium.spaces import MultiDiscrete
 import yaml
 from gymnasium.spaces import Box
 
@@ -35,7 +34,8 @@ class Rice(gym.Env):
     def __init__(
         self,
         negotiation_on=False,
-        scenario="default"  # If True then negotiation is on, else off
+        scenario="default",  # If True then negotiation is on, else off
+        error_bounds_path=None,
     ):
         self.global_state = {}
         self.set_dtypes()
@@ -46,7 +46,7 @@ class Rice(gym.Env):
         self.num_regions = len(self.all_regions_params)
         self.num_agents = self.num_regions  # for env wrapper
 
-
+        self.set_possible_actions()
         self.start_year = self.get_start_year()
         self.end_year = self.calc_end_year()
         self.current_simulation_year = None
@@ -60,13 +60,29 @@ class Rice(gym.Env):
         self.set_episode_length(negotiation_on)
 
         self.observation_space = None
-        self.set_possible_actions()
+
         self.total_possible_actions = self.calc_total_possible_actions(
             self.negotiation_on
         )
-        self.action_space = self.get_action_space()
+        self.load_action_space_bounds_from_yaml("action_space_bounds.yaml")
+        self.initialize_action_space()
 
-        self.set_default_agent_action_mask()
+
+    def load_action_space_bounds_from_yaml(self, yaml_file_path):
+        with open(yaml_file_path, 'r') as file:
+            bounds_data = yaml.safe_load(file)
+        self.action_space_bounds = {}
+        for action, bounds in bounds_data.items():
+            self.action_space_bounds[action] = (bounds['min'], bounds['max'])
+
+    def initialize_action_space(self):
+        low_bounds, high_bounds = [], []
+        for action in self.action_space_bounds:
+            low, high = self.action_space_bounds[action]
+            low_bounds.append(low)
+            high_bounds.append(high)
+        
+        self.action_space = Box(low=np.array(low_bounds), high=np.array(high_bounds), dtype=np.float32)
 
     def get_start_year(self):
         return self.all_regions_params[0]["xt_0"]
@@ -637,23 +653,6 @@ class Rice(gym.Env):
 
         return global_carbon_mass
 
-    def calc_possible_actions(self, action_type):
-        if action_type == "savings":
-            return [1]
-        if action_type == "mitigation_rate":
-            return [1]
-        if action_type == "export_limit":
-            return [1]
-        if action_type == "import_bids":
-            return [1] * self.num_regions
-        if action_type == "import_tariffs":
-            return [1] * self.num_regions
-
-        if action_type == "proposal":
-            return [1] * 2 * self.num_regions
-
-        if action_type == 'proposal_decisions':
-            return [2] * self.num_regions
 
     def calc_total_possible_actions(self, negotiation_on):
 
@@ -725,9 +724,14 @@ class Rice(gym.Env):
         """
         Generate action masks.
         """
-        pass
-
-        return
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+            if self.negotiation_on:
+                mask_dict[region_id]["minimum_mitigation_rate_all_regions"] = self.global_state[
+                        "minimum_mitigation_rate_all_regions"
+                    ]["value"][self.current_timestep, region_id]
+                
+        return mask_dict
 
     def calc_current_simulation_year(self):
 
@@ -972,33 +976,10 @@ class Rice(gym.Env):
             self.common_params, self.region_specific_params
         )
 
-    def set_possible_actions(self):
-        self.savings_possible_actions = self.calc_possible_actions("savings")
-        self.mitigation_rate_possible_actions = self.calc_possible_actions(
-            "mitigation_rate"
-        )
-        self.export_limit_possible_actions = self.calc_possible_actions(
-            "export_limit"
-        )
-        self.import_bids_possible_actions = self.calc_possible_actions(
-            "import_bids"
-        )
-        self.import_tariff_possible_actions = self.calc_possible_actions(
-            "import_tariffs"
-        )
-
-        if self.negotiation_on:
-            self.proposal_possible_actions = self.calc_possible_actions(
-                "proposal"
-            )
-            self.evaluation_possible_actions = self.calc_possible_actions(
-                'proposal_decisions'
-            )
-
     def set_default_agent_action_mask(self):
         self.possible_actions_length = sum(self.total_possible_actions)
         self.default_agent_action_mask = np.ones(
-            self.possible_actions_length, dtype=self.int_dtype
+            self.possible_actions_length*2, dtype=self.float_dtype
         )
 
     def set_episode_length(self, negotiation_on):
@@ -1252,6 +1233,47 @@ class Rice(gym.Env):
         return self.get_state(
             key, region_id=region_id, timestep=self.current_timestep - 1,
         )
+    
+    def calc_possible_actions(self, action_type):
+        if action_type == "savings":
+            return [1]
+        if action_type == "mitigation_rate":
+            return [1]
+        if action_type == "export_limit":
+            return [1]
+        if action_type == "import_bids":
+            return [1] * self.num_regions
+        if action_type == "import_tariffs":
+            return [1] * self.num_regions
+
+        if action_type == "proposal":
+            return [1] * 2 * self.num_regions
+
+        if action_type == 'proposal_decisions':
+            return [2] * self.num_regions
+
+    def set_possible_actions(self):
+        self.savings_possible_actions = self.calc_possible_actions("savings")
+        self.mitigation_rate_possible_actions = self.calc_possible_actions(
+            "mitigation_rate"
+        )
+        self.export_limit_possible_actions = self.calc_possible_actions(
+            "export_limit"
+        )
+        self.import_bids_possible_actions = self.calc_possible_actions(
+            "import_bids"
+        )
+        self.import_tariff_possible_actions = self.calc_possible_actions(
+            "import_tariffs"
+        )
+
+        if self.negotiation_on:
+            self.proposal_possible_actions = self.calc_possible_actions(
+                "proposal"
+            )
+            self.evaluation_possible_actions = self.calc_possible_actions(
+                'proposal_decisions'
+            )
 
     def set_state(self,
         key=None,

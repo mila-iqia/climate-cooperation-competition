@@ -10,7 +10,7 @@ saving:
     metrics_log_freq: 100 # how often (in iterations) to log (and print) the metrics
     model_params_save_freq: 1000 # how often (in iterations) to save the model parameters
     basedir: "/tmp" # base folder used for saving
-    name: "rice_discrete" # experiment name
+    name: "rice_cont" # experiment name
     tag: "experiments" # experiment tag
 
 # Trainer settings
@@ -47,6 +47,6 @@ policy:
         gamma: 0.92 # discount factor
         lr: 0.0005 # learning rate
         model:
-            custom_model: torch_models_cont
+            custom_model: torch_linear_cont
             custom_model_config:
                 fc_dims: [256, 256]

@@ -48,6 +48,6 @@ policy:
         gamma: 0.92 # discount factor
         lr: 0.0005 # learning rate
         model:
-            custom_model: torch_linear
+            custom_model: torch_linear_discrete
             custom_model_config:
                 fc_dims: [256, 256]
