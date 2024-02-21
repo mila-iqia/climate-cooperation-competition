@@ -1,5 +1,5 @@
 from gymnasium.spaces import MultiDiscrete
-from rice import Rice  # Assuming the class is in rice.py
+from rice_discrete import Rice  # Assuming the class is in rice.py
 import numpy as np
 
 def test_discrete_action_space():

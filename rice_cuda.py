@@ -21,7 +21,7 @@ from warp_drive.utils.gpu_environment_context import CUDAEnvironmentContext
 _PUBLIC_REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path = [_PUBLIC_REPO_DIR] + sys.path
 
-from rice import Rice
+from rice_discrete import Rice
 
 _OBSERVATIONS = Constants.OBSERVATIONS
 _ACTIONS = Constants.ACTIONS

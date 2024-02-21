@@ -24,7 +24,7 @@ from desired_outputs import desired_outputs
 from fixed_paths import PUBLIC_REPO_DIR
 from run_unittests import import_class_from_path
 from opt_helper import save
-from rice import Rice
+from rice_discrete import Rice
 from scenarios import *
 sys.path.append(PUBLIC_REPO_DIR)
 
@@ -49,7 +49,7 @@ from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.tune.logger import NoopLogger
 
 
-from torch_models import TorchLinear
+from scripts.torch_models_discrete import TorchLinear
 
 logging.info("Finished imports")
 
@@ -561,7 +561,7 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
 #     return trainer, outputs_ts
 
 
-def get_config_yaml(yaml_path="rice_rllib.yaml"):
+def get_config_yaml(yaml_path):
     config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", yaml_path)
     if not os.path.exists(config_path):
         raise ValueError(
@@ -583,7 +583,7 @@ if __name__ == "__main__":
 
     ray.init(ignore_reinit_error=True)
 
-    config_yaml = get_config_yaml(yaml_path="rice_rllib.yaml")
+    config_yaml = get_config_yaml(yaml_path="rice_rllib_discrete.yaml")
 
     trainer = create_trainer(config_yaml)
     save_dir = create_save_dir_path(config_yaml)

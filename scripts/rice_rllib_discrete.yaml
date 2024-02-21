@@ -10,7 +10,7 @@ saving:
     metrics_log_freq: 100 # how often (in iterations) to log (and print) the metrics
     model_params_save_freq: 1000 # how often (in iterations) to save the model parameters
     basedir: "/tmp" # base folder used for saving
-    name: "rice" # experiment name
+    name: "rice_discrete" # experiment name
     tag: "experiments" # experiment tag
 
 # Trainer settings

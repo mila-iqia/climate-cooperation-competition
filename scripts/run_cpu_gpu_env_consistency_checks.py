@@ -20,7 +20,7 @@ sys.path.append(PUBLIC_REPO_DIR)
 from warp_drive.env_cpu_gpu_consistency_checker import EnvironmentCPUvsGPU
 from warp_drive.utils.env_registrar import EnvironmentRegistrar
 
-from rice import Rice
+from rice_discrete import Rice
 from rice_cuda import RiceCuda
 
 logging.getLogger().setLevel(logging.ERROR)

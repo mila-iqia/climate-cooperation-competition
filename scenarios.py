@@ -1,4 +1,4 @@
-from rice import *
+from rice_discrete import *
 
 class OptimalMitigation(Rice):
 

@@ -66,7 +66,7 @@ def get_imports(framework=None):
     """
     assert framework is not None
     if framework == "rllib":
-        from train_with_rllib import (
+        from scripts.train_with_rllib_discrete import (
             create_trainer,
             fetch_episode_states,
             load_model_checkpoints,
