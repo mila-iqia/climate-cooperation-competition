@@ -580,7 +580,7 @@ if __name__ == "__main__":
     # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
     # -----------------------------------------------------------------------------
 
-    ray.init(ignore_reinit_error=True)
+    ray.init(ignore_reinit_error=True, num_gpus=0)
 
     config_yaml = get_config_yaml(yaml_path="rice_rllib.yaml")
 
