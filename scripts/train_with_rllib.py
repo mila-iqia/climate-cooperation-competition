@@ -25,6 +25,7 @@ from fixed_paths import PUBLIC_REPO_DIR
 from run_unittests import import_class_from_path
 from opt_helper import save
 from rice import Rice
+from tqdm import tqdm
 from scenarios import *
 sys.path.append(PUBLIC_REPO_DIR)
 
@@ -580,9 +581,11 @@ if __name__ == "__main__":
     # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
     # -----------------------------------------------------------------------------
 
-    ray.init(ignore_reinit_error=True, num_gpus=0)
+    
 
     config_yaml = get_config_yaml(yaml_path="rice_rllib.yaml")
+
+    ray.init(ignore_reinit_error=True, num_gpus=0, num_cpus=config_yaml["trainer"]["num_workers"])
 
     trainer = create_trainer(config_yaml)
     save_dir = create_save_dir_path(config_yaml)
@@ -606,7 +609,7 @@ if __name__ == "__main__":
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
 
-    for iteration in range(num_iters):
+    for iteration in tqdm(range(num_iters)):
         print(
             f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"
         )
