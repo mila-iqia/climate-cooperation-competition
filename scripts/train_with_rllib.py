@@ -594,8 +594,16 @@ if __name__ == "__main__":
     trainer_config = config_yaml["trainer"]
     num_episodes = trainer_config["num_episodes"]
     train_batch_size = trainer_config["train_batch_size"]
+    
     # Fetch the env object from the trainer
-    env_obj = trainer.workers.local_worker().env.env
+    if trainer_config["num_workers"] > 0:
+        # Fetch the env object from the trainer
+        envs = trainer.workers.foreach_worker(lambda worker: worker.env)
+        env_obj = envs[1].env 
+    else:
+        env_obj = trainer.workers.local_worker().env.env
+    
+    
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
 

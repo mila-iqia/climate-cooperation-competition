@@ -16,3 +16,6 @@ scikit-learn
 numpy==1.21.6
 deepdiff==5.8.1
 pyyaml==6.0
+ray==2.7.2
+# pydantic==2.6.1 # for python 3.9 potentially
+# sympy==1.12
