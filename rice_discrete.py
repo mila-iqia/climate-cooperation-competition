@@ -16,7 +16,9 @@ import numpy as np
 import gymnasium as gym
 from gymnasium.spaces import MultiDiscrete
 import yaml
-
+from scipy.optimize import minimize_scalar
+from scipy.optimize import newton
+import time
 
 _PUBLIC_REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 _SMALL_NUM = 1e-0  # small number added to handle consumption blow-up
@@ -36,18 +38,20 @@ class Rice(gym.Env):
         self,
         num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
         negotiation_on=False,  # If True then negotiation is on, else off
+        scenario="default",
         dmg_function="base",
         carbon_model="base",
         temperature_calibration="base",
         prescribed_emissions=None,
     ):
+        # Potential additions for improved DICE model
         self.dmg_function = dmg_function
         self.carbon_model = carbon_model
         self.temperature_calibration = temperature_calibration
         
         # Add option to define own emissions path as a list of 21 emission values in CO2
         self.prescribed_emissions = prescribed_emissions
-
+        
         self.global_state = {}
 
         self.set_discrete_action_levels(num_discrete_action_levels)
@@ -99,6 +103,14 @@ class Rice(gym.Env):
         self.reset_state('global_land_emissions')
         self.reset_state('intensity_all_regions')
         self.reset_state('mitigation_rates_all_regions')
+        
+        # additional climate states for carbon model
+        self.reset_state("global_alpha")
+        self.reset_state("global_carbon_reservoirs")
+        self.reset_state("global_cumulative_emissions")
+        self.reset_state("global_cumulative_land_emissions")
+        self.reset_state("global_emissions")
+        self.reset_state("global_acc_pert_carb_stock")
 
         # economic states
         self.reset_state('production_all_regions')
@@ -185,8 +197,9 @@ class Rice(gym.Env):
             self.set_state(
                 "minimum_mitigation_rate_all_regions", min_mitigation, region_id
                 )
-
+            assert min_mitigation < 100000000000, f"NaN in the features: {min_mitigation}"
         observations = self.get_observations()
+
         rewards = {region_id: 0.0 for region_id in range(self.num_regions)}
         terminateds = {region_id: 0 for region_id in range(self.num_regions)}
         terminateds["__all__"] = 0
@@ -227,9 +240,11 @@ class Rice(gym.Env):
 
         tariff_revenues, net_imports = self.calc_trade_sanctions(gross_imports)
         welfloss_multipliers = self.calc_welfloss_multiplier(gross_outputs, gross_imports)
+
         consumptions = self.calc_consumptions(
             gross_outputs, investments, gross_imports, net_imports)
         utilities = self.calc_utilities(consumptions)
+
         self.calc_social_welfares(utilities)
         self.calc_rewards(utilities, welfloss_multipliers)
 
@@ -463,11 +478,10 @@ class Rice(gym.Env):
                 )
             elif self.dmg_function == "updated":
                 damages[region_id] = (
-                    
-                    
                     1 - (0.7438 * (prev_atmospheric_temperature**2)) / 100
                 )
-                
+            else:
+                raise ValueError(f"Unknown damage function: {self.dmg_function}")
 
             if save_state:
                 self.set_state(
@@ -581,7 +595,7 @@ class Rice(gym.Env):
             self.set_state("welfloss", welfloss)
 
         return welfloss
-
+    
     def calc_exogenous_emissions(self, save_state=True):
         """Obtain the amount of exogeneous emissions."""
         f_0 = self.all_regions_params[0]["xf_0"]
@@ -851,7 +865,7 @@ class Rice(gym.Env):
             outgoing_accepted_mitigation_rates
             + incoming_accepted_mitigation_rates
         )
-
+        assert np.isnan(min_mitigation).sum() == 0, f"NaN in the min_mitigation" 
         return min_mitigation
 
     def calc_normalized_import_bids(self, potential_import_bids_all_regions, gross_outputs, investments):
@@ -874,7 +888,6 @@ class Rice(gym.Env):
                     )
 
         return normalized_import_bids_all_regions
-
     def calc_action_mask(self):
         """
         Generate action masks.
@@ -1050,6 +1063,13 @@ class Rice(gym.Env):
                 proposal_decisions[region_id, region_id] = 0
 
             return proposal_decisions
+
+    def get_actions_len(self, action_type):
+        action_mappings = {
+            "savings": self.savings_possible_actions,
+            "mitigation_rate": self.mitigation_rate_possible_actions,
+        }
+        return len(action_mappings[action_type])
 
     def get_actions_index(self, action_type):
         if action_type == "savings":
@@ -1233,6 +1253,12 @@ class Rice(gym.Env):
             "global_exogenous_emissions",
             "global_land_emissions",
             "timestep",
+            "global_carbon_reservoirs",
+            "global_cumulative_emissions",
+            "global_cumulative_land_emissions",
+            "global_alpha",
+            "global_emissions",
+            "global_acc_pert_carb_stock"
         ]
 
         # Public features that are observable by all regions
@@ -1294,6 +1320,7 @@ class Rice(gym.Env):
         # Form the feature dictionary, keyed by region_id.
         features_dict = {}
         for region_id in range(self.num_regions):
+
             # Add a region indicator array to the observation
             region_indicator = np.zeros(
                 self.num_regions, dtype=self.float_dtype
@@ -1306,7 +1333,8 @@ class Rice(gym.Env):
                 assert (
                     self.global_state[feature]["value"].shape[1]
                     == self.num_regions
-                )
+                )                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                assert np.isnan(all_features).sum() == 0, f"NaN in the features: {feature}"
                 all_features = np.append(
                     all_features,
                     self.flatten_array(
@@ -1357,7 +1385,8 @@ class Rice(gym.Env):
                 _FEATURES: features_dict[region_id],
                 _ACTION_MASK: action_mask_dict[region_id],
             }
-
+        # if self.current_timestep == 2 and region_id == 26:
+        #     print("flag")
         return obs_dict
 
     def get_rewards(self):
@@ -1396,7 +1425,7 @@ class Rice(gym.Env):
 
         if key == 'capital_all_regions':
             self.set_state(key, value=np.array([params[region]["xK_0"] for region in region_ids]), norm=1e4, )
-
+        
         if key == "global_temperature":
             if self.temperature_calibration == 'base':
                 self.set_state(key, value=np.array([params[0]["xT_AT_0"], params[0]["xT_LO_0"]]), norm=1e1, )
@@ -1404,8 +1433,26 @@ class Rice(gym.Env):
                 self.set_state(key, value=np.array([params[0]["xT_AT_0_FaIR"], params[0]["xT_LO_0_FaIR"]]), norm=1e1, )
                 
         if key == 'global_carbon_mass':
-            self.set_state(key, value=np.array([params[0]["xM_AT_0"], params[0]["xM_UP_0"], params[0]["xM_LO_0"]]), norm=1e4)
-
+            self.set_state(key, value=np.array([params[0]["xM_AT_0"], params[0]["xM_UP_0"], params[0]["xM_LO_0"]]), norm=1e4)        
+            
+        if key == "global_carbon_reservoirs":
+            self.set_state(key, value=np.array([params[0]["xM_R1_0"], params[0]["xM_R2_0"], params[0]["xM_R3_0"], params[0]["xM_R4_0"]]), norm=1e4, )
+            
+        if key == "global_cumulative_emissions":
+            self.set_state(key, value=np.array(params[0]["xEcum_0"]), norm=1e4, )
+            
+        if key == "global_cumulative_land_emissions":
+            self.set_state(key, value=np.array(params[0]["xEcumL_0"]), norm=1e4, )
+            
+        if key == "global_alpha":
+            self.set_state(key, value=np.array(params[0]["xalpha_0"]), norm=1e4, )
+            
+        if key == "global_emissions":
+            self.set_state(key, value=np.array(params[0]["xEInd_0"] + params[0]["xEL_0"]), norm=1e4, )
+            
+        if key == "global_acc_pert_carb_stock":
+            self.set_state(key, value=np.array(params[0]["xEcum_0"] + params[0]["xEcumL_0"]  - (params[0]["xM_R1_0"]+params[0]["xM_R2_0"]+params[0]["xM_R3_0"]+params[0]["xM_R4_0"])), norm=1e4, )
+            
         # num_regions x num_regions matrices
         if key in ['proposal_decisions', 'requested_mitigation_rate', 'promised_mitigation_rate']:
             self.set_state(key, value=np.zeros((self.num_regions, self.num_regions)))
@@ -1479,8 +1526,6 @@ class Rice(gym.Env):
                     ),
                     "norm": norm,
                 }
-
-        
 
         # Set the value
         if region_id is None:
