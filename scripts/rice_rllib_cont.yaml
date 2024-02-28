@@ -30,8 +30,8 @@ trainer:
 
 # Environment configuration
 env:
-    negotiation_on: True # flag to indicate whether negotiation is allowed or not
-    scenario: BasicClub # key that maps to either Rice or and alternate Rice class
+    negotiation_on: False # flag to indicate whether negotiation is allowed or not
+    scenario: default # key that maps to either Rice or and alternate Rice class
 
 # Policy network settings
 policy:

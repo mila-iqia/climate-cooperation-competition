@@ -25,7 +25,7 @@ from fixed_paths import PUBLIC_REPO_DIR
 from run_unittests import import_class_from_path
 from opt_helper import save
 from rice_discrete import Rice
-from scenarios import *
+from scenarios_discrete import *
 sys.path.append(PUBLIC_REPO_DIR)
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
@@ -244,6 +244,7 @@ def get_multiagent_policies_config(config_yaml=None, env_object=None):
             regions_policy_config,
         ),
     }
+
 
     # Function mapping agent ids to policy ids.
     def policy_mapping_fn(agent_id=None, episode=None, worker=None, **kwargs ):

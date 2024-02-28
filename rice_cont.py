@@ -16,7 +16,8 @@ import numpy as np
 import gymnasium as gym
 import yaml
 from gymnasium.spaces import Box
-
+from scipy.optimize import minimize_scalar
+from scipy.optimize import newton
 _PUBLIC_REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 _SMALL_NUM = 1e-0  # small number added to handle consumption blow-up
 
@@ -33,11 +34,23 @@ class Rice(gym.Env):
 
     def __init__(
         self,
-        negotiation_on=False,
-        scenario="default",  # If True then negotiation is on, else off
-        error_bounds_path=None,
+        negotiation_on=False,  # If True then negotiation is on, else off
+        scenario="default",
+        dmg_function="base",
+        carbon_model="base",
+        temperature_calibration="base",
+        prescribed_emissions=None,
     ):
+        # Potential additions for improved DICE model
+        self.dmg_function = dmg_function
+        self.carbon_model = carbon_model
+        self.temperature_calibration = temperature_calibration
+        
+        # Add option to define own emissions path as a list of 21 emission values in CO2
+        self.prescribed_emissions = prescribed_emissions
+        
         self.global_state = {}
+
         self.set_dtypes()
 
 
@@ -46,7 +59,7 @@ class Rice(gym.Env):
         self.num_regions = len(self.all_regions_params)
         self.num_agents = self.num_regions  # for env wrapper
 
-        self.set_possible_actions()
+
         self.start_year = self.get_start_year()
         self.end_year = self.calc_end_year()
         self.current_simulation_year = None
@@ -60,13 +73,13 @@ class Rice(gym.Env):
         self.set_episode_length(negotiation_on)
 
         self.observation_space = None
-
+        self.set_possible_actions()
         self.total_possible_actions = self.calc_total_possible_actions(
             self.negotiation_on
         )
         self.load_action_space_bounds_from_yaml("action_space_bounds.yaml")
         self.initialize_action_space()
-
+        self.set_default_agent_action_mask()
 
     def load_action_space_bounds_from_yaml(self, yaml_file_path):
         with open(yaml_file_path, 'r') as file:
@@ -82,7 +95,7 @@ class Rice(gym.Env):
             low_bounds.append(low)
             high_bounds.append(high)
         
-        self.action_space = Box(low=np.array(low_bounds), high=np.array(high_bounds), dtype=np.float32)
+        self.action_space = {str(region_id): Box(low=np.array(low_bounds), high=np.array(high_bounds), dtype=np.float32) for region_id in range(self.num_regions)}
 
     def get_start_year(self):
         return self.all_regions_params[0]["xt_0"]
@@ -102,6 +115,14 @@ class Rice(gym.Env):
         self.reset_state('global_land_emissions')
         self.reset_state('intensity_all_regions')
         self.reset_state('mitigation_rates_all_regions')
+        
+        # additional climate states for carbon model
+        self.reset_state("global_alpha")
+        self.reset_state("global_carbon_reservoirs")
+        self.reset_state("global_cumulative_emissions")
+        self.reset_state("global_cumulative_land_emissions")
+        self.reset_state("global_emissions")
+        self.reset_state("global_acc_pert_carb_stock")
 
         # economic states
         self.reset_state('production_all_regions')
@@ -190,6 +211,7 @@ class Rice(gym.Env):
                 )
 
         observations = self.get_observations()
+
         rewards = {region_id: 0.0 for region_id in range(self.num_regions)}
         terminateds = {region_id: 0 for region_id in range(self.num_regions)}
         terminateds["__all__"] = 0
@@ -197,7 +219,7 @@ class Rice(gym.Env):
         truncateds["__all__"] = 0
         info = {}
         return observations, rewards, terminateds, truncateds, info
-    
+
     def step_climate_and_economy(self, actions=None):
         self.calc_activity_timestep()
         self.is_valid_negotiation_stage(negotiation_stage=0)
@@ -230,9 +252,11 @@ class Rice(gym.Env):
 
         tariff_revenues, net_imports = self.calc_trade_sanctions(gross_imports)
         welfloss_multipliers = self.calc_welfloss_multiplier(gross_outputs, gross_imports)
+
         consumptions = self.calc_consumptions(
             gross_outputs, investments, gross_imports, net_imports)
         utilities = self.calc_utilities(consumptions)
+
         self.calc_social_welfares(utilities)
         self.calc_rewards(utilities, welfloss_multipliers)
 
@@ -451,15 +475,30 @@ class Rice(gym.Env):
         damages = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             prev_atmospheric_temperature = self.get_prev_state("global_temperature")[0]
-            damages[region_id] =  1 / (
-                1
-                + self.all_regions_params[region_id]["xa_1"] * prev_atmospheric_temperature
-                + self.all_regions_params[region_id]["xa_2"]
-                * pow(prev_atmospheric_temperature, self.all_regions_params[region_id]["xa_3"])
-            )
+
+            if self.dmg_function == "base":
+                # Isnt this supposedly like in the original one of nordhaus? 
+                damages[region_id] = 1 / (
+                    1
+                    + self.all_regions_params[region_id]["xa_1"]
+                    * prev_atmospheric_temperature
+                    + self.all_regions_params[region_id]["xa_2"]
+                    * pow(
+                        prev_atmospheric_temperature,
+                        self.all_regions_params[region_id]["xa_3"],
+                    )
+                )
+            elif self.dmg_function == "updated":
+                damages[region_id] = (
+                    1 - (0.7438 * (prev_atmospheric_temperature**2)) / 100
+                )
+            else:
+                raise ValueError(f"Unknown damage function: {self.dmg_function}")
 
             if save_state:
-                self.set_state("damages_all_regions", damages[region_id], region_id=region_id)
+                self.set_state(
+                    "damages_all_regions", damages[region_id], region_id=region_id
+                )
 
         return damages
 
@@ -494,7 +533,10 @@ class Rice(gym.Env):
         for region_id in range(self.num_regions):
             gross_output = gross_outputs[region_id]
             debt_ratio = debt_ratios[region_id]
-
+            if isinstance(import_bids[region_id], np.ndarray):
+                if not import_bids[region_id].flags.writeable:
+                    writable_array = import_bids[region_id].copy()
+                    import_bids[region_id] = writable_array
             import_bids[region_id][region_id] = 0
 
             total_import_bids = np.sum(import_bids[region_id])
@@ -568,7 +610,7 @@ class Rice(gym.Env):
             self.set_state("welfloss", welfloss)
 
         return welfloss
-
+    
     def calc_exogenous_emissions(self, save_state=True):
         """Obtain the amount of exogeneous emissions."""
         f_0 = self.all_regions_params[0]["xf_0"]
@@ -600,54 +642,179 @@ class Rice(gym.Env):
         self,
         save_state=True,
     ):
+        if self.temperature_calibration == 'base':
+            global_exogenous_emissions = self.calc_exogenous_emissions() # also exogenous forcings
+            prev_carbon_mass = self.get_prev_state("global_carbon_mass")
+            prev_global_temperature = self.get_prev_state("global_temperature")
+            # TODO: why the zero index?
+            # global_exogenous_emissions = global_exogenous_emissions[0]
+            prev_atmospheric_carbon_mass = prev_carbon_mass[0]
+            phi_t = np.array(self.all_regions_params[0]["xPhi_T"])
+            b_t = np.array(self.all_regions_params[0]["xB_T"])
+            f_2x = np.array(self.all_regions_params[0]["xF_2x"])
+            atmospheric_carbon_mass = np.array(self.all_regions_params[0]["xM_AT_1750"])
 
-        global_exogenous_emissions = self.calc_exogenous_emissions()
-        prev_carbon_mass = self.get_prev_state("global_carbon_mass")
-        prev_global_temperature = self.get_prev_state("global_temperature")
-        # TODO: why the zero index?
-        # global_exogenous_emissions = global_exogenous_emissions[0]
-        prev_atmospheric_carbon_mass = prev_carbon_mass[0]
-        phi_t = np.array(self.all_regions_params[0]["xPhi_T"])
-        b_t = np.array(self.all_regions_params[0]["xB_T"])
-        f_2x = np.array(self.all_regions_params[0]["xF_2x"])
-        atmospheric_carbon_mass = np.array(self.all_regions_params[0]["xM_AT_1750"])
+            global_temperature = np.dot(
+                phi_t, np.asarray(prev_global_temperature)
+            ) + np.dot(
+                b_t,
+                f_2x
+                * np.log(prev_atmospheric_carbon_mass / atmospheric_carbon_mass)
+                / np.log(2)
+                + global_exogenous_emissions,
+            )
+            if save_state:
+                self.set_state("global_temperature", global_temperature)
 
-        global_temperature = np.dot(phi_t, np.asarray(prev_global_temperature)) + np.dot(
-            b_t,
-            f_2x * np.log(prev_atmospheric_carbon_mass / atmospheric_carbon_mass) / np.log(2) + global_exogenous_emissions,
-        )
+            return global_temperature
 
-        if save_state:
-            self.set_state("global_temperature",global_temperature)
+        elif self.temperature_calibration == 'FaIR':
+            global_exogenous_emissions = self.calc_exogenous_emissions()
+            prev_carbon_mass = self.get_prev_state("global_carbon_mass")
+            prev_global_temperature = self.get_prev_state("global_temperature")
+            # TODO: why the zero index?
+            # global_exogenous_emissions = global_exogenous_emissions[0]
+            prev_atmospheric_carbon_mass = prev_carbon_mass[0]
+            atmospheric_carbon_mass = np.array(self.all_regions_params[0]["xM_AT_1750"])
+            
+            t_2x = np.array(self.all_regions_params[0]["xT_2x"])
+            f_2x = np.array(self.all_regions_params[0]["xF_2x"])
+            
+            xT_1 = np.array(self.all_regions_params[0]["xT_1"])
+            xT_2 = f_2x/t_2x
+            xT_3 = np.array(self.all_regions_params[0]["xT_3"])
+            xT_4 = np.array(self.all_regions_params[0]["xT_4"])
 
-        return global_temperature
+            
+            forcings = f_2x * np.log(prev_atmospheric_carbon_mass / atmospheric_carbon_mass) / np.log(2) \
+                        + global_exogenous_emissions
 
-    def calc_global_carbon_mass(
-        self,
-        productions,
-        save_state=True
-    ):
-        global_land_emissions = self.calc_land_emissions()
-        # prev_global_carbon_mass = self.get_prev_global_state("global_carbon_mass")[0]
-        mitigation_rates = self.get_state("mitigation_rates_all_regions")
-        # TODO: fix aux_m treatment
-        aux_m_all_regions = np.zeros(self.num_regions, dtype=self.float_dtype)
-        for region_id in range(self.num_regions):
-            prev_intensity = self.get_prev_state("intensity_all_regions", region_id=region_id)
+            # update global atmospheric temperature in 4 smaller steps
+            global_temperature = np.zeros(prev_global_temperature.shape)
+            global_temperature_short = prev_global_temperature[0]
+            for i in range(4):
+                global_temperature_short = global_temperature_short \
+                    + 1/xT_1 * ((forcings - xT_2 * global_temperature_short) \
+                                - xT_3*(global_temperature_short - prev_global_temperature[1]))
+            global_temperature[0] = global_temperature_short
+            global_temperature[1] = prev_global_temperature[1] \
+                                + 5 * xT_3/xT_4 * (prev_global_temperature[0] - prev_global_temperature[1])
 
-            aux_m_all_regions[region_id] = prev_intensity * (1 - mitigation_rates[region_id]) * productions[region_id] + global_land_emissions
-            self.set_state("aux_m_all_regions", aux_m_all_regions[region_id], region_id=region_id)
+            if save_state:
+                self.set_state("global_temperature", global_temperature)
+
+            return global_temperature
+
+    def calc_global_carbon_mass(self, productions, save_state=True):
+        if self.carbon_model == "base":
+            global_land_emissions = self.calc_land_emissions()
+            # prev_global_carbon_mass = self.get_prev_global_state("global_carbon_mass")[0]
+            mitigation_rates = self.get_state("mitigation_rates_all_regions")
+            # TODO: fix aux_m treatment
+            aux_m_all_regions = np.zeros(self.num_regions, dtype=self.float_dtype)
+            for region_id in range(self.num_regions):
+                prev_intensity = self.get_prev_state("intensity_all_regions", region_id=region_id)
+                
+                aux_m_all_regions[region_id] = prev_intensity * (1 - mitigation_rates[region_id]) * productions[region_id] + global_land_emissions
+                self.set_state("aux_m_all_regions", aux_m_all_regions[region_id], region_id=region_id)
 
 
-        """Get the carbon mass level."""
-        sum_aux_m = np.sum(aux_m_all_regions)
-        prev_global_carbon_mass = self.get_prev_state("global_carbon_mass")
-        global_carbon_mass = np.dot(
-            self.all_regions_params[0]["xPhi_M"], np.asarray(prev_global_carbon_mass)
-        )
+            """Get the carbon mass level."""
+            
+            sum_aux_m = np.sum(aux_m_all_regions)
+            prev_global_carbon_mass = self.get_prev_state("global_carbon_mass")
+            global_carbon_mass = np.dot(
+                self.all_regions_params[0]["xPhi_M"], np.asarray(prev_global_carbon_mass)
+            )
 
-        global_carbon_mass += np.dot(self.all_regions_params[0]["xB_M"], sum_aux_m)
+            global_carbon_mass += np.dot(self.all_regions_params[0]["xB_M"], sum_aux_m)
 
+        elif self.carbon_model in ['FaIR', 'AR5']:
+            prev_global_land_emissions = self.get_prev_state("global_land_emissions")
+            prev_global_emissions = self.get_prev_state("global_emissions")
+            prev_global_carbon_reservoirs = self.get_prev_state("global_carbon_reservoirs")
+            prev_global_cumulative_emissions = self.get_prev_state("global_cumulative_emissions")
+            prev_global_cumulative_land_emissions = self.get_prev_state("global_cumulative_land_emissions")
+            prev_global_temperature = self.get_prev_state("global_temperature")
+            prev_global_acc_pert_carb_stock = self.get_prev_state("global_acc_pert_carb_stock")
+
+            a = np.array([self.all_regions_params[0][f"xM_a{i}"] for i in range(4)])
+            tau = np.array([self.all_regions_params[0][f"xM_t{i}"] for i in range(4)])
+            C0 = self.all_regions_params[0]["xM_AT_1750"]
+
+            # DAE determines given concentrations and temperature how much the reservoirs can absorb
+            if self.carbon_model == "FaIR":
+                prev_global_alpha = self.get_prev_state("global_alpha")
+                
+                def DAE_(oneoveralpha):
+                    b = a * tau * (1-np.exp(-100*oneoveralpha/tau))
+                    return np.sum(b) - oneoveralpha*(35 + 0.019 * prev_global_acc_pert_carb_stock + 4.165 * prev_global_temperature[0])
+
+                global_alpha = 1/newton(DAE_, x0=1/prev_global_alpha)
+                assert np.isclose(0, DAE_(1/global_alpha), rtol=1e-2), f"DAE not solved correctly."
+                assert 0.01 <= global_alpha <= 100, f"Value out of bounds: {global_alpha} is not within [0.01, 100]"
+
+            elif self.carbon_model == "AR5":
+                global_alpha = 1
+                
+            if save_state:
+                self.set_state("global_alpha", global_alpha)
+        
+            # conversion 5/3.67 = 1.36388
+            conv = self.all_regions_params[0]["xB_M"][0]
+            global_land_emissions = self.calc_land_emissions()
+            # prev_global_carbon_mass = self.get_prev_global_state("global_carbon_mass")[0]
+            mitigation_rates = self.get_state("mitigation_rates_all_regions")
+            # TODO: fix aux_m treatment
+            aux_m_all_regions = np.zeros(self.num_regions, dtype=self.float_dtype)
+            for region_id in range(self.num_regions):
+                prev_intensity = self.get_prev_state(
+                    "intensity_all_regions", region_id=region_id
+                )
+
+                aux_m_all_regions[region_id] = (
+                    prev_intensity
+                    * (1 - mitigation_rates[region_id])
+                    * productions[region_id]
+                    + global_land_emissions
+                )
+                self.set_state(
+                    "aux_m_all_regions", aux_m_all_regions[region_id], region_id=region_id
+                )
+        
+            """Get the carbon mass level."""
+            
+            sum_aux_m = np.sum(aux_m_all_regions)
+            # In case, we want to prescribe the emissions to investigate the behavior of the temperature and carbon model
+            if self.prescribed_emissions is not None:
+                sum_aux_m = self.prescribed_emissions[self.activity_timestep]
+            if save_state:
+                self.set_state("global_emissions", np.sum(aux_m_all_regions))
+            
+            global_carbon_reservoirs = np.zeros(4)
+            global_cumulative_emissions = prev_global_cumulative_emissions \
+                                        + (prev_global_emissions - prev_global_land_emissions)*conv
+                                        
+            if save_state:
+                self.set_state("global_cumulative_emissions", global_cumulative_emissions)
+
+            global_cumulative_land_emissions = prev_global_cumulative_land_emissions \
+                                                + prev_global_land_emissions * self.num_regions * conv
+            if save_state:
+                self.set_state("global_cumulative_land_emissions", global_cumulative_land_emissions)
+
+            global_carbon_reservoirs = prev_global_carbon_reservoirs ** np.exp(-5/(global_alpha * tau)) + a * sum_aux_m/5 * conv * (np.exp(-1/(global_alpha * tau)) - np.exp(-6/(global_alpha * tau)))/(1-np.exp(-1/(global_alpha * tau)))
+            if save_state:
+                self.set_state("global_carbon_reservoirs", global_carbon_reservoirs)
+            
+            global_acc_pert_carb_stock = (global_cumulative_emissions + global_cumulative_land_emissions) \
+                                                - sum(global_carbon_reservoirs)
+            if save_state:
+                self.set_state("global_acc_pert_carb_stock", global_acc_pert_carb_stock)
+            
+            global_carbon_mass = C0 + sum((global_carbon_reservoirs))
+        else:
+            raise NotImplementedError(f"Carbon model {self.carbon_model} not implemented.")
         if save_state:
             self.set_state("global_carbon_mass", global_carbon_mass)
 
@@ -696,7 +863,6 @@ class Rice(gym.Env):
             outgoing_accepted_mitigation_rates
             + incoming_accepted_mitigation_rates
         )
-
         return min_mitigation
 
     def calc_normalized_import_bids(self, potential_import_bids_all_regions, gross_outputs, investments):
@@ -726,11 +892,13 @@ class Rice(gym.Env):
         """
         mask_dict = {region_id: None for region_id in range(self.num_regions)}
         for region_id in range(self.num_regions):
+            mask = self.default_agent_action_mask.copy()
             if self.negotiation_on:
                 mask_dict[region_id]["minimum_mitigation_rate_all_regions"] = self.global_state[
                         "minimum_mitigation_rate_all_regions"
                     ]["value"][self.current_timestep, region_id]
-                
+            else:
+                mask_dict[region_id] = mask
         return mask_dict
 
     def calc_current_simulation_year(self):
@@ -770,6 +938,7 @@ class Rice(gym.Env):
             ]
             for j in range(self.num_regions)
         ]
+
 
     def get_action_space(self):
         # Initialize a dictionary to hold the action spaces for each region
@@ -891,6 +1060,7 @@ class Rice(gym.Env):
 
             return proposal_decisions
 
+
     def get_actions_index(self, action_type):
         if action_type == "savings":
             return 0
@@ -976,12 +1146,12 @@ class Rice(gym.Env):
             self.common_params, self.region_specific_params
         )
 
+
     def set_default_agent_action_mask(self):
         self.possible_actions_length = sum(self.total_possible_actions)
         self.default_agent_action_mask = np.ones(
             self.possible_actions_length*2, dtype=self.float_dtype
-        )
-
+        )# upper bound and lower bound
     def set_episode_length(self, negotiation_on):
         self.episode_length = self.all_regions_params[00]["xN"]
 
@@ -1044,6 +1214,12 @@ class Rice(gym.Env):
             "global_exogenous_emissions",
             "global_land_emissions",
             "timestep",
+            "global_carbon_reservoirs",
+            "global_cumulative_emissions",
+            "global_cumulative_land_emissions",
+            "global_alpha",
+            "global_emissions",
+            "global_acc_pert_carb_stock"
         ]
 
         # Public features that are observable by all regions
@@ -1105,6 +1281,7 @@ class Rice(gym.Env):
         # Form the feature dictionary, keyed by region_id.
         features_dict = {}
         for region_id in range(self.num_regions):
+
             # Add a region indicator array to the observation
             region_indicator = np.zeros(
                 self.num_regions, dtype=self.float_dtype
@@ -1117,7 +1294,8 @@ class Rice(gym.Env):
                 assert (
                     self.global_state[feature]["value"].shape[1]
                     == self.num_regions
-                )
+                )                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                assert np.isnan(all_features).sum() == 0, f"NaN in the features: {feature}"
                 all_features = np.append(
                     all_features,
                     self.flatten_array(
@@ -1168,7 +1346,8 @@ class Rice(gym.Env):
                 _FEATURES: features_dict[region_id],
                 _ACTION_MASK: action_mask_dict[region_id],
             }
-
+        # if self.current_timestep == 2 and region_id == 26:
+        #     print("flag")
         return obs_dict
 
     def get_rewards(self):
@@ -1207,13 +1386,34 @@ class Rice(gym.Env):
 
         if key == 'capital_all_regions':
             self.set_state(key, value=np.array([params[region]["xK_0"] for region in region_ids]), norm=1e4, )
-
-        if key == 'global_temperature':
-            self.set_state(key, value=np.array([params[0]["xT_AT_0"], params[0]["xT_LO_0"]]), norm=1e1)
-
+        
+        if key == "global_temperature":
+            if self.temperature_calibration == 'base':
+                self.set_state(key, value=np.array([params[0]["xT_AT_0"], params[0]["xT_LO_0"]]), norm=1e1, )
+            elif self.temperature_calibration == 'FaIR':
+                self.set_state(key, value=np.array([params[0]["xT_AT_0_FaIR"], params[0]["xT_LO_0_FaIR"]]), norm=1e1, )
+                
         if key == 'global_carbon_mass':
-            self.set_state(key, value=np.array([params[0]["xM_AT_0"], params[0]["xM_UP_0"], params[0]["xM_LO_0"]]), norm=1e4)
-
+            self.set_state(key, value=np.array([params[0]["xM_AT_0"], params[0]["xM_UP_0"], params[0]["xM_LO_0"]]), norm=1e4)        
+            
+        if key == "global_carbon_reservoirs":
+            self.set_state(key, value=np.array([params[0]["xM_R1_0"], params[0]["xM_R2_0"], params[0]["xM_R3_0"], params[0]["xM_R4_0"]]), norm=1e4, )
+            
+        if key == "global_cumulative_emissions":
+            self.set_state(key, value=np.array(params[0]["xEcum_0"]), norm=1e4, )
+            
+        if key == "global_cumulative_land_emissions":
+            self.set_state(key, value=np.array(params[0]["xEcumL_0"]), norm=1e4, )
+            
+        if key == "global_alpha":
+            self.set_state(key, value=np.array(params[0]["xalpha_0"]), norm=1e4, )
+            
+        if key == "global_emissions":
+            self.set_state(key, value=np.array(params[0]["xEInd_0"] + params[0]["xEL_0"]), norm=1e4, )
+            
+        if key == "global_acc_pert_carb_stock":
+            self.set_state(key, value=np.array(params[0]["xEcum_0"] + params[0]["xEcumL_0"]  - (params[0]["xM_R1_0"]+params[0]["xM_R2_0"]+params[0]["xM_R3_0"]+params[0]["xM_R4_0"])), norm=1e4, )
+            
         # num_regions x num_regions matrices
         if key in ['proposal_decisions', 'requested_mitigation_rate', 'promised_mitigation_rate']:
             self.set_state(key, value=np.zeros((self.num_regions, self.num_regions)))
@@ -1251,7 +1451,7 @@ class Rice(gym.Env):
 
         if action_type == 'proposal_decisions':
             return [2] * self.num_regions
-
+        
     def set_possible_actions(self):
         self.savings_possible_actions = self.calc_possible_actions("savings")
         self.mitigation_rate_possible_actions = self.calc_possible_actions(
@@ -1274,7 +1474,6 @@ class Rice(gym.Env):
             self.evaluation_possible_actions = self.calc_possible_actions(
                 'proposal_decisions'
             )
-
     def set_state(self,
         key=None,
         value=None,
@@ -1328,9 +1527,6 @@ class Rice(gym.Env):
                     ),
                     "norm": norm,
                 }
-
-        
-
         # Set the value
         if region_id is None:
             self.global_state[key]["value"][timestep] = value
