@@ -645,7 +645,6 @@ if __name__ == "__main__":
     
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
-    num_iters = 1
     for iteration in range(num_iters):
         print(
             f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"
