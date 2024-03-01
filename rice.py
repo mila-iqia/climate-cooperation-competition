@@ -1330,6 +1330,8 @@ class Rice(gym.Env):
 
         # Set the value
         if region_id is None:
+            deep_copy = self.global_state[key]["value"].copy()
+            self.global_state[key]["value"] = deep_copy
             self.global_state[key]["value"][timestep] = value
         else:
             self.global_state[key]["value"][timestep, region_id] = value

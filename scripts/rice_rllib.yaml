@@ -31,8 +31,16 @@ trainer:
 # Environment configuration
 env:
     num_discrete_action_levels: 10 # number of discrete levels for the saving and mitigation actions
-    negotiation_on: True # flag to indicate whether negotiation is allowed or not
+    negotiation_on: False # flag to indicate whether negotiation is allowed or not
     scenario: BasicClub # key that maps to either Rice or and alternate Rice class
+
+logging:
+    enabled: False 
+    wandb_config:
+        login: "91f4b56e70eb59889967350b045b94cd0d7bcaa8" 
+        project: "training-log-test"
+        run: "test"
+        entity: "ai4gcc-gaia"
 
 # Policy network settings
 policy:

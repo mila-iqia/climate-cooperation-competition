@@ -173,94 +173,93 @@ def compute_metrics(
 
     episode_states = {}
     eval_metrics = {}
-    try:
-        for episode_id in range(num_episodes):
-            if fetch_episode_states is not None:
-                episode_states[episode_id] = fetch_episode_states(
-                    trainer, required_outputs
+    for episode_id in range(num_episodes):
+        if fetch_episode_states is not None:
+            episode_states[episode_id] = fetch_episode_states(
+                trainer, required_outputs
+            )
+        else:
+            episode_states[
+                episode_id
+            ] = trainer.fetch_episode_global_states(required_outputs)
+
+    for feature in desired_outputs:
+        feature_values = [None for _ in range(num_episodes)]
+
+        if feature == "global_temperature":
+            # Get the temp rise for upper strata
+            for episode_id in range(num_episodes):
+                feature_values[episode_id] = (
+                    episode_states[episode_id][feature][-1, 0]
+                    - episode_states[episode_id][feature][0, 0]
                 )
-            else:
-                episode_states[
-                    episode_id
-                ] = trainer.fetch_episode_global_states(required_outputs)
 
-        for feature in desired_outputs:
-            feature_values = [None for _ in range(num_episodes)]
+        elif feature == "global_carbon_mass":
+            for episode_id in range(num_episodes):
+                feature_values[episode_id] = episode_states[episode_id][
+                    feature
+                ][-1, 0]
 
-            if feature == "global_temperature":
-                # Get the temp rise for upper strata
-                for episode_id in range(num_episodes):
-                    feature_values[episode_id] = (
-                        episode_states[episode_id][feature][-1, 0]
-                        - episode_states[episode_id][feature][0, 0]
-                    )
-
-            elif feature == "global_carbon_mass":
-                for episode_id in range(num_episodes):
-                    feature_values[episode_id] = episode_states[episode_id][
-                        feature
-                    ][-1, 0]
-
-            elif feature == "gross_output_all_regions":
-                for episode_id in range(num_episodes):
-                    # collect gross output results based on activity timestep
-                    activity_timestep = episode_states[episode_id][
-                        "activity_timestep"
+        elif feature == "gross_output_all_regions":
+            for episode_id in range(num_episodes):
+                # collect gross output results based on activity timestep
+                activity_timestep = episode_states[episode_id][
+                    "activity_timestep"
+                ]
+                activity_index = np.append(
+                    1.0, np.diff(activity_timestep.squeeze())
+                )
+                activity_index = [
+                    np.isclose(v, 1.0) for v in activity_index
+                ]
+                feature_values[episode_id] = np.sum(
+                    episode_states[episode_id]["gross_output_all_regions"][
+                        activity_index
                     ]
-                    activity_index = np.append(
-                        1.0, np.diff(activity_timestep.squeeze())
-                    )
-                    activity_index = [
-                        np.isclose(v, 1.0) for v in activity_index
-                    ]
-                    feature_values[episode_id] = np.sum(
-                        episode_states[episode_id]["gross_output_all_regions"][
-                            activity_index
-                        ]
-                    )
+                )
 
-            else:
-                for episode_id in range(num_episodes):
-                    feature_values[episode_id] = np.sum(
-                        episode_states[episode_id][feature]
-                    )
+        else:
+            for episode_id in range(num_episodes):
+                feature_values[episode_id] = np.sum(
+                    episode_states[episode_id][feature]
+                )
 
-            # Compute mean feature value across episodes
-            mean_feature_value = np.mean(feature_values)
+        # Compute mean feature value across episodes
+        mean_feature_value = np.mean(feature_values)
 
-            # Formatting the values
-            metrics_to_label_dict = _METRICS_TO_LABEL_DICT[feature]
+        # Formatting the values
+        metrics_to_label_dict = _METRICS_TO_LABEL_DICT[feature]
 
-            eval_metrics[metrics_to_label_dict[0]] = perform_format(
-                mean_feature_value, metrics_to_label_dict[1]
-            )
-        if include_c_e_idx:
-            if not os.path.exists(_INDEXES_FILENAME):
-                # Write min, max climate and economic index values to a file
-                # for use during evaluation.
-                indices_dict = generate_min_max_climate_economic_indices()
-                # Write indices to a file
-                with open(_INDEXES_FILENAME, "w", encoding="utf-8") as file_ptr:
-                    file_ptr.write(json.dumps(indices_dict))
-            with open(_INDEXES_FILENAME, "r", encoding="utf-8") as file_ptr:
-                index_dict = json.load(file_ptr)
-            eval_metrics["climate_index"] = np.round(
-                (eval_metrics["Temperature Rise"] - index_dict["min_ci"])
-                / (index_dict["max_ci"] - index_dict["min_ci"]),
-                2,
-            )
-            eval_metrics["economic_index"] = np.round(
-                (eval_metrics["Gross Output"] - index_dict["min_ei"])
-                / (index_dict["max_ei"] - index_dict["min_ei"]),
-                2,
-            )
-        success = True
-        comment = "Successful submission"
-    except Exception as err:
-        logging.error(err)
-        success = False
-        comment = "Could not obtain an episode rollout!"
-        eval_metrics = {}
+        eval_metrics[metrics_to_label_dict[0]] = perform_format(
+            mean_feature_value, metrics_to_label_dict[1]
+        )
+    if include_c_e_idx:
+        if not os.path.exists(_INDEXES_FILENAME):
+            # Write min, max climate and economic index values to a file
+            # for use during evaluation.
+            indices_dict = generate_min_max_climate_economic_indices()
+            # Write indices to a file
+            with open(_INDEXES_FILENAME, "w", encoding="utf-8") as file_ptr:
+                file_ptr.write(json.dumps(indices_dict))
+        with open(_INDEXES_FILENAME, "r", encoding="utf-8") as file_ptr:
+            index_dict = json.load(file_ptr)
+        eval_metrics["climate_index"] = np.round(
+            (eval_metrics["Temperature Rise"] - index_dict["min_ci"])
+            / (index_dict["max_ci"] - index_dict["min_ci"]),
+            2,
+        )
+        eval_metrics["economic_index"] = np.round(
+            (eval_metrics["Gross Output"] - index_dict["min_ei"])
+            / (index_dict["max_ei"] - index_dict["min_ei"]),
+            2,
+        )
+    success = True
+    comment = "Successful submission"
+    # except Exception as err:
+    #     logging.error(err)
+    #     success = False
+    #     comment = "Could not obtain an episode rollout!"
+    #     eval_metrics = {}
 
     return success, comment, eval_metrics
 
@@ -420,8 +419,7 @@ def perform_evaluation(
     try:
         with open(config_file, "r", encoding="utf-8") as file_ptr:
             run_config = yaml.safe_load(file_ptr)
-
-        trainer, _ = create_trainer(
+        trainer = create_trainer(
             run_config, source_dir=results_directory, seed=eval_seed
         )
 

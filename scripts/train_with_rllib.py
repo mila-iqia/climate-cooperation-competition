@@ -13,7 +13,7 @@ https://docs.ray.io/en/latest/rllib-training.html
 import logging
 import os
 
-# import shutil
+import shutil
 import subprocess
 import sys
 import time
@@ -25,8 +25,8 @@ from fixed_paths import PUBLIC_REPO_DIR
 from run_unittests import import_class_from_path
 from opt_helper import save
 from rice import Rice
-from tqdm import tqdm
 from scenarios import *
+import wandb
 sys.path.append(PUBLIC_REPO_DIR)
 
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
@@ -288,7 +288,8 @@ def save_model_checkpoint(
             f"{policy}_{current_timestep}.state_dict",
         )
         logging.info(
-            f"Saving the model checkpoints for policy {policy} to {filepath}.",
+            "Saving the model checkpoints for policy %s to %s.",
+            (policy, filepath),
         )
         torch.save(model_params[policy], filepath)
 
@@ -305,7 +306,7 @@ def load_model_checkpoints(trainer_obj=None, save_directory=None, ckpt_idx=-1):
     )
     files = [f for f in os.listdir(save_directory) if f.endswith("state_dict")]
 
-    assert len(files) == len(trainer_obj.config["multiagent"]["policies"])
+    #assert len(files) == len(trainer_obj.config["multiagent"]["policies"])
 
     model_params = trainer_obj.get_weights()
     for policy in model_params:
@@ -398,10 +399,20 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
     outputs = {}
 
     # Fetch the env object from the trainer
-    env_object = trainer_obj.workers.local_worker().env
-    obs = env_object.reset()
+    # try:
+    #     env_object = trainer_obj.workers.local_worker().env
+    #     obs = env_object.reset()
+    # except:
+    #     envs = trainer_obj.workers.foreach_worker(lambda worker: worker.env)
+    #     env_object = envs[1].env 
+    #     obs, info = env_object.reset()
 
-    env = env_object.env
+    envs = trainer_obj.workers.foreach_worker(lambda worker: worker.env)
+    env_object = envs[1].env 
+    obs, _ = env_object.reset()
+    
+
+    env = env_object
 
     for state in episode_states:
         assert state in env.global_state, f"{state} is not in global state!"
@@ -411,7 +422,8 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
 
     agent_states = {}
     policy_ids = {}
-    policy_mapping_fn = trainer_obj.config["multiagent"]["policy_mapping_fn"]
+    # policy_mapping_fn = trainer_obj.config["multiagent"]["policy_mapping_fn"]
+    policy_mapping_fn = trainer_obj.config["policy_mapping_fn"]
     for region_id in range(env.num_agents):
         policy_ids[region_id] = policy_mapping_fn(region_id)
         agent_states[region_id] = trainer_obj.get_policy(
@@ -431,7 +443,7 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
             if (
                 len(agent_states[region_id]) == 0
             ):  # stateless, with a linear model, for example
-                actions[region_id] = trainer_obj.compute_action(
+                actions[region_id] = trainer_obj.compute_single_action(
                     obs[region_id],
                     agent_states[region_id],
                     policy_id=policy_ids[region_id],
@@ -446,14 +458,13 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
                     agent_states[region_id],
                     policy_id=policy_ids[region_id],
                 )
-        obs, _, done, _ = env_object.step(actions)
+        obs, rewards, done, truncateds, info = env_object.step(actions)
         if done["__all__"]:
             for state in episode_states:
-                outputs[state][timestep + 1] = env.global_state[state]["value"][
+                outputs[state][timestep + 1] = env_object.global_state[state]["value"][
                     timestep + 1
                 ]
             break
-
     return outputs
 
 
@@ -581,15 +592,41 @@ if __name__ == "__main__":
     # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
     # -----------------------------------------------------------------------------
 
-    
+    ray.init(ignore_reinit_error=True)
 
     config_yaml = get_config_yaml(yaml_path="rice_rllib.yaml")
 
-    ray.init(ignore_reinit_error=True, num_gpus=config_yaml["trainer"]["num_gpus"], num_cpus=config_yaml["trainer"]["num_workers"])
+        # Initialize wandb
+    if config_yaml["logging"]["enabled"]:
+        wandb_config = config_yaml["logging"]["wandb_config"]
+        wandb.login(key=wandb_config["login"])
+        wandb.init(
+            project=wandb_config["project"],
+            name=f'{wandb_config["run"]}_train',
+            entity=wandb_config["entity"],
+        )
 
     trainer = create_trainer(config_yaml)
     save_dir = create_save_dir_path(config_yaml)
     os.makedirs(save_dir)
+    # Copy source files to the saving directory
+    for file in ["rice.py",
+                 "rice_helpers.py",
+                 "scenarios.py"]:
+        shutil.copyfile(
+            os.path.join(PUBLIC_REPO_DIR, file),
+            os.path.join(save_dir, file),
+        )
+    for file in ["rice_rllib.yaml"]:
+        shutil.copyfile(
+            os.path.join(PUBLIC_REPO_DIR, "scripts", file),
+            os.path.join(save_dir, file),
+        )
+
+    # Add an identifier file
+    with open(os.path.join(save_dir, ".rllib"), "x", encoding="utf-8") as fp:
+        pass
+    fp.close()
 
     # Perform training
     # ----------------
@@ -608,12 +645,28 @@ if __name__ == "__main__":
     
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
-
-    for iteration in tqdm(range(num_iters)):
+    num_iters = 1
+    for iteration in range(num_iters):
         print(
             f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"
         )
         result = trainer.train()
+
+        if config_yaml["logging"]["enabled"]:
+            wandb.log(
+                {
+                    "episode_reward_min": result["episode_reward_min"],
+                    "episode_reward_mean": result["episode_reward_mean"],
+                    "episode_reward_max": result["episode_reward_max"],
+                },
+                step=result["episodes_total"],
+            )
+            wandb.log(
+                result["info"]["learner"]["regions"]["learner_stats"],
+                step=result["episodes_total"],
+            )
+
+
         total_timesteps = result.get("timesteps_total")
         if (
             iteration % config_yaml["saving"]["model_params_save_freq"] == 0
@@ -625,16 +678,19 @@ if __name__ == "__main__":
 
     # Create a (zipped) submission file
     # ---------------------------------
-    # subprocess.call(
-    #     [
-    #         "python",
-    #         os.path.join(
-    #             PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"
-    #         ),
-    #         "--results_dir",
-    #         save_dir,
-    #     ]
-    # )
+    subprocess.call(
+        [
+            "python",
+            os.path.join(
+                PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"
+            ),
+            "--results_dir",
+            save_dir,
+        ]
+    )
 
     # Close Ray gracefully after completion
     ray.shutdown()
+
+    if config_yaml["logging"]["enabled"]:
+        wandb.finish()
