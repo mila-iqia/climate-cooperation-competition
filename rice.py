@@ -15,9 +15,11 @@ import sys
 import numpy as np
 import gymnasium as gym
 import yaml
+from gymnasium.spaces import MultiDiscrete
 from gymnasium.spaces import Box
 from scipy.optimize import minimize_scalar
 from scipy.optimize import newton
+
 _PUBLIC_REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 _SMALL_NUM = 1e-0  # small number added to handle consumption blow-up
 
@@ -31,16 +33,23 @@ _ACTION_MASK = "action_mask"
 
 class Rice(gym.Env):
     name = "Rice"
-
     def __init__(
         self,
         negotiation_on=False,  # If True then negotiation is on, else off
         scenario="default",
+        num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+        action_space_type="discrete", # or "continuous"
         dmg_function="base",
         carbon_model="base",
         temperature_calibration="base",
         prescribed_emissions=None,
     ):
+        self.action_space_type = action_space_type
+        self.num_discrete_action_levels = num_discrete_action_levels
+        if self.action_space_type == "discrete":
+            assert self.num_discrete_action_levels > 1, "The number of discrete action levels must be greater than 1."
+        elif self.action_space_type == "continuous":
+            assert self.num_discrete_action_levels == 1, "The number of discrete action levels must be 1 for continuous action space."
         # Potential additions for improved DICE model
         self.dmg_function = dmg_function
         self.carbon_model = carbon_model
@@ -77,18 +86,20 @@ class Rice(gym.Env):
         self.total_possible_actions = self.calc_total_possible_actions(
             self.negotiation_on
         )
-        self.load_action_space_bounds_from_yaml("action_space_bounds.yaml")
-        self.initialize_action_space()
+        self.action_space = self.get_action_space()
         self.set_default_agent_action_mask()
 
-    def load_action_space_bounds_from_yaml(self, yaml_file_path):
+    def set_discrete_action_levels(self, num_discrete_action_levels):
+        self.num_discrete_action_levels = num_discrete_action_levels
+
+    def load_cont_action_space_bounds_from_yaml(self, yaml_file_path):
         with open(yaml_file_path, 'r') as file:
             bounds_data = yaml.safe_load(file)
         self.action_space_bounds = {}
         for action, bounds in bounds_data.items():
             self.action_space_bounds[action] = (bounds['min'], bounds['max'])
 
-    def initialize_action_space(self):
+    def initialize_cont_action_space(self):
         low_bounds, high_bounds = [], []
         for action in self.action_space_bounds:
             low, high = self.action_space_bounds[action]
@@ -99,7 +110,20 @@ class Rice(gym.Env):
                 low_bounds.append(low)
                 high_bounds.append(high)
         
-        self.action_space = {str(region_id): Box(low=np.array(low_bounds), high=np.array(high_bounds), dtype=np.float32) for region_id in range(self.num_regions)}
+        action_space = {str(region_id): Box(low=np.array(low_bounds), high=np.array(high_bounds), dtype=np.float32) for region_id in range(self.num_regions)}
+        return action_space
+
+    def get_action_space(self):
+        if self.action_space_type == "discrete":
+            return {
+                str(region_id): MultiDiscrete(self.total_possible_actions)
+                for region_id in range(self.num_regions)
+            }
+        elif self.action_space_type == "continuous":
+            self.load_cont_action_space_bounds_from_yaml("action_space_bounds.yaml")
+            return self.initialize_cont_action_space()
+        else:
+            raise ValueError(f"Unknown action space type {self.action_space_type}.")
 
     def get_start_year(self):
         return self.all_regions_params[0]["xt_0"]
@@ -213,7 +237,7 @@ class Rice(gym.Env):
             self.set_state(
                 "minimum_mitigation_rate_all_regions", min_mitigation, region_id
                 )
-
+            
         observations = self.get_observations()
 
         rewards = {region_id: 0.0 for region_id in range(self.num_regions)}
@@ -824,7 +848,43 @@ class Rice(gym.Env):
 
         return global_carbon_mass
 
+    def calc_possible_actions(self, action_type):
+        if self.action_space_type == "discrete":
+            if action_type == "savings":
+                return [self.num_discrete_action_levels]
+            if action_type == "mitigation_rate":
+                return [self.num_discrete_action_levels]
+            if action_type == "export_limit":
+                return [self.num_discrete_action_levels]
+            if action_type == "import_bids":
+                return [self.num_discrete_action_levels] * self.num_regions
+            if action_type == "import_tariffs":
+                return [self.num_discrete_action_levels] * self.num_regions
 
+            if action_type == "proposal":
+                return [self.num_discrete_action_levels] * 2 * self.num_regions
+
+            if action_type == 'proposal_decisions':
+                return [2] * self.num_regions
+        elif self.action_space_type == "continuous":
+            if action_type == "savings":
+                return [1]
+            if action_type == "mitigation_rate":
+                return [1]
+            if action_type == "export_limit":
+                return [1]
+            if action_type == "import_bids":
+                return [1] * self.num_regions
+            if action_type == "import_tariffs":
+                return [1] * self.num_regions
+
+            if action_type == "proposal":
+                return [1] * 2 * self.num_regions
+
+            if action_type == 'proposal_decisions':
+                return [2] * self.num_regions
+        else:
+            raise ValueError(f"Unknown action space type: {self.action_space_type}")
     def calc_total_possible_actions(self, negotiation_on):
 
         total_possible_actions = (
@@ -898,11 +958,35 @@ class Rice(gym.Env):
         for region_id in range(self.num_regions):
             mask = self.default_agent_action_mask.copy()
             if self.negotiation_on:
-                mask_dict[region_id]["minimum_mitigation_rate_all_regions"] = self.global_state[
-                        "minimum_mitigation_rate_all_regions"
-                    ]["value"][self.current_timestep, region_id]
-            else:
-                mask_dict[region_id] = mask
+                mask_start = sum(self.savings_possible_actions)
+                mask_end = mask_start + sum(
+                    self.mitigation_rate_possible_actions
+                )
+                if self.action_space_type == "discrete":
+                    minimum_mitigation_rate = int(
+                        round(
+                            self.global_state[
+                                "minimum_mitigation_rate_all_regions"
+                            ]["value"][self.current_timestep, region_id]
+                            * self.num_discrete_action_levels
+                        )
+                    )
+                    mitigation_mask = np.array(
+                        [0 for _ in range(minimum_mitigation_rate)]
+                        + [
+                            1
+                            for _ in range(
+                                self.num_discrete_action_levels
+                                - minimum_mitigation_rate
+                            )
+                        ]
+                    )
+                    mask[mask_start:mask_end] = mitigation_mask
+                elif self.action_space_type == "continuous":
+                    minimum_mitigation_rate = self.global_state["minimum_mitigation_rate_all_regions"]["value"][self.current_timestep, region_id]* self.num_discrete_action_levels
+                    mask[mask_start:mask_end] = minimum_mitigation_rate
+            mask_dict[region_id] = mask
+
         return mask_dict
 
     def calc_current_simulation_year(self):
@@ -944,41 +1028,12 @@ class Rice(gym.Env):
         ]
 
 
-    def get_action_space(self):
-        # Initialize a dictionary to hold the action spaces for each region
-        action_spaces = {}
-
-        for region_id in range(self.num_regions):
-            # Calculate the total number of actions for this region
-            total_actions = self.calc_total_possible_actions(self.negotiation_on)
-            
-            # Assuming a generic lower and upper bound for demonstration
-            low_bound = np.full((total_actions,), 0.0, dtype=np.float32)
-            high_bound = np.full((total_actions,), 1.0, dtype=np.float32)
-            
-            # Create a Box space for this region's actions
-            action_spaces[region_id] = Box(low=low_bound, high=high_bound, dtype=np.float32)
-
-        return action_spaces
-    
-    def get_act_bound(self, region_config, action_name, bound_type):
-        # Try to get the specific bound for the region
-        specific_bound = region_config.get(f"{action_name}_{bound_type}_bound", None)
-        if specific_bound is not None:
-            return specific_bound
-        
-        # Try to get the common bound
-        common_bound = region_config.get(f"{action_name.split('_to_region_')[0]}s_common_{bound_type}_bound", None)
-        if common_bound is not None:
-            return common_bound
-
-        # Use the default bound if neither specific nor common bound is specified
-        return 0 if bound_type == "lower" else 1
     def get_actions(self, action_type, actions):
         if action_type == "savings":
             savings_actions_index = self.get_actions_index("savings")
             return [
                 actions[region_id][savings_actions_index]
+                / self.num_discrete_action_levels  # TODO: change this for savings levels?
                 for region_id in range(self.num_regions)
             ]
 
@@ -988,6 +1043,7 @@ class Rice(gym.Env):
             )
             return [
                 actions[region_id][mitigation_rate_action_index]
+                / self.num_discrete_action_levels
                 for region_id in range(self.num_regions)
             ]
 
@@ -995,6 +1051,7 @@ class Rice(gym.Env):
             export_action_index = self.get_actions_index("export_limit")
             return [
                 actions[region_id][export_action_index]
+                / self.num_discrete_action_levels
                 for region_id in range(self.num_regions)
             ]
 
@@ -1005,6 +1062,7 @@ class Rice(gym.Env):
                     tariffs_action_index : tariffs_action_index
                     + self.num_regions
                 ]
+                / self.num_discrete_action_levels
                 for region_id in range(self.num_regions)
             ]
 
@@ -1015,6 +1073,7 @@ class Rice(gym.Env):
                     tariffs_action_index : tariffs_action_index
                     + self.num_regions
                 ]
+                / self.num_discrete_action_levels
                 for region_id in range(self.num_regions)
             ]
 
@@ -1027,6 +1086,7 @@ class Rice(gym.Env):
                     region_id][
                         proposal_actions_index_start : proposal_actions_index_start + num_proposal_actions : 2
                         ]
+                / self.num_discrete_action_levels
                 for region_id in range(self.num_regions)
             ]
             return value
@@ -1041,6 +1101,7 @@ class Rice(gym.Env):
                     + 1 : proposal_actions_index_start
                     + num_proposal_actions : 2
                 ]
+                / self.num_discrete_action_levels
                 for region_id in range(self.num_regions)
             ]
 
@@ -1153,9 +1214,16 @@ class Rice(gym.Env):
 
     def set_default_agent_action_mask(self):
         self.possible_actions_length = sum(self.total_possible_actions)
-        self.default_agent_action_mask = np.ones(
-            self.possible_actions_length*2, dtype=self.float_dtype
-        )# upper bound and lower bound
+        if self.action_space_type == "discrete":
+            self.default_agent_action_mask = np.ones(
+                self.possible_actions_length, dtype=self.int_dtype
+            )
+        elif self.action_space_type == "continuous":
+            self.default_agent_action_mask = np.ones(
+                self.possible_actions_length*2, dtype=self.float_dtype
+            )# upper bound and lower bound
+        else:
+            raise ValueError(f"Unknown action space type: {self.action_space_type}")
     def set_episode_length(self, negotiation_on):
         self.episode_length = self.all_regions_params[00]["xN"]
 
@@ -1437,24 +1505,8 @@ class Rice(gym.Env):
         return self.get_state(
             key, region_id=region_id, timestep=self.current_timestep - 1,
         )
-    
-    def calc_possible_actions(self, action_type):
-        if action_type == "savings":
-            return [1]
-        if action_type == "mitigation_rate":
-            return [1]
-        if action_type == "export_limit":
-            return [1]
-        if action_type == "import_bids":
-            return [1] * self.num_regions
-        if action_type == "import_tariffs":
-            return [1] * self.num_regions
 
-        if action_type == "proposal":
-            return [1] * 2 * self.num_regions
 
-        if action_type == 'proposal_decisions':
-            return [2] * self.num_regions
         
     def set_possible_actions(self):
         self.savings_possible_actions = self.calc_possible_actions("savings")

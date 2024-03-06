@@ -32,7 +32,12 @@ trainer:
 env:
     negotiation_on: False # flag to indicate whether negotiation is allowed or not
     scenario: default # key that maps to either Rice or and alternate Rice class
-
+    num_discrete_action_levels: 1
+    action_space_type: "continuous"
+    dmg_function: "base"
+    carbon_model: "base"
+    temperature_calibration: "base"
+    action_space_type: "continuous"
 # Policy network settings
 policy:
     regions:
