@@ -288,8 +288,7 @@ def save_model_checkpoint(
             f"{policy}_{current_timestep}.state_dict",
         )
         logging.info(
-            "Saving the model checkpoints for policy %s to %s.",
-            (policy, filepath),
+            f"Saving the model checkpoints for policy {policy} to {filepath}.",
         )
         torch.save(model_params[policy], filepath)
 

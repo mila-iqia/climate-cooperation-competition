@@ -92,8 +92,12 @@ class Rice(gym.Env):
         low_bounds, high_bounds = [], []
         for action in self.action_space_bounds:
             low, high = self.action_space_bounds[action]
-            low_bounds.append(low)
-            high_bounds.append(high)
+            if action in ["import_bids", "import_tariffs"]:
+                low_bounds += [low] * self.num_regions
+                high_bounds += [high] * self.num_regions
+            else:
+                low_bounds.append(low)
+                high_bounds.append(high)
         
         self.action_space = {str(region_id): Box(low=np.array(low_bounds), high=np.array(high_bounds), dtype=np.float32) for region_id in range(self.num_regions)}
 
