@@ -25,12 +25,12 @@ torch, nn = try_import_torch()
 _ACTION_MASK = "action_mask"
 
 
-class TorchLinear(TorchModelV2, nn.Module):
+class CustomBetaPolicyModel(TorchModelV2, nn.Module):
     """
     Fully-connected Pytorch policy model.
     """
 
-    custom_name = "torch_linear_discrete"
+    custom_name = "beta_model"
 
     def __init__(
         self,
@@ -83,13 +83,11 @@ class TorchLinear(TorchModelV2, nn.Module):
             )
 
         # policy network (list of heads)
-        policy_heads = [None for _ in range(len(action_space))]
+        policy_heads = [None for _ in range(action_space.shape[0])]
         self.output_dims = []  # Network output dimension(s)
 
-        for idx, act_space in enumerate(action_space):
-            output_dim = act_space.n
-            self.output_dims += [output_dim]
-            policy_heads[idx] = nn.Linear(fc_dims[-1], output_dim)
+        for idx in range(action_space.shape[0]):
+            policy_heads[idx] = nn.Linear(fc_dims[-1], 2)
         self.policy_head = nn.ModuleList(policy_heads)
 
         # value-function network head
@@ -185,17 +183,14 @@ class TorchLinear(TorchModelV2, nn.Module):
             for idx, dim in enumerate(self.output_dims):
                 action_masks[idx] = self.action_mask[..., start : start + dim]
                 start = start + dim
-        action_logits = [
-            self.apply_logit_mask(ph(logits), action_masks[idx])
-            for idx, ph in enumerate(self.policy_head)
-        ]
+        action_logits = [ph(logits) for idx, ph in enumerate(self.policy_head)]
+        
         self.values = self.vf_head(logits)[..., 0]
 
-        concatenated_action_logits = torch.cat(action_logits, dim=-1)
+        concatenated_action_logits = torch.nn.Softplus()(torch.cat(action_logits, dim=-1))
         return (
             torch.reshape(concatenated_action_logits, [-1, self.num_outputs]),
             state,
         )
 
-
-ModelCatalog.register_custom_model("torch_linear_discrete", TorchLinear)
+ModelCatalog.register_custom_model("beta_model", CustomBetaPolicyModel)
