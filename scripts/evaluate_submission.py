@@ -21,6 +21,7 @@ from pathlib import Path
 import json
 import numpy as np
 import yaml
+import wandb
 
 _path = Path(os.path.abspath(__file__))
 
@@ -58,6 +59,7 @@ _METRICS_TO_LABEL_DICT["production_all_regions"] = ("Production", 0)
 _METRICS_TO_LABEL_DICT["gross_output_all_regions"] = ("Gross Output", 0)
 _METRICS_TO_LABEL_DICT["investment_all_regions"] = ("Investment", 0)
 _METRICS_TO_LABEL_DICT["abatement_cost_all_regions"] = ("Abatement Cost", 2)
+_METRICS_TO_LABEL_DICT["mitigation_rates_all_regions"] = ("Mitigation  Rate", 2)
 
 
 def get_imports(framework=None):
@@ -156,6 +158,7 @@ def compute_metrics(
     framework,
     num_episodes=1,
     include_c_e_idx=True,
+    log_config=None
 ):
     """
     Generate episode rollouts and compute metrics.
@@ -170,6 +173,13 @@ def compute_metrics(
     desired_outputs = list(_METRICS_TO_LABEL_DICT.keys())
     # Add auxiliary outputs required for processing
     required_outputs = desired_outputs + ["activity_timestep"]
+
+    if log_config and log_config["enabled"]:
+        wandb_config = log_config["wandb_config"]
+        wandb.login(key=wandb_config["login"])
+        wandb.init(project=wandb_config["project"],
+            name=f'{wandb_config["run"]}_eval',
+            entity=wandb_config["entity"])
 
     episode_states = {}
     eval_metrics = {}
@@ -233,6 +243,55 @@ def compute_metrics(
         eval_metrics[metrics_to_label_dict[0]] = perform_format(
             mean_feature_value, metrics_to_label_dict[1]
         )
+
+        if log_config and log_config["enabled"]:
+            #TODO: fix dirty method to remove negotiation steps from results
+            interval = (len(episode_states[episode_id][feature]) - 1) // 20
+            ys = episode_states[episode_id][feature][0::interval].T
+
+
+            xs = list(range(len(ys[0])))
+            plot_name = feature.replace("_", " ").capitalize()
+
+            if feature == "global_temperature":
+                plot = wandb.plot.line_series(
+                    xs=xs,
+                    ys=ys.tolist(),
+                    keys=["Atmosphere", "Ocean"],
+                    title=plot_name,
+                    xname="step",
+                )
+                wandb.log({plot_name: plot})
+            elif feature == "global_carbon_mass":
+                plot = wandb.plot.line_series(
+                    xs=xs,
+                    ys=ys.tolist(),
+                    keys=["Atmosphere", "Upper ocean", "Lower ocean"],
+                    title=plot_name,
+                    xname="step",
+                )
+                wandb.log({plot_name: plot})
+            elif feature.endswith("_all_regions"):
+                value_name = feature[:-12].replace("_", " ")
+                plot_name = value_name.capitalize()
+                plot_name_mean = f"Mean {value_name}"
+                ys_mean = np.mean(ys, axis=0)
+                data = [[x, y] for (x, y) in zip(xs, ys_mean.tolist())]
+                table = wandb.Table(data=data, columns=["step", value_name])
+                plot_mean = wandb.plot.line(
+                    table, "step", value_name, title=plot_name_mean
+                )
+                plot = wandb.plot.line_series(
+                    xs=xs,
+                    ys=ys.tolist(),
+                    keys=[f"Region {x}" for x in range(len(ys))],
+                    title=plot_name,
+                    xname="step",
+                )
+                wandb.log({plot_name_mean: plot_mean})
+                wandb.log({plot_name: plot})
+
+
     if include_c_e_idx:
         if not os.path.exists(_INDEXES_FILENAME):
             # Write min, max climate and economic index values to a file
@@ -260,6 +319,15 @@ def compute_metrics(
     #     success = False
     #     comment = "Could not obtain an episode rollout!"
     #     eval_metrics = {}
+
+    if log_config and log_config["enabled"]:
+        wandb.log({"climate_index": eval_metrics["climate_index"]})
+        wandb.log({"economic_index": eval_metrics["economic_index"]})
+        # attach submission file as artifact (needs to be named after the nego class)
+        # artifact = wandb.Artifact("submission", type="model")
+        # artifact.add_file(submission_file)
+        # wandb.log_artifact(artifact)
+        wandb.finish()
 
     return success, comment, eval_metrics
 
@@ -394,6 +462,7 @@ def perform_evaluation(
 
     # Load a run configuration
     config_file = os.path.join(results_directory, f"rice_{framework}.yaml")
+    
 
     try:
         assert os.path.exists(config_file)
@@ -419,6 +488,10 @@ def perform_evaluation(
     try:
         with open(config_file, "r", encoding="utf-8") as file_ptr:
             run_config = yaml.safe_load(file_ptr)
+        if "logging" in run_config.keys():
+            log_config = run_config["logging"]
+        else:
+            log_config = None
         trainer = create_trainer(
             run_config, source_dir=results_directory, seed=eval_seed
         )
@@ -441,6 +514,7 @@ def perform_evaluation(
             trainer,
             framework,
             num_episodes=num_episodes,
+            log_config = log_config
         )
 
         if framework == "warpdrive":
