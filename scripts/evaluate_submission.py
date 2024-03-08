@@ -60,7 +60,7 @@ _METRICS_TO_LABEL_DICT["gross_output_all_regions"] = ("Gross Output", 0)
 _METRICS_TO_LABEL_DICT["investment_all_regions"] = ("Investment", 0)
 _METRICS_TO_LABEL_DICT["abatement_cost_all_regions"] = ("Abatement Cost", 2)
 _METRICS_TO_LABEL_DICT["mitigation_rates_all_regions"] = ("Mitigation  Rate", 2)
-
+_METRICS_TO_LABEL_DICT["savings_all_regions"] = ("Savings  Rate", 2)
 
 def get_imports(framework=None):
     """

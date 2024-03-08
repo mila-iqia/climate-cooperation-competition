@@ -17,7 +17,7 @@ import shutil
 import subprocess
 import sys
 import time
-
+from tqdm import tqdm
 import numpy as np
 import yaml
 from desired_outputs import desired_outputs
@@ -645,7 +645,7 @@ if __name__ == "__main__":
     
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
-    for iteration in range(num_iters):
+    for iteration in tqdm(range(num_iters)):
         print(
             f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"
         )
