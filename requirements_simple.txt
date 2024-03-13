@@ -8,3 +8,5 @@ numpy==1.26.2
 wandb==0.16.0
 gputil
 psutil
+statannot
+seaborn==0.12.0    

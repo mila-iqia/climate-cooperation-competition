@@ -79,6 +79,12 @@ def get_imports(framework=None):
             fetch_episode_states,
             load_model_checkpoints,
         )
+    elif framework == "tariff_test":
+        from train_with_rllib import (
+            create_trainer,
+            load_model_checkpoints,
+        )
+        from experiments import fetch_episode_states
     else:
         raise ValueError(f"Unknown framework {framework}!")
     return create_trainer, load_model_checkpoints, fetch_episode_states
