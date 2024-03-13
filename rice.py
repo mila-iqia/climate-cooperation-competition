@@ -255,7 +255,7 @@ class Rice(gym.Env):
 
         actions_dict = {
             "savings_all_regions" : self.get_actions("savings", actions),
-            "mitigation_rate_all_regions" : self.get_actions("mitigation_rate", actions),
+            "mitigation_rates_all_regions" : self.get_actions("mitigation_rate", actions),
             "export_limit_all_regions" : self.get_actions("export_limit", actions),
             "import_bids_all_regions" : self.get_actions("import_bids", actions),
             "import_tariffs_all_regions" : self.get_actions("import_tariffs", actions),
@@ -264,7 +264,7 @@ class Rice(gym.Env):
         self.set_actions_in_global_state(actions_dict)
 
         damages = self.calc_damages()
-        abatement_costs = self.calc_abatement_costs(actions_dict["mitigation_rate_all_regions"])
+        abatement_costs = self.calc_abatement_costs(actions_dict["mitigation_rates_all_regions"])
         productions = self.calc_productions()
 
         gross_outputs = self.calc_gross_outputs(damages, abatement_costs, productions)
