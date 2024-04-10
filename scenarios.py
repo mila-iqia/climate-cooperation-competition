@@ -1,4 +1,549 @@
 from rice import *
+import random
+
+_FEATURES = "features"
+_ACTION_MASK = "action_mask"
+
+class HighExpForPref(Rice):
+
+    """Scenario where agents have a high preference for foreign consumption
+    
+        Arguments:
+        - num_discrete_action_levels (int):  the number of discrete levels for actions, > 1
+        - negotiation_on (boolean): whether negotiation actions are available to agents
+        - scenario (str): name of scenario 
+
+        """
+    
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="HighExpForPref"  
+            ):
+        super().__init__(num_discrete_action_levels,negotiation_on,scenario)
+        self.set_trade_params()
+        self.exp_level = 8
+
+    def set_trade_params(self):
+        # TODO : add to yaml
+
+        self.init_capital_multiplier = 10.0
+        self.balance_interest_rate = 0.1
+        self.consumption_substitution_rate = 1.0
+        self.preference_for_domestic = 0.2
+        self.preference_for_imported = self.calc_uniform_foreign_preferences()
+
+        # Typecasting
+        self.consumption_substitution_rate = np.array(
+            [self.consumption_substitution_rate]
+        ).astype(self.float_dtype)
+        self.preference_for_domestic = np.array(
+            [self.preference_for_domestic]
+        ).astype(self.float_dtype)
+        self.preference_for_imported = np.array(
+            self.preference_for_imported, dtype=self.float_dtype
+        )
+    
+    def calc_consumptions(self, gross_outputs, investments, gross_imports, net_imports, save_state=True):
+        consumptions = np.zeros(self.num_regions, dtype=self.float_dtype)
+        for region_id in range(self.num_regions):
+            total_exports = np.sum(gross_imports[:, region_id])
+            assert (
+                gross_outputs[region_id] - investments[region_id] - total_exports > -1e-5
+            ), "consumption cannot be negative."
+            domestic_consumption =  max(0.0, gross_outputs[region_id] - investments[region_id] - total_exports)
+
+            c_dom_pref = self.preference_for_domestic * (
+                domestic_consumption**self.consumption_substitution_rate
+            )
+            c_for_pref = np.sum(
+                self.preference_for_imported
+                * pow(net_imports[region_id, :], self.consumption_substitution_rate)
+            )
+
+            consumptions[region_id] = (c_dom_pref + c_for_pref) ** (
+                1 / self.consumption_substitution_rate
+            )  # CES function
+            # TODO: fix for region-specific state saving
+            if save_state:
+                self.set_state("aggregate_consumption", consumptions[region_id], region_id=region_id)
+        return consumptions
+
+    def step(self, actions):
+        self.current_timestep += 1
+        self.set_state("timestep", self.current_timestep, dtype=self.int_dtype)
+
+        self.set_current_global_state_to_past_global_state()
+        
+        if self.negotiation_on:
+            self.set_negotiation_stage()
+            if self.is_proposal_stage():
+                return self.step_propose(actions)
+
+            elif self.is_evaluation_stage():
+                return self.step_evaluate_proposals(actions)
+
+        return self.step_climate_and_economy(actions)
+    
+    def calc_action_mask(self):
+        """
+        Generate action masks.
+        """
+
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+
+            mask = self.default_agent_action_mask.copy()
+            
+            mask_start = sum(self.savings_possible_actions \
+                + self.mitigation_rate_possible_actions)
+            mask_end = mask_start + sum(self.calc_possible_actions("export_limit"))
+            regional_export_mask = [0]*self.exp_level + [1]*(self.num_discrete_action_levels-self.exp_level)
+            mask[mask_start:mask_end] = np.array(regional_export_mask)
+
+            mask_dict[region_id] = mask
+            
+        return mask_dict
+    
+class SubsetExport(Rice):
+
+    """Scenario where agents have a high preference for foreign consumption
+    
+        Arguments:
+        - num_discrete_action_levels (int):  the number of discrete levels for actions, > 1
+        - negotiation_on (boolean): whether negotiation actions are available to agents
+        - scenario (str): name of scenario 
+
+        """
+    
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="SubsetExport"  
+            ):
+        super().__init__(num_discrete_action_levels,negotiation_on,scenario)
+        self.set_trade_params()
+        self.exp_level = 8
+        self.subset_size = 5
+        self.subset = random.sample(range(self.num_regions), self.subset_size)
+
+    def set_trade_params(self):
+        # TODO : add to yaml
+
+        self.init_capital_multiplier = 10.0
+        self.balance_interest_rate = 0.1
+        self.consumption_substitution_rate = 1.0
+        self.preference_for_domestic = 0.2
+        self.preference_for_imported = self.calc_uniform_foreign_preferences()
+
+        # Typecasting
+        self.consumption_substitution_rate = np.array(
+            [self.consumption_substitution_rate]
+        ).astype(self.float_dtype)
+        self.preference_for_domestic = np.array(
+            [self.preference_for_domestic]
+        ).astype(self.float_dtype)
+        self.preference_for_imported = np.array(
+            self.preference_for_imported, dtype=self.float_dtype
+        )
+    
+    def calc_consumptions(self, gross_outputs, investments, gross_imports, net_imports, save_state=True):
+        consumptions = np.zeros(self.num_regions, dtype=self.float_dtype)
+        for region_id in range(self.num_regions):
+            total_exports = np.sum(gross_imports[:, region_id])
+            assert (
+                gross_outputs[region_id] - investments[region_id] - total_exports > -1e-5
+            ), "consumption cannot be negative."
+            domestic_consumption =  max(0.0, gross_outputs[region_id] - investments[region_id] - total_exports)
+
+            c_dom_pref = self.preference_for_domestic * (
+                domestic_consumption**self.consumption_substitution_rate
+            )
+            c_for_pref = np.sum(
+                self.preference_for_imported
+                * pow(net_imports[region_id, :], self.consumption_substitution_rate)
+            )
+
+            consumptions[region_id] = (c_dom_pref + c_for_pref) ** (
+                1 / self.consumption_substitution_rate
+            )  # CES function
+            # TODO: fix for region-specific state saving
+            if save_state:
+                self.set_state("aggregate_consumption", consumptions[region_id], region_id=region_id)
+        return consumptions
+
+    def step(self, actions):
+        self.current_timestep += 1
+        self.set_state("timestep", self.current_timestep, dtype=self.int_dtype)
+
+        self.set_current_global_state_to_past_global_state()
+        
+        if self.negotiation_on:
+            self.set_negotiation_stage()
+            if self.is_proposal_stage():
+                return self.step_propose(actions)
+
+            elif self.is_evaluation_stage():
+                return self.step_evaluate_proposals(actions)
+
+        return self.step_climate_and_economy(actions)
+    
+    def get_observations(self):
+        """
+        Format observations for each agent by concatenating global, public
+        and private features.
+        The observations are returned as a dictionary keyed by region index.
+        Each dictionary contains the features as well as the action mask.
+        """
+        # Observation array features
+
+        # Global features that are observable by all regions
+        global_features = [
+            "timestep",
+        ]
+
+        # Public features that are observable by all regions
+        public_features = [
+            "gross_output_all_regions",
+            "investment_all_regions",
+            "export_limit_all_regions",
+            "current_balance_all_regions",
+            "tariffs",
+        ]
+
+        # Private features that are private to each region.
+        private_features = [
+            "reward_all_regions",
+        ]
+
+        # Features concerning two regions
+        bilateral_features = []
+
+        if self.negotiation_on:
+            global_features += ["negotiation_stage"]
+
+            public_features += []
+
+            private_features += [
+                "minimum_mitigation_rate_all_regions",
+            ]
+
+            bilateral_features += [
+                "promised_mitigation_rate",
+                "requested_mitigation_rate",
+                "proposal_decisions",
+            ]
+
+        shared_features = np.array([])
+        for feature in global_features + public_features:
+            shared_features = np.append(
+                shared_features,
+                self.flatten_array(
+                    self.global_state[feature]["value"][self.current_timestep]
+                    / self.global_state[feature]["norm"]
+                ),
+            )
+
+        # Form the feature dictionary, keyed by region_id.
+        features_dict = {}
+        for region_id in range(self.num_regions):
+            # Add a region indicator array to the observation
+            region_indicator = np.zeros(
+                self.num_regions, dtype=self.float_dtype
+            )
+            region_indicator[region_id] = 1
+
+            all_features = np.append(region_indicator, shared_features)
+
+            for feature in private_features:
+                assert (
+                    self.global_state[feature]["value"].shape[1]
+                    == self.num_regions
+                )
+                all_features = np.append(
+                    all_features,
+                    self.flatten_array(
+                        self.global_state[feature]["value"][
+                            self.current_timestep, region_id
+                        ]
+                        / self.global_state[feature]["norm"]
+                    ),
+                )
+
+            for feature in bilateral_features:
+                assert (
+                    self.global_state[feature]["value"].shape[1]
+                    == self.num_regions
+                )
+                assert (
+                    self.global_state[feature]["value"].shape[2]
+                    == self.num_regions
+                )
+                all_features = np.append(
+                    all_features,
+                    self.flatten_array(
+                        self.global_state[feature]["value"][
+                            self.current_timestep, region_id
+                        ]
+                        / self.global_state[feature]["norm"]
+                    ),
+                )
+                all_features = np.append(
+                    all_features,
+                    self.flatten_array(
+                        self.global_state[feature]["value"][
+                            self.current_timestep, :, region_id
+                        ]
+                        / self.global_state[feature]["norm"]
+                    ),
+                )
+
+            features_dict[region_id] = all_features
+
+        # Fetch the action mask dictionary, keyed by region_id.
+        action_mask_dict = self.calc_action_mask()
+
+        # Form the observation dictionary keyed by region id.
+        obs_dict = {}
+        for region_id in range(self.num_regions):
+            obs_dict[region_id] = {
+                _FEATURES: features_dict[region_id],
+                _ACTION_MASK: action_mask_dict[region_id],
+            }
+
+        return obs_dict
+    
+    def calc_action_mask(self):
+        """
+        Generate action masks.
+        """
+
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+
+            mask = self.default_agent_action_mask.copy()
+            mask_start = sum(self.savings_possible_actions \
+                    + self.mitigation_rate_possible_actions)
+            mask_end = mask_start + sum(self.calc_possible_actions("export_limit"))
+
+            #high export for subset
+            if region_id in self.subset:
+                regional_export_mask = [0]*self.exp_level + [1]*(self.num_discrete_action_levels-self.exp_level)
+            else:
+                regional_export_mask = [1]*(self.num_discrete_action_levels-self.exp_level) + [0]*self.exp_level 
+
+            mask[mask_start:mask_end] = np.array(regional_export_mask)
+            mask_dict[region_id] = mask
+            
+        return mask_dict
+    
+
+
+class MaxTrade(Rice):
+
+    """Scenario where agents have a high preference for foreign consumption
+    
+        Arguments:
+        - num_discrete_action_levels (int):  the number of discrete levels for actions, > 1
+        - negotiation_on (boolean): whether negotiation actions are available to agents
+        - scenario (str): name of scenario 
+
+        """
+    
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="MaxTrade"  
+            ):
+        super().__init__(num_discrete_action_levels,negotiation_on,scenario)
+        self.set_trade_params()
+
+    def set_trade_params(self):
+        # TODO : add to yaml
+
+        self.init_capital_multiplier = 10.0
+        self.balance_interest_rate = 0.1
+        self.consumption_substitution_rate = 0.95
+        self.preference_for_domestic = 0.1
+        self.preference_for_imported = self.calc_uniform_foreign_preferences()
+
+        # Typecasting
+        self.consumption_substitution_rate = np.array(
+            [self.consumption_substitution_rate]
+        ).astype(self.float_dtype)
+        self.preference_for_domestic = np.array(
+            [self.preference_for_domestic]
+        ).astype(self.float_dtype)
+        self.preference_for_imported = np.array(
+            self.preference_for_imported, dtype=self.float_dtype
+        )
+    
+    def calc_consumptions(self, gross_outputs, investments, gross_imports, net_imports, save_state=True):
+        consumptions = np.zeros(self.num_regions, dtype=self.float_dtype)
+        for region_id in range(self.num_regions):
+            total_exports = np.sum(gross_imports[:, region_id])
+            assert (
+                gross_outputs[region_id] - investments[region_id] - total_exports > -1e-5
+            ), "consumption cannot be negative."
+            domestic_consumption =  max(0.0, gross_outputs[region_id] - investments[region_id] - total_exports)
+
+            c_dom_pref = self.preference_for_domestic * (
+                domestic_consumption**self.consumption_substitution_rate
+            )
+            c_for_pref = np.sum(
+                self.preference_for_imported
+                * pow(net_imports[region_id, :], self.consumption_substitution_rate)
+            )
+
+            consumptions[region_id] = (c_dom_pref + c_for_pref) ** (
+                1 / self.consumption_substitution_rate
+            )  # CES function
+            print(c_dom_pref, c_for_pref, c_dom_pref/c_for_pref)
+            # TODO: fix for region-specific state saving
+            if save_state:
+                self.set_state("aggregate_consumption", consumptions[region_id], region_id=region_id)
+        return consumptions
+
+    def step(self, actions):
+        self.current_timestep += 1
+        self.set_state("timestep", self.current_timestep, dtype=self.int_dtype)
+
+        self.set_current_global_state_to_past_global_state()
+        print(self.preference_for_domestic, self.consumption_substitution_rate)
+        
+        if self.negotiation_on:
+            self.set_negotiation_stage()
+            if self.is_proposal_stage():
+                return self.step_propose(actions)
+
+            elif self.is_evaluation_stage():
+                return self.step_evaluate_proposals(actions)
+
+        return self.step_climate_and_economy(actions)
+    
+class MaxTradeGlobalPreferences(Rice):
+
+    """Scenario where agents have a high preference for foreign consumption
+    
+        Arguments:
+        - num_discrete_action_levels (int):  the number of discrete levels for actions, > 1
+        - negotiation_on (boolean): whether negotiation actions are available to agents
+        - scenario (str): name of scenario 
+
+        """
+    
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="MaxTradeGlobalPreferences"  
+            ):
+        super().__init__(num_discrete_action_levels,negotiation_on,scenario)
+        self.set_trade_params()
+
+    def set_trade_params(self):
+        # TODO : add to yaml
+
+        self.init_capital_multiplier = 10.0
+        self.balance_interest_rate = 0.1
+        self.consumption_substitution_rate = 1
+        self.preference_for_domestic = 0.1
+        self.preference_for_imported = 1-self.preference_for_domestic
+        # Typecasting
+        self.consumption_substitution_rate = np.array(
+            [self.consumption_substitution_rate]
+        ).astype(self.float_dtype)
+        self.preference_for_domestic = np.array(
+            [self.preference_for_domestic]
+        ).astype(self.float_dtype)
+        self.preference_for_imported = np.array(
+            self.preference_for_imported, dtype=self.float_dtype
+        )
+    
+    def calc_consumptions(self, gross_outputs, investments, gross_imports, net_imports, save_state=True):
+        consumptions = np.zeros(self.num_regions, dtype=self.float_dtype)
+        for region_id in range(self.num_regions):
+            total_exports = np.sum(gross_imports[:, region_id])
+            assert (
+                gross_outputs[region_id] - investments[region_id] - total_exports > -1e-5
+            ), "consumption cannot be negative."
+            domestic_consumption =  max(0.0, gross_outputs[region_id] - investments[region_id] - total_exports)
+
+            c_dom_pref = self.preference_for_domestic * (
+                domestic_consumption**self.consumption_substitution_rate
+            )
+            c_for_pref = self.preference_for_imported * np.sum(
+               pow(net_imports[region_id, :], self.consumption_substitution_rate)
+            )
+
+            consumptions[region_id] = (c_dom_pref + c_for_pref) ** (
+                1 / self.consumption_substitution_rate
+            )  # CES function
+            # TODO: fix for region-specific state saving
+            if save_state:
+                self.set_state("aggregate_consumption", consumptions[region_id], region_id=region_id)
+        return consumptions
+
+    def step(self, actions):
+        self.current_timestep += 1
+        self.set_state("timestep", self.current_timestep, dtype=self.int_dtype)
+
+        self.set_current_global_state_to_past_global_state()
+        
+        if self.negotiation_on:
+            self.set_negotiation_stage()
+            if self.is_proposal_stage():
+                return self.step_propose(actions)
+
+            elif self.is_evaluation_stage():
+                return self.step_evaluate_proposals(actions)
+
+        return self.step_climate_and_economy(actions)
+
+class MinTrade(Rice):
+
+    """Scenario where agents have a high preference for foreign consumption
+    
+        Arguments:
+        - num_discrete_action_levels (int):  the number of discrete levels for actions, > 1
+        - negotiation_on (boolean): whether negotiation actions are available to agents
+        - scenario (str): name of scenario 
+
+        """
+    
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="MinTrade"  
+            ):
+        super().__init__(num_discrete_action_levels,negotiation_on,scenario)
+        self.set_trade_params()
+
+    def set_trade_params(self):
+        # TODO : add to yaml
+
+        self.init_capital_multiplier = 10.0
+        self.balance_interest_rate = 0.1
+        self.consumption_substitution_rate = 0.9
+        self.preference_for_domestic = 0.8
+        self.preference_for_imported = self.calc_uniform_foreign_preferences()
+
+        # Typecasting
+        self.consumption_substitution_rate = np.array(
+            [self.consumption_substitution_rate]
+        ).astype(self.float_dtype)
+        self.preference_for_domestic = np.array(
+            [self.preference_for_domestic]
+        ).astype(self.float_dtype)
+        self.preference_for_imported = np.array(
+            self.preference_for_imported, dtype=self.float_dtype
+        )
+
+    
 
 class OptimalMitigation(Rice):
 
@@ -692,10 +1237,6 @@ class TariffTest(ExportAction):
         self.tariff_rate = 9
         #Note: this will be updated later with more targeted region_ids
 
-    
-
- 
-
     def reset(self, *, seed=None, options=None):
 
         self.current_timestep = 0
@@ -774,7 +1315,7 @@ class TariffTest(ExportAction):
                         imports_mask.extend([0]*self.num_discrete_action_levels)
                 else:
                     imports_mask.extend([0]*self.num_discrete_action_levels)
-            mask_dict[region_id] = mask
+            
             
             mask_start = sum(self.savings_possible_actions
                 + self.mitigation_rate_possible_actions

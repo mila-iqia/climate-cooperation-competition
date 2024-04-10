@@ -28,10 +28,12 @@ from train_with_rllib import (
             load_model_checkpoints,
             fetch_episode_states
         )
-from experiments import fetch_episode_states_tariff_test
+from experiments import fetch_episode_states_tariff_test, fetch_episode_states_trade_preference, fetch_episode_states_get_imports
 
 EXP = {"tariff":fetch_episode_states_tariff_test,
-        "none":fetch_episode_states}
+        "none":fetch_episode_states,
+        "dompref":fetch_episode_states_trade_preference,
+        "gettrade":fetch_episode_states_get_imports}
 
 _path = Path(os.path.abspath(__file__))
 

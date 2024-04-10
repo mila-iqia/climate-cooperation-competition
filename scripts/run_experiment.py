@@ -27,19 +27,19 @@ args = parser.parse_args()
 exp = args.exp
 iterations = args.iterations
 
-EXP = { "tariff":"1709895189_default.zip", #NoNegotiator Tariff
-        "none":"1709895189_default.zip"} #Default for testing, basicclubdescretedefect
+EXP = { "tariff":"1709895189_default.zip", 
+        "none":"1709895189_default.zip",
+        "dompref":"1709895189_default.zip", 
+        "gettrade":"1712700285_highexp.zip"} 
 
-if __name__ == "__main__":
-
-    for i in tqdm(range(iterations)):
-        subprocess.call(
-        [
-            "python",
-            os.path.join(PUBLIC_REPO_DIR, "scripts", "conduct_experiment.py"),
-            "-r",
-            f"Submissions/{EXP[exp]}",
-            "-e",
-            exp
-        ]
-        )
+for i in tqdm(range(iterations)):
+    subprocess.call(
+    [
+        "python",
+        os.path.join(PUBLIC_REPO_DIR, "scripts", "conduct_experiment.py"),
+        "-r",
+        f"Submissions/{EXP[exp]}",
+        "-e",
+        exp
+    ]
+    )

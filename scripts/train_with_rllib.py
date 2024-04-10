@@ -36,7 +36,12 @@ logging.getLogger().setLevel(logging.DEBUG)
 SCENARIO_MAPPING = {
     "default":Rice,
     "OptimalMitigation":OptimalMitigation,
-    "BasicClub":BasicClub
+    "BasicClub":BasicClub,
+    "MaxTrade":MaxTrade,
+    "MinTrade":MinTrade,
+    "MaxTradeGlobalPreferences":MaxTradeGlobalPreferences,
+    "HighExpForPref":HighExpForPref,
+    "SubsetExport":SubsetExport
 }
 
 
