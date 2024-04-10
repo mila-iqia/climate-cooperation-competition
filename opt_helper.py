@@ -6,7 +6,7 @@
 
 import os
 from operator import mul, sub
-
+import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
@@ -204,7 +204,7 @@ def write_yaml_files(pos_s, save_path, default_dict=default, ext=".yml"):
             yaml.dump(result, file)
 
 
-def merge_region(Ai_s, Ki_s, Li_s, La_s, sigmai_s, gamma=0.3, mode="classic"):
+def merge_region(datadict, gamma=0.3, mode="classic"):
     """
     Ai_s, 2d-nparray, first dim is region, second dim is time, tfp
     Ki_s, 2d-nparray, first dim is region, second dim is time, capital
@@ -212,6 +212,14 @@ def merge_region(Ai_s, Ki_s, Li_s, La_s, sigmai_s, gamma=0.3, mode="classic"):
     La_s, 1d-nparray, the dim represents regions
     sigmai_s, 1d-nparray, the dim represents regions
     """
+    Ai_s = datadict["TS_A"]
+    Ki_s = datadict["TS_K"]
+    Li_s = datadict["TS_L"]
+    La_s = datadict["La_s"]
+    sigmai_s = datadict["sigmai_s"]
+    tax_s = datadict["tax_s"]
+    mitigation_s = datadict["mitigation_s"]
+    saving_s = datadict["saving_s"]
     assert mode in ["classic", "efficient"], "only support classic or efficient mode!"
     assert (
         len(Ai_s) == len(Ki_s) == len(Li_s) == len(La_s) == len(sigmai_s)
@@ -232,6 +240,9 @@ def merge_region(Ai_s, Ki_s, Li_s, La_s, sigmai_s, gamma=0.3, mode="classic"):
         Ys = np.sum(Yi_s, axis=0)
         As = Ys / (Ks**gamma * Ls ** (1 - gamma))
         sigmas = np.sum(Yi_s[:, -1] * sigmai_s) / Ys[-1]
+        taxs = calculate_geometric_mean(tax_s)
+        mitigations = calculate_geometric_mean(mitigation_s)
+        savings = calculate_geometric_mean(saving_s)
     elif mode == "efficient":
         AKs = np.sum(Ai_s * Ki_s, axis=0)
         ALs = np.sum(Ai_s * Li_s, axis=0)
@@ -255,19 +266,89 @@ def merge_region(Ai_s, Ki_s, Li_s, La_s, sigmai_s, gamma=0.3, mode="classic"):
             / AKs[-1] ** gamma
             * ALs[-1] ** (1 - gamma)
         )
-    return As, Ks, Ls, Las, sigmas
+        taxs = calculate_geometric_mean(tax_s)
+        mitigations = calculate_geometric_mean(mitigation_s)
+        savings = calculate_geometric_mean(saving_s)
+    # return As, Ks, Ls, Las, sigmas, taxs, mitigations, savings
+    return {
+        "As": As,
+        "Ks": Ks,
+        "Ls": Ls,
+        "Las": Las,
+        "sigmas": sigmas,
+        "taxs": taxs,
+        "mitigations": mitigations,
+        "savings": savings,
+    }
+
+
+def packup_regions(raw_data, groupnum, countryclass, exc_code, raw_results):
+    output = {}
+    starts = []
+    ends = []
+    for token in ["TS_A", "TS_K", "TS_L"]:
+        for c in countryclass[groupnum]:
+            if c in exc_code:
+                continue
+            starts.append(raw_data[c][token][3])
+            ends.append(raw_data[c][token][4])
+    s = max(starts)
+    e = min(ends)
+
+    for token in ["TS_A", "TS_K", "TS_L"]:
+        output[token] = []
+        for c in countryclass[groupnum]:
+            if c in exc_code:
+                continue
+            for i in range(s, e + 1):
+                if i == s:
+                    output[token].append([])
+                output[token][-1].append(raw_data[c][token][1]["YR" + str(i)])
+    output["La_s"] = [
+        raw_results[c]["La"] for c in countryclass[groupnum] if c not in exc_code
+    ]
+    output["sigmai_s"] = [
+        raw_results[c]["TS_sigma"][0][-1]
+        for c in countryclass[groupnum]
+        if c not in exc_code
+    ]
+    output["tax_s"] = [
+        raw_results[c]["tax"] for c in countryclass[groupnum] if c not in exc_code
+    ]
+    output["mitigation_s"] = [
+        raw_results[c]["mitigation"]
+        for c in countryclass[groupnum]
+        if c not in exc_code
+    ]
+    output["saving_s"] = [
+        raw_results[c]["saving"] for c in countryclass[groupnum] if c not in exc_code
+    ]
+    return output
 
 
 def merge_region_dict(datadict, gamma=0.3, mode="classic"):
     return merge_region(
-        datadict["TS_A"],
-        datadict["TS_K"],
-        datadict["TS_L"],
-        datadict["La_s"],
-        datadict["sigmai_s"],
+        datadict,
         gamma=0.3,
         mode="classic",
     )
+
+
+def calculate_geometric_mean(rates):
+    """
+    Calculate the geometric mean of a list or ndarray of rates.
+
+    Parameters:
+    rates (list or ndarray): A list or ndarray of rates.
+
+    Returns:
+    float: The geometric mean of the rates.
+    """
+    # Convert the input to a numpy array to ensure compatibility with scipy's gmean function
+    rates_array = np.array(rates, dtype=float)
+
+    # Calculate the geometric mean
+    return (1 + rates_array).prod() ** (1.0 / len(rates_array)) - 1
 
 
 def split_region(datadict, code, start, end, splits=[], gamma=0.3):
@@ -686,3 +767,174 @@ def compute_correlation_across_groups(
     r2 = np.corrcoef(all_x, all_y)[0, 1] ** 2
 
     return r2
+
+
+# input a datasource, countrycode, token and output the coressponding datalist
+def get_data_list(datasource, code, token, start=None, end=None):
+    df = datasource
+    if start is None:
+        start = 1960
+    if end is None:
+        end = 2022
+    years = ["YR" + str(i) for i in range(start, end)]
+    translate = {
+        "A": "ATFP",
+        "K": "CM.MKT.LCAP.CD",
+        "L": "SP.POP.TOTL",
+        "Y": "NY.GDP.MKTP.CD",
+        "sigma": "EN.ATM.CO2E.KD.CD",
+        "C": "NE.CON.TOTL.ZS",
+    }
+    x = df[df["series"] == translate[token]][df["economy"] == code][years].values[0]
+    dictx = {years[i]: x[i] for i in range(len(years))}
+    clean_dict = {k: dictx[k] for k in dictx if not np.isnan(dictx[k])}
+    # the following code is to clean up nan
+    # e.g. we want to get from YR2003 to YR2018 because it is the most recent non-interuptted time series we can get
+    #   {'YR1998': nan,
+    #   'YR1999': nan,
+    #   'YR2000': 4.7781155553647325,
+    #   'YR2001': 4.9625160616028765,
+    #   'YR2002': nan,
+    #   'YR2003': 6.304385185367457,
+    #   'YR2004': 6.969212836006577,
+    #   'YR2005': 7.6477058929919774,
+    #   'YR2006': 7.504520232482988,
+    #   'YR2007': 8.317624876841197,
+    #   'YR2008': 11.719807056127324,
+    #   'YR2009': 6.912274757057348,
+    #   'YR2010': 7.994212407175231,
+    #   'YR2011': 9.736911695960446,
+    #   'YR2012': 10.398433320757619,
+    #   'YR2013': 12.063290518668204,
+    #   'YR2014': 10.653260323582714,
+    #   'YR2015': 11.37606978711656,
+    #   'YR2016': 10.119059765144947,
+    #   'YR2017': 10.686691489670057,
+    #   'YR2018': 10.580970189286578,
+    #   'YR2019': nan
+    #   'YR2020': nan,
+    #   'YR2021': nan}
+    z = []
+    j = -1
+    flag = False
+    for i in range(len(x) - 1, -1, -1):  # iterate from the rear
+        if not pd.isnull(x[i]):
+            flag = True  # we have the first normal number
+            if j == -1:
+                j = i
+        if pd.isnull(x[i]) and not flag:
+            continue
+        if pd.isnull(x[i]) and flag:
+            break  # break when we find the first nan after we find the first normal number
+        else:
+            z.append(x[i])
+
+    out = list(reversed(z))
+    return out, dictx, clean_dict, int(years[i + 1][2:]), int(years[j][2:])
+
+
+def get_Y_C_L_pairs(df, codes, year=None, exc_code=[]):
+    if year is None:
+        year = "YR2020"
+    else:
+        year = "YR" + str(year)
+    train_data = []
+    train_label = []
+    train_codes = []
+    test_data = []
+    test_codes = []
+    codes_ = []
+    for code in codes:
+        if code in exc_code:
+            continue
+        else:
+            label = get_data_list(df, code, "C")[1][year]
+            if pd.isnull(label):
+                test_data.append(
+                    [
+                        get_data_list(df, code, "Y")[1][year],
+                        get_data_list(df, code, "L")[1][year],
+                    ]
+                )
+                test_codes.append(code)
+            else:
+                train_data.append(
+                    [
+                        get_data_list(df, code, "Y")[1][year],
+                        get_data_list(df, code, "L")[1][year],
+                    ]
+                )
+                train_label.append(label)
+                train_codes.append(code)
+    return (
+        np.array(train_data),
+        np.array(train_label),
+        np.array(test_data),
+        dict(zip(train_codes, train_data)),
+        dict(zip(test_codes, test_data)),
+    )
+
+
+def get_env_data_list(df, code):
+    """
+    Function to get the geo_avg_sum_indicator value for a given ISO3 code from the dataframe.
+
+    :param df: Pandas DataFrame containing the data.
+    :param code: String, the ISO3 code for which the geo_avg_sum_indicator is needed.
+    :return: float, the geo_avg_sum_indicator value for the given ISO3 code.
+    """
+    # Filter the dataframe for the given code and retrieve the geo_avg_sum_indicator value
+    value = df[df["ISO3"] == code]["geo_avg_sum_indicator"].values
+    # If the value is found, return it, otherwise return None
+    return float(value[0]) / 100 if len(value) > 0 else 0
+
+
+def extract_group_memberships(csv_path):
+    """
+    Reads a CSV file and extracts group memberships of countries.
+
+    Args:
+    csv_path (str): Path to the CSV file.
+
+    Returns:
+    dict: A dictionary with group names as keys and lists of country ISO codes as values.
+    """
+    df = pd.read_csv(csv_path)
+
+    # Initialize an empty dictionary to hold the group memberships
+    group_memberships = {}
+
+    # Iterate over the columns (excluding the first two columns which are 'Country' and 'ISO')
+    for group in df.columns[2:]:
+        # Filter out the unnamed columns that might not represent groups
+        if "Unnamed" not in group:
+            # Get the ISO codes of countries where the group value is 1
+            members = df[df[group] == 1]["ISO"].tolist()
+            group_memberships[group] = members
+
+    return group_memberships
+
+
+import json
+import yaml
+
+# Load the JSON file
+with open("csv_asset/20_import_2016.json", "r") as json_file:
+    import_data_dict = json.load(json_file)
+with open("csv_asset/20_export_2016.json", "r") as json_file:
+    export_data_dict = json.load(json_file)
+
+
+# Function to update a single YAML file with new data
+def update_yaml_file(file_path, data_im, data_ex):
+    try:
+        with open(file_path, "r") as yaml_file:
+            current_data = yaml.safe_load(yaml_file) or {}
+    except FileNotFoundError:
+        current_data = {}
+
+    current_data["_RICE_CONSTANT"]["ximport"] = data_im
+    current_data["_RICE_CONSTANT"]["xexport"] = data_ex
+    with open(file_path, "w") as yaml_file:
+        yaml.dump(current_data, yaml_file, sort_keys=False)
+    return True
