@@ -41,7 +41,10 @@ SCENARIO_MAPPING = {
     "MinTrade":MinTrade,
     "MaxTradeGlobalPreferences":MaxTradeGlobalPreferences,
     "HighExpForPref":HighExpForPref,
-    "SubsetExport":SubsetExport
+    "SubsetExport":SubsetExport,
+    "SubsetPrefs":SubsetPrefs,
+    "SubsetExportGlobalPrefs":SubsetExportGlobalPrefs,
+    "SubsetGlobalPrefs":SubsetGlobalPrefs
 }
 
 
