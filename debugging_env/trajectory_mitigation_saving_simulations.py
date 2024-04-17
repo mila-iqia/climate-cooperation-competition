@@ -3,6 +3,7 @@ import wandb
 import time
 from rice import Rice
 from copy import deepcopy
+
 rice_env = Rice()
 rice_env.reset()
 total_actions = rice_env.total_possible_actions
@@ -45,7 +46,18 @@ def get_state_at_time_t(global_state, t, nb_region=27):
     return state_dict
 
 
-def run_single_experiment(is_wandb=False, mitigation_rate=None, savings_rate=None, pliability=None, damage_type=None, abatement_cost_type=None, debugging_folder=None, carbon_model=None, prescribed_emissions=None, temperature_calibration=None):
+def run_single_experiment(
+    is_wandb=False,
+    mitigation_rate=None,
+    savings_rate=None,
+    pliability=None,
+    damage_type=None,
+    abatement_cost_type=None,
+    debugging_folder=None,
+    carbon_model=None,
+    prescribed_emissions=None,
+    temperature_calibration=None,
+):
     if is_wandb:
         # Initialize a wandb run
         run = wandb.init(project="ricen-fair-abatement-function-debugging")
@@ -56,7 +68,15 @@ def run_single_experiment(is_wandb=False, mitigation_rate=None, savings_rate=Non
             temperature_calibration = "base"
         elif carbon_model in ["FaIR", "AR5"]:
             temperature_calibration = "FaIR"
-    env = Rice(dmg_function=damage_type, abatement_cost_type=abatement_cost_type, pliability=pliability, debugging_folder=debugging_folder, carbon_model=carbon_model, prescribed_emissions=prescribed_emissions, temperature_calibration=temperature_calibration)
+    env = Rice(
+        dmg_function=damage_type,
+        abatement_cost_type=abatement_cost_type,
+        pliability=pliability,
+        debugging_folder=debugging_folder,
+        carbon_model=carbon_model,
+        prescribed_emissions=prescribed_emissions,
+        temperature_calibration=temperature_calibration,
+    )
     env.reset()
 
     if is_wandb:
@@ -87,9 +107,7 @@ def run_single_experiment(is_wandb=False, mitigation_rate=None, savings_rate=Non
     else:
         s_r = savings_rate
     while True:  # Or some other condition to terminate the loop
-        ind_actions = RiceAction(
-            {"savings": s_r, "mitigation_rate": m_r}
-        ).actions
+        ind_actions = RiceAction({"savings": s_r, "mitigation_rate": m_r}).actions
 
         actions = {region_id: ind_actions for region_id in regions}
         obs, rew, done, truncated, info = env.step(actions)
@@ -105,15 +123,23 @@ def run_single_experiment(is_wandb=False, mitigation_rate=None, savings_rate=Non
                 "Year": current_timestep * 5,
             }
         )
-        if isinstance(mitigation_rate, (list, tuple, np.ndarray)) and len(mitigation_rates) > 0:
+        if (
+            isinstance(mitigation_rate, (list, tuple, np.ndarray))
+            and len(mitigation_rates) > 0
+        ):
             m_r = mitigation_rates.pop(0)
-        if isinstance(savings_rate, (list, tuple, np.ndarray)) and len(savings_rates) > 0:
+        if (
+            isinstance(savings_rate, (list, tuple, np.ndarray))
+            and len(savings_rates) > 0
+        ):
             s_r = savings_rates.pop(0)
         # Log the current states, not the empty 'result' variable
         if is_wandb:
             wandb.log(current_states)
-    if is_wandb:    
+    if is_wandb:
         wandb.finish()
+
+
 if __name__ == "__main__":
     # run_single_experiment(is_wandb=True, mitigation_rate = [0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9], savings_rate=1)
     # run_single_experiment(is_wandb=True, mitigation_rate = [0,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9], savings_rate=1)
@@ -122,4 +148,15 @@ if __name__ == "__main__":
     # run_single_experiment(is_wandb=True, mitigation_rate = [0,0,0,0,0,0,0,0,0,9,9,9,9,9,9,9,9,9,9], savings_rate=1)
     # run_single_experiment(is_wandb=False, mitigation_rate = [0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9], savings_rate=1, pliability=0.9, damage_type="updated", abatement_cost_type="path_dependent")
     # run_single_experiment(is_wandb=True, mitigation_rate = [0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9], savings_rate=1, pliability=0, damage_type="updated", abatement_cost_type="path_dependent")
-    run_single_experiment(is_wandb=True, mitigation_rate = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], savings_rate=2.5, pliability=0.9, damage_type="updated", abatement_cost_type="path_dependent", debugging_folder=None, carbon_model="FaIR", prescribed_emissions=None, temperature_calibration=None)
+    run_single_experiment(
+        is_wandb=True,
+        mitigation_rate=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        savings_rate=2.5,
+        pliability=0.9,
+        damage_type="updated",
+        abatement_cost_type="path_dependent",
+        debugging_folder=None,
+        carbon_model="FaIR",
+        prescribed_emissions=None,
+        temperature_calibration=None,
+    )

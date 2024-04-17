@@ -608,10 +608,12 @@ class Rice(gym.Env):
                 )
             )
 
-        if save_state:
-            self.set_state(
-                "production_all_regions", productions[region_id], region_id=region_id
-            )
+            if save_state:
+                self.set_state(
+                    "production_all_regions",
+                    productions[region_id],
+                    region_id=region_id,
+                )
 
         return productions
 

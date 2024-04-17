@@ -44,6 +44,17 @@ _RICE_CONSTANT:
   xL_0: 7403 # in POP population at the staring point
   xL_a: 11500 # in POP the expected population at convergence
   xl_g: 0.134 # in POP control the rate to converge
+
+  xmitigation_0: 0.0
+  xsaving_0: 0.25
+  xtax: 0.0
+
+  xexport: 0.0
+  ximport: 
+    '1': 0.0
+    '2': 0.0
+    '3': 0.0
+    
   xA_0: 5.115 # in TFP technology at starting point
   xg_A: 0.076 # in TFP control the rate of increasing of tech larger->faster
   xdelta_A: 0.005 # in TFP control the rate of increasing of tech smaller->faster
