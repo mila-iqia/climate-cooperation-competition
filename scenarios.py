@@ -4,6 +4,277 @@ import random
 _FEATURES = "features"
 _ACTION_MASK = "action_mask"
 
+class WelfGain(Rice):
+
+    """subset of prefs are high + added to observation also glo-fo-pref 
+    
+        Arguments:
+        - num_discrete_action_levels (int):  the number of discrete levels for actions, > 1
+        - negotiation_on (boolean): whether negotiation actions are available to agents
+        - scenario (str): name of scenario 
+
+        """
+    
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="WelfGain"  
+            ):
+        super().__init__(num_discrete_action_levels,negotiation_on,scenario)
+        self.welfare_gain_per_unit_exported = .4
+
+
+    def step_climate_and_economy(self, actions=None):
+        self.calc_activity_timestep()
+        self.is_valid_negotiation_stage(negotiation_stage=0)
+        self.is_valid_actions_dict(actions)
+
+        actions_dict = {
+            "savings_all_regions" : self.get_actions("savings", actions),
+            "mitigation_rates_all_regions" : self.get_actions("mitigation_rate", actions),
+            "export_limit_all_regions" : self.get_actions("export_limit", actions),
+            "import_bids_all_regions" : self.get_actions("import_bids", actions),
+            "import_tariffs_all_regions" : self.get_actions("import_tariffs", actions),
+        }
+
+        self.set_actions_in_global_state(actions_dict)
+
+        damages = self.calc_damages()
+        abatement_costs = self.calc_abatement_costs(actions_dict["mitigation_rates_all_regions"])
+        productions = self.calc_productions()
+
+        gross_outputs = self.calc_gross_outputs(damages, abatement_costs, productions)
+        investments = self.calc_investments(gross_outputs, actions_dict["savings_all_regions"])
+
+        gov_balances_post_interest = self.calc_gov_balances_post_interest()
+        debt_ratios = self.calc_debt_ratios(gov_balances_post_interest)
+
+        # TODO: self.set_global_state("tariffs", self.global_state["import_tariffs"]["value"][self.current_timestep])
+        # TODO: fix dependency on gross_output_all_regions
+        # TODO: government should reuse tariff revenue
+        gross_imports = self.calc_gross_imports(actions_dict['import_bids_all_regions'], gross_outputs, investments, debt_ratios)
+
+        tariff_revenues, net_imports = self.calc_trade_sanctions(gross_imports)
+        welfloss_multipliers = self.calc_welfloss_multiplier(gross_outputs, gross_imports, net_imports)
+        consumptions = self.calc_consumptions(
+            gross_outputs, investments, gross_imports, net_imports)
+        utilities = self.calc_utilities(consumptions)
+        self.calc_social_welfares(utilities)
+        self.calc_rewards(utilities, welfloss_multipliers)
+
+        self.calc_capitals(investments)
+        self.calc_labors()
+        self.calc_production_factors()
+        self.calc_gov_balances_post_trade(gov_balances_post_interest, gross_imports)
+
+        self.calc_carbon_intensities()
+        self.calc_global_carbon_mass(productions)
+        self.calc_global_temperature()
+
+        current_simulation_year = self.calc_current_simulation_year()
+        observations = self.get_observations()
+        rewards = self.get_rewards()
+        terminateds = {region_id: 0 for region_id in range(self.num_regions)}
+        terminateds = {"__all__": current_simulation_year == self.end_year}
+        truncateds = {region_id: 0 for region_id in range(self.num_regions)}
+        truncateds = {"__all__": current_simulation_year == self.episode_length}
+        info = {}
+
+        return observations, rewards, terminateds, truncateds, info
+
+
+    def calc_welfloss_multiplier(self, gross_outputs, gross_imports, net_imports, welfare_loss_per_unit_tariff=None, save_state=True):
+        """Calculate the welfare loss multiplier of exporting region due to being tariffed."""
+        if not self.apply_welfloss:
+            return np.ones((self.num_regions), dtype=self.float_dtype)
+
+        if welfare_loss_per_unit_tariff is None:
+            welfare_loss_per_unit_tariff = 0.4 # From Nordhaus 2015
+
+        import_tariffs = self.get_prev_state("import_tariffs_all_regions")
+        welfloss = np.ones((self.num_regions), dtype=self.float_dtype)
+
+        for region_id in range(self.num_regions):
+            for destination_region in range(self.num_regions):
+                welfloss[region_id] -= \
+                    (gross_imports[destination_region, region_id] / gross_outputs[region_id]) * \
+                        import_tariffs[destination_region, region_id] * welfare_loss_per_unit_tariff
+                
+                welfloss[region_id] += \
+                    (net_imports[destination_region, region_id]) / gross_outputs[region_id] * self.welfare_gain_per_unit_exported
+
+                
+        if save_state:
+            self.set_state("welfloss", welfloss)
+
+        return welfloss
+
+class WelfGainNoTariff(WelfGain):
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="WelfGainNoTariff"  
+            ):
+        super().__init__(num_discrete_action_levels,negotiation_on,scenario)
+
+    def calc_action_mask(self):
+        """
+        Generate action masks.
+        """
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+
+            mask = self.default_agent_action_mask.copy()
+
+
+
+                
+            #no tariffs
+            tariff_mask = [0] * self.num_discrete_action_levels * self.num_regions
+            
+
+            #mask tariff
+            tariffs_mask_start = sum(self.savings_possible_actions
+                                    + self.mitigation_rate_possible_actions
+                                    + self.export_limit_possible_actions)
+            tariff_mask_end = sum(self.calc_possible_actions("import_tariffs")) + tariffs_mask_start
+            mask[tariffs_mask_start:tariff_mask_end] = np.array(tariff_mask)
+
+
+            mask_dict[region_id] = mask
+            
+        return mask_dict
+
+    
+
+    
+    def get_observations(self):
+        """
+        Format observations for each agent by concatenating global, public
+        and private features.
+        The observations are returned as a dictionary keyed by region index.
+        Each dictionary contains the features as well as the action mask.
+        """
+        # Observation array features
+
+        # Global features that are observable by all regions
+        global_features = [
+            "timestep",
+        ]
+
+        # Public features that are observable by all regions
+        public_features = [
+            "gross_output_all_regions",
+            "investment_all_regions",
+            "export_limit_all_regions",
+            "current_balance_all_regions",
+            "tariffs",
+        ]
+
+        # Private features that are private to each region.
+        private_features = [
+            "reward_all_regions",
+        ]
+
+        # Features concerning two regions
+        bilateral_features = []
+
+        if self.negotiation_on:
+            global_features += ["negotiation_stage"]
+
+            public_features += []
+
+            private_features += [
+                "minimum_mitigation_rate_all_regions",
+            ]
+
+            bilateral_features += [
+                "promised_mitigation_rate",
+                "requested_mitigation_rate",
+                "proposal_decisions",
+            ]
+
+        shared_features = np.array([])
+        for feature in global_features + public_features:
+            shared_features = np.append(
+                shared_features,
+                self.flatten_array(
+                    self.global_state[feature]["value"][self.current_timestep]
+                    / self.global_state[feature]["norm"]
+                ),
+            )
+
+
+        # Form the feature dictionary, keyed by region_id.
+        features_dict = {}
+        for region_id in range(self.num_regions):
+            # Add a region indicator array to the observation
+            region_indicator = np.zeros(
+                self.num_regions, dtype=self.float_dtype
+            )
+            region_indicator[region_id] = 1
+
+            all_features = np.append(region_indicator, shared_features)
+
+            for feature in private_features:
+                assert (
+                    self.global_state[feature]["value"].shape[1]
+                    == self.num_regions
+                )
+                all_features = np.append(
+                    all_features,
+                    self.flatten_array(
+                        self.global_state[feature]["value"][
+                            self.current_timestep, region_id
+                        ]
+                        / self.global_state[feature]["norm"]
+                    ),
+                )
+
+            for feature in bilateral_features:
+                assert (
+                    self.global_state[feature]["value"].shape[1]
+                    == self.num_regions
+                )
+                assert (
+                    self.global_state[feature]["value"].shape[2]
+                    == self.num_regions
+                )
+                all_features = np.append(
+                    all_features,
+                    self.flatten_array(
+                        self.global_state[feature]["value"][
+                            self.current_timestep, region_id
+                        ]
+                        / self.global_state[feature]["norm"]
+                    ),
+                )
+                all_features = np.append(
+                    all_features,
+                    self.flatten_array(
+                        self.global_state[feature]["value"][
+                            self.current_timestep, :, region_id
+                        ]
+                        / self.global_state[feature]["norm"]
+                    ),
+                )
+
+            features_dict[region_id] = all_features
+
+        # Fetch the action mask dictionary, keyed by region_id.
+        action_mask_dict = self.calc_action_mask()
+
+        # Form the observation dictionary keyed by region id.
+        obs_dict = {}
+        for region_id in range(self.num_regions):
+            obs_dict[region_id] = {
+                _FEATURES: features_dict[region_id],
+                _ACTION_MASK: action_mask_dict[region_id],
+            }
+
+        return obs_dict
+
 class SubsetPrefsAndExport(Rice):
 
     """Scenario where agents have a high preference for foreign consumption

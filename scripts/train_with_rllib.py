@@ -45,7 +45,9 @@ SCENARIO_MAPPING = {
     "SubsetPrefs":SubsetPrefs,
     "SubsetExportGlobalPrefs":SubsetExportGlobalPrefs,
     "SubsetGlobalPrefs":SubsetGlobalPrefs,
-    "SubsetPrefsAndExport":SubsetPrefsAndExport
+    "SubsetPrefsAndExport":SubsetPrefsAndExport,
+    "WelfGain":WelfGain,
+    "WelfGainNoTariff":WelfGainNoTariff
 }
 
 
