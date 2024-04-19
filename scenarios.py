@@ -38,8 +38,6 @@ class WelfGain(Rice):
             "import_tariffs_all_regions" : self.get_actions("import_tariffs", actions),
         }
 
-        print("import_tariffs")
-        print(actions_dict["import_tariffs_all_regions"])
 
 
 
@@ -139,7 +137,7 @@ class WelfGainNoTariff(WelfGain):
             tariff_mask = []
             for other_region_id in range(self.num_regions):
 
-                regional_tariff_mask = [0]*(self.num_discrete_action_levels)
+                regional_tariff_mask = [1]+[0]*(self.num_discrete_action_levels - 1)
                 tariff_mask.extend(regional_tariff_mask)
 
             #mask tariff
@@ -333,7 +331,6 @@ class WelfGainNoTariff(WelfGain):
 
         # Fetch the action mask dictionary, keyed by region_id.
         action_mask_dict = self.calc_action_mask()
-        print(action_mask_dict)
 
         # Form the observation dictionary keyed by region id.
         obs_dict = {}
