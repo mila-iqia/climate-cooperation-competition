@@ -22,7 +22,7 @@ class WelfGain(Rice):
                  scenario="WelfGain"  
             ):
         super().__init__(num_discrete_action_levels,negotiation_on,scenario)
-        self.welfare_gain_per_unit_exported = .4
+        self.welfare_gain_per_unit_exported = .8
 
 
     def step_climate_and_economy(self, actions=None):
@@ -37,6 +37,11 @@ class WelfGain(Rice):
             "import_bids_all_regions" : self.get_actions("import_bids", actions),
             "import_tariffs_all_regions" : self.get_actions("import_tariffs", actions),
         }
+
+        print("import_tariffs")
+        print(actions_dict["import_tariffs_all_regions"])
+
+
 
         self.set_actions_in_global_state(actions_dict)
 
@@ -130,21 +135,85 @@ class WelfGainNoTariff(WelfGain):
 
 
                 
-            #no tariffs
-            tariff_mask = [0] * self.num_discrete_action_levels * self.num_regions
-            
+            #tariff non club members
+            tariff_mask = []
+            for other_region_id in range(self.num_regions):
+
+                regional_tariff_mask = [0]*(self.num_discrete_action_levels)
+                tariff_mask.extend(regional_tariff_mask)
 
             #mask tariff
             tariffs_mask_start = sum(self.savings_possible_actions
                                     + self.mitigation_rate_possible_actions
-                                    + self.export_limit_possible_actions)
+                                    + self.export_limit_possible_actions
+                                    + self.import_bids_possible_actions)
             tariff_mask_end = sum(self.calc_possible_actions("import_tariffs")) + tariffs_mask_start
             mask[tariffs_mask_start:tariff_mask_end] = np.array(tariff_mask)
-
-
-            mask_dict[region_id] = mask
             
+            mask_dict[region_id] = mask
+
         return mask_dict
+    
+    def step_climate_and_economy(self, actions=None):
+        self.calc_activity_timestep()
+        self.is_valid_negotiation_stage(negotiation_stage=0)
+        self.is_valid_actions_dict(actions)
+
+        actions_dict = {
+            "savings_all_regions" : self.get_actions("savings", actions),
+            "mitigation_rates_all_regions" : self.get_actions("mitigation_rate", actions),
+            "export_limit_all_regions" : self.get_actions("export_limit", actions),
+            "import_bids_all_regions" : self.get_actions("import_bids", actions),
+            "import_tariffs_all_regions" : self.get_actions("import_tariffs", actions),
+        }
+
+        
+
+
+        self.set_actions_in_global_state(actions_dict)
+
+        damages = self.calc_damages()
+        abatement_costs = self.calc_abatement_costs(actions_dict["mitigation_rates_all_regions"])
+        productions = self.calc_productions()
+
+        gross_outputs = self.calc_gross_outputs(damages, abatement_costs, productions)
+        investments = self.calc_investments(gross_outputs, actions_dict["savings_all_regions"])
+
+        gov_balances_post_interest = self.calc_gov_balances_post_interest()
+        debt_ratios = self.calc_debt_ratios(gov_balances_post_interest)
+
+        # TODO: self.set_global_state("tariffs", self.global_state["import_tariffs"]["value"][self.current_timestep])
+        # TODO: fix dependency on gross_output_all_regions
+        # TODO: government should reuse tariff revenue
+        gross_imports = self.calc_gross_imports(actions_dict['import_bids_all_regions'], gross_outputs, investments, debt_ratios)
+
+        tariff_revenues, net_imports = self.calc_trade_sanctions(gross_imports)
+        welfloss_multipliers = self.calc_welfloss_multiplier(gross_outputs, gross_imports, net_imports)
+        consumptions = self.calc_consumptions(
+            gross_outputs, investments, gross_imports, net_imports)
+        utilities = self.calc_utilities(consumptions)
+        self.calc_social_welfares(utilities)
+        self.calc_rewards(utilities, welfloss_multipliers)
+
+        self.calc_capitals(investments)
+        self.calc_labors()
+        self.calc_production_factors()
+        self.calc_gov_balances_post_trade(gov_balances_post_interest, gross_imports)
+
+        self.calc_carbon_intensities()
+        self.calc_global_carbon_mass(productions)
+        self.calc_global_temperature()
+
+        current_simulation_year = self.calc_current_simulation_year()
+        observations = self.get_observations()
+        rewards = self.get_rewards()
+        terminateds = {region_id: 0 for region_id in range(self.num_regions)}
+        terminateds = {"__all__": current_simulation_year == self.end_year}
+        truncateds = {region_id: 0 for region_id in range(self.num_regions)}
+        truncateds = {"__all__": current_simulation_year == self.episode_length}
+        info = {}
+
+        return observations, rewards, terminateds, truncateds, info
 
     
 
@@ -264,6 +333,7 @@ class WelfGainNoTariff(WelfGain):
 
         # Fetch the action mask dictionary, keyed by region_id.
         action_mask_dict = self.calc_action_mask()
+        print(action_mask_dict)
 
         # Form the observation dictionary keyed by region id.
         obs_dict = {}

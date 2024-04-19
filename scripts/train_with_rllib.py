@@ -23,6 +23,8 @@ import yaml
 from desired_outputs import desired_outputs
 from fixed_paths import PUBLIC_REPO_DIR
 from run_unittests import import_class_from_path
+from ray.rllib.agents.callbacks import DefaultCallbacks
+
 from opt_helper import save
 from rice import Rice
 from scenarios import *
@@ -335,6 +337,54 @@ def load_model_checkpoints(trainer_obj=None, save_directory=None, ckpt_idx=-1):
 
     trainer_obj.set_weights(model_params)
 
+# # Callback class definition
+# class MyCustomCallback(DefaultCallbacks):
+#     def on_episode_start(self, *, worker, base_env, episode, **kwargs):
+#         episode.user_data['episode_rewards'] = []
+
+#     def on_episode_end(self, *, worker, base_env, episode, **kwargs):
+#         episode_reward = episode.total_reward
+#         episode.user_data['episode_rewards'].append(episode_reward)
+#         print(f"Episode {episode.episode_id} ended with total reward: {episode_reward}")
+
+#     def on_train_result(self, *, trainer, result, **kwargs):
+#         all_rewards = []
+#         for episode in result['episodes']:
+#             all_rewards.extend(episode.user_data['episode_rewards'])
+        
+#         average_reward = np.mean(all_rewards) if all_rewards else 0
+#         print(f"Iteration {result['training_iteration']} ended with average reward: {average_reward}")
+#         result['custom_metrics'] = {'average_reward': average_reward}
+
+
+from ray.rllib.algorithms.callbacks import DefaultCallbacks
+
+class MyCallbacks(DefaultCallbacks):
+    def __init__(self):#, key, value_fn):
+        super().__init__()
+    #     self.key = key
+    #     self.value_fn = value_fn
+    #     self.episode_values = []
+
+    # def on_episode_end(self, episode, worker, results):
+    #     value = self.value_fn(episode)
+    #     self.episode_values.append(value)
+    #     self.results[self.key] = sum(self.episode_values) / len(self.episode_values)
+    
+    def on_trial_result(self, iteration, trials, trial, result, **info):
+        # Get the environment from the trial
+        # env = trial.get_policy().get_env()
+
+        # # Get the data you want to add to the results dictionary
+        # data = env.get_custom_data()
+
+        # Add the data to the results dictionary
+        result["custom_data"] = "A"*1000000
+
+        # Call the parent on_trial_result method to ensure the rest of the callback chain is executed
+        super().on_trial_result(iteration, trials, trial, result, **info)
+
+
 
 def create_trainer(config_yaml=None, source_dir=None, seed=None):
     """
@@ -372,6 +422,8 @@ def create_trainer(config_yaml=None, source_dir=None, seed=None):
         EnvWrapper,
         env_config=rllib_config["env_config"],
     )
+
+    config = config.callbacks(MyCallbacks)
 
     config.seed = seed
 
