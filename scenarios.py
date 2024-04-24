@@ -4,6 +4,94 @@ import random
 _FEATURES = "features"
 _ACTION_MASK = "action_mask"
 
+class PrefMatch(Rice):
+
+    """Scenario where agents have a high preference for foreign consumption
+    
+        Arguments:
+        - num_discrete_action_levels (int):  the number of discrete levels for actions, > 1
+        - negotiation_on (boolean): whether negotiation actions are available to agents
+        - scenario (str): name of scenario 
+
+        """
+    
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="PrefMatch"  
+            ):
+        super().__init__(num_discrete_action_levels,negotiation_on,scenario)
+        self.set_trade_params()
+        self.exp_level = 8
+
+    def set_trade_params(self):
+        # TODO : add to yaml
+
+        self.init_capital_multiplier = 10.0
+        self.balance_interest_rate = 0.1
+        self.consumption_substitution_rate = 1.0
+        self.preference_for_domestic = 0.1
+        self.non_target_pref = .01
+        self.preference_for_imported = self.calc_uniform_foreign_preferences()
+        
+        # Typecasting
+        self.consumption_substitution_rate = np.array(
+            [self.consumption_substitution_rate]
+        ).astype(self.float_dtype)
+        self.preference_for_domestic = np.array(
+            [self.preference_for_domestic]
+        ).astype(self.float_dtype)
+        # self.preference_for_imported = np.array(
+        #     self.preference_for_imported, dtype=self.float_dtype
+        # )
+
+    def calc_uniform_foreign_preferences(self):
+        target_pref = (1 - self.preference_for_domestic - (self.num_regions - 1) * self.non_target_pref)
+        preferences = {}
+        
+        # Generate a valid permutation where no agent prefers themselves
+        valid = False
+        while not valid:
+            permutation = np.random.permutation(self.num_regions)
+            if not any(i == permutation[(i + 1) % self.num_regions] for i in range(self.num_regions)):
+                valid = True
+
+        # Assign preferences in a circular manner
+        for i in range(self.num_regions):
+            preferences[i] = np.array([target_pref if idx == permutation[(i + 1) % self.num_regions] else self.non_target_pref 
+                                       for idx in range(self.num_regions)], dtype=self.float_dtype)
+        return preferences
+    
+    def calc_consumptions(self, gross_outputs, investments, gross_imports, net_imports, save_state=True):
+        consumptions = np.zeros(self.num_regions, dtype=self.float_dtype)
+        for region_id in range(self.num_regions):
+            total_exports = np.sum(gross_imports[:, region_id])
+            assert (
+                gross_outputs[region_id] - investments[region_id] - total_exports > -1e-5
+            ), "consumption cannot be negative."
+            domestic_consumption =  max(0.0, gross_outputs[region_id] - investments[region_id] - total_exports)
+
+            c_dom_pref = self.preference_for_domestic * (
+                domestic_consumption**self.consumption_substitution_rate
+            )
+            c_for_pref = np.sum(
+                self.preference_for_imported[region_id]
+                * pow(net_imports[region_id, :], self.consumption_substitution_rate)
+            )
+            print(region_id,self.preference_for_imported[region_id])
+            consumptions[region_id] = (c_dom_pref + c_for_pref) ** (
+                1 / self.consumption_substitution_rate
+            )  # CES function
+            # TODO: fix for region-specific state saving
+            if save_state:
+                self.set_state("aggregate_consumption", consumptions[region_id], region_id=region_id)
+        return consumptions
+
+
+    
+
+
 class WelfGain(Rice):
 
     """subset of prefs are high + added to observation also glo-fo-pref 
