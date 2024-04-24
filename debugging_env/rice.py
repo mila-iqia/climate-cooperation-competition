@@ -1706,9 +1706,9 @@ class Rice(gym.Env):
             "abatement_cost_all_regions",
             "damages_all_regions",
             "mitigation_cost_all_regions",
-            "export_limit_all_regions",
-            "mitigation_rates_all_regions",
-            "savings_all_regions",
+            # "export_limit_all_regions",
+            # "mitigation_rates_all_regions",
+            # "savings_all_regions",
             "capital_depreciation_all_regions",
         ]:
             self.set_state(key, value=np.zeros(self.num_regions))
@@ -1722,6 +1722,27 @@ class Rice(gym.Env):
             self.set_state(key, value=np.zeros(self.num_regions), norm=1e3)
         region_ids = range(self.num_regions)
         params = self.all_regions_params
+        if key == "mitigation_rates_all_regions":
+            self.set_state(
+                key,
+                value=np.array(
+                    [params[region]["xmitigation_0"] for region in region_ids]
+                ),
+                norm=1e-1,
+            )
+        if key == "savings_all_regions":
+            self.set_state(
+                key,
+                value=np.array([params[region]["xsaving_0"] for region in region_ids]),
+                norm=1e-1,
+            )
+
+        if key == "export_limit_all_regions":
+            self.set_state(
+                key,
+                value=np.array([params[region]["xexport"] for region in region_ids]),
+                norm=1e-1,
+            )
         if key == "intensity_all_regions":
             self.set_state(
                 key,
@@ -1840,6 +1861,15 @@ class Rice(gym.Env):
             "promised_mitigation_rate",
         ]:
             self.set_state(key, value=np.zeros((self.num_regions, self.num_regions)))
+
+        if key == "import_bids_all_regions":
+            self.set_state(
+                key,
+                value=np.array(
+                    [list(params[region]["ximport"].values()) for region in region_ids]
+                ),
+                norm=1e-1,
+            )
         if key in [
             "imports_minus_tariffs",
             "desired_imports",

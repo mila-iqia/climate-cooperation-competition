@@ -91,7 +91,7 @@ def run_single_experiment(
         if debugging_folder == "2_region":
             num_region = 2
         elif debugging_folder == "region_yamls" or debugging_folder is None:
-            num_region = 27
+            num_region = 3
         else:
             raise ValueError("Invalid debugging folder")
         experiment_name = f"m_{mitigation_rate}_s_{savings_rate}_p_{pliability}_d_{damage_type}_a_{abatement_cost_type}_v_{num_region}_c_{carbon_model}_pe_{prescribed_emissions}_tc_{temperature_calibration}"
@@ -107,13 +107,6 @@ def run_single_experiment(
     else:
         s_r = savings_rate
     while True:  # Or some other condition to terminate the loop
-        ind_actions = RiceAction({"savings": s_r, "mitigation_rate": m_r}).actions
-
-        actions = {region_id: ind_actions for region_id in regions}
-        obs, rew, done, truncated, info = env.step(actions)
-        if done["__all__"]:
-            break
-
         current_timestep = env.current_timestep
         current_states = get_state_at_time_t(env.global_state, current_timestep)
         current_states.update(
@@ -136,6 +129,12 @@ def run_single_experiment(
         # Log the current states, not the empty 'result' variable
         if is_wandb:
             wandb.log(current_states)
+        ind_actions = RiceAction({"savings": s_r, "mitigation_rate": m_r}).actions
+
+        actions = {region_id: ind_actions for region_id in regions}
+        obs, rew, done, truncated, info = env.step(actions)
+        if done["__all__"]:
+            break
     if is_wandb:
         wandb.finish()
 
