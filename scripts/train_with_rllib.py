@@ -29,7 +29,7 @@ from scenarios import *
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--yaml", "-y", type=str, default="rice_rllib_discrete.yaml")
+parser.add_argument("--yaml", "-y", type=str, default="rice_rllib_cont_beta.yaml")
 args = parser.parse_args()
 sys.path.append(PUBLIC_REPO_DIR)
 
