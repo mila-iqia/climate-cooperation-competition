@@ -26,7 +26,9 @@ trainer:
     # do not set to -1
     num_cpus_per_worker: 1 # do not set to -1
     num_gpus: 1 # number of GPUs to allocate to the trainer process. This can also be fractional (e.g., 0.3 GPUs).
-
+    _enable_rl_module_api: False # sample from policy by deterministic sampling or sampling from the policy distribution
+    # the output of the NN is the statistics of the distribution
+    # we sample from the distribution given the statistics, or we just get the mean of the distribution
 # Environment configuration
 env:
     negotiation_on: False # flag to indicate whether negotiation is allowed or not
