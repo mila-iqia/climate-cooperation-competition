@@ -153,13 +153,14 @@ class Rice(gym.Env):
         self.reset_state("intensity_all_regions")
         self.reset_state("mitigation_rates_all_regions")
 
-        # additional climate states for carbon model
+        # additional climate states for carbon and temperature model
         self.reset_state("global_alpha")
         self.reset_state("global_carbon_reservoirs")
         self.reset_state("global_cumulative_emissions")
         self.reset_state("global_cumulative_land_emissions")
         self.reset_state("global_emissions")
         self.reset_state("global_acc_pert_carb_stock")
+        self.reset_state('global_temperature_boxes')
 
         # economic states
         self.reset_state("production_all_regions")
@@ -888,6 +889,41 @@ class Rice(gym.Env):
 
             return global_temperature
 
+        elif self.temperature_calibration == "DFaIR":
+            global_exogenous_emissions = self.calc_exogenous_emissions()
+            prev_carbon_mass = self.get_prev_state("global_carbon_mass")
+            prev_global_temperature = self.get_prev_state("global_temperature")
+            prev_global_temperature_boxes = self.get_prev_state("global_temperature_boxes")            
+            
+            # TODO: why the zero index?
+            # global_exogenous_emissions = global_exogenous_emissions[0]
+            prev_atmospheric_carbon_mass = prev_carbon_mass[0]
+            atmospheric_carbon_mass = np.array(self.all_regions_params[0]["xM_AT_1750"])  # Equilibrium atmospheric carbon mass
+            f_2x = np.array(self.all_regions_params[0]["xF_2x"])
+
+            d = np.array([self.all_regions_params[0]["xT_LO_rt"], self.all_regions_params[0]["xT_UO_rt"]])
+            teq = np.array([self.all_regions_params[0]["xT_LO_tq"], self.all_regions_params[0]["xT_UO_tq"]])
+
+            forcings = (
+                f_2x
+                * np.log(prev_atmospheric_carbon_mass / atmospheric_carbon_mass)
+                / np.log(2)
+                + global_exogenous_emissions
+            )
+
+            global_temperature_boxes = prev_global_temperature_boxes * np.exp(-5/d) + teq * forcings * (1 - np.exp(-5/d))
+
+            if save_state:
+                self.set_state("global_temperature_boxes", global_temperature_boxes)
+
+            global_temperature = np.array([np.sum(global_temperature_boxes), 0])
+
+            if save_state:
+                self.set_state("global_temperature", global_temperature)
+
+            return global_temperature
+
+
     def calc_global_carbon_mass(self, productions, save_state=True):
         if self.carbon_model == "base":
             global_land_emissions = self.calc_land_emissions()
@@ -923,7 +959,7 @@ class Rice(gym.Env):
 
             global_carbon_mass += np.dot(self.all_regions_params[0]["xB_M"], sum_aux_m)
 
-        elif self.carbon_model in ["FaIR", "AR5"]:
+        elif self.carbon_model in ["FaIR", "AR5", "DFaIR"]:
             prev_global_land_emissions = self.get_prev_state("global_land_emissions")
             prev_global_emissions = self.get_prev_state("global_emissions")
             prev_global_carbon_reservoirs = self.get_prev_state(
@@ -944,16 +980,18 @@ class Rice(gym.Env):
             tau = np.array([self.all_regions_params[0][f"xM_t{i}"] for i in range(4)])
             C0 = self.all_regions_params[0]["xM_AT_1750"]
 
+            irf0, irC, irT = self.all_regions_params[0]["irf0"], self.all_regions_params[0]["irC"], self.all_regions_params[0]["irT"]
+
             # DAE determines given concentrations and temperature how much the reservoirs can absorb
-            if self.carbon_model == "FaIR":
+            if self.carbon_model in ["FaIR", "DFaIR"]:
                 prev_global_alpha = self.get_prev_state("global_alpha")
 
                 def DAE_(oneoveralpha):
                     b = a * tau * (1 - np.exp(-100 * oneoveralpha / tau))
                     return np.sum(b) - oneoveralpha * (
-                        35
-                        + 0.019 * prev_global_acc_pert_carb_stock
-                        + 4.165 * prev_global_temperature[0]
+                        irf0
+                        + irC * prev_global_acc_pert_carb_stock
+                        + irT * prev_global_temperature[0]
                     )
 
                 global_alpha = 1 / newton(DAE_, x0=1 / prev_global_alpha)
@@ -1022,14 +1060,20 @@ class Rice(gym.Env):
                 self.set_state(
                     "global_cumulative_land_emissions", global_cumulative_land_emissions
                 )
-
-            global_carbon_reservoirs = prev_global_carbon_reservoirs ** np.exp(
-                -5 / (global_alpha * tau)
-            ) + a * sum_aux_m / 5 * conv * (
-                np.exp(-1 / (global_alpha * tau)) - np.exp(-6 / (global_alpha * tau))
-            ) / (
-                1 - np.exp(-1 / (global_alpha * tau))
-            )
+            if self.carbon_model in ["AR5","FaIR"]:
+                global_carbon_reservoirs = prev_global_carbon_reservoirs ** np.exp(
+                    -5 / (global_alpha * tau)
+                ) + a * sum_aux_m / 5 * conv * (
+                    np.exp(-1 / (global_alpha * tau)) - np.exp(-6 / (global_alpha * tau))
+                ) / (
+                    1 - np.exp(-1 / (global_alpha * tau))
+                )
+            elif self.carbon_model == "DFaIR":
+                global_carbon_reservoirs = prev_global_carbon_reservoirs * np.exp(
+                    -5 / (tau * global_alpha)
+                ) + a * sum_aux_m / 5 * conv * tau * global_alpha * (
+                    1 - np.exp(-5 / (global_alpha * tau))
+                )
             if save_state:
                 self.set_state("global_carbon_reservoirs", global_carbon_reservoirs)
 
@@ -1492,6 +1536,7 @@ class Rice(gym.Env):
             "global_exogenous_emissions",
             "global_land_emissions",
             "timestep",
+            "global_temperature_boxes",
             "global_carbon_reservoirs",
             "global_cumulative_emissions",
             "global_cumulative_land_emissions",
@@ -1741,6 +1786,18 @@ class Rice(gym.Env):
                     ),
                     norm=1e1,
                 )
+            elif self.temperature_calibration == 'DFaIR':
+                self.set_state(
+                    key, 
+                    value=np.array([params[0]["xT_LO_0"]+params[0]["xT_UO_0"], params[0]["xT_LO_0"]]), 
+                    norm=1e1, 
+                )
+        if key == "global_temperature_boxes":
+            self.set_state(
+                key, 
+                value=np.array([params[0]["xT_LO_0"], params[0]["xT_UO_0"]]), 
+                norm=1e1, 
+            )
 
         if key == "global_carbon_mass":
             self.set_state(

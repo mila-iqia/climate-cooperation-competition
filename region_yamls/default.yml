@@ -36,7 +36,7 @@ _RICE_CONSTANT:
   xgamma: 0.3 # in CAP Eq 5 the capital elasticty
   xtheta_2: 2.6 # in CAP Eq 6
   xa_1: 0
-  xa_2: 0.00236 # in CAP Eq 6
+  xa_2: 0.00236 # in CAP Eq 6  # DFAIR: 0.003467
   xa_3: 2 # in CAP Eq 6
   xdelta_K: 0.1 # in CAP Eq 9 param discribe the depreciate of the capital
   xalpha: 1.45 # Utility function param
@@ -91,6 +91,20 @@ _RICE_CONSTANT:
   xEInd_0: 35.85
   xEL_0: 2.6
   xalpha_0: 1
+
+  irf0: 35  # Fair: 35, DFAIR: 32.4
+  irC: 0.019
+  irT: 4.165
+
+  # DFAIR model
+  xT_LO_tq: 0.324  # Thermal equilibration parameter for box 1 (m^2 per KW), 0.33 in FaIR
+  xT_UO_tq: 0.44  # Thermal equilibration parameter for box 2 (m^2 per KW), 0.41 in FaIR
+
+  xT_LO_rt: 236  #  Thermal response timescale for box 1 (lower/deep ocean) (year), 239 in FaIR 
+  xT_UO_rt: 4.07  # Thermal response timescale for box 2 (upper ocean) (year), 4.1 in FaIR
+  
+  xT_LO_0: 0.11541  # Initial temperature box 1 change, Mean of DFaIR (2020): 0.1477 (C from 1765) and Fair-DICE implementation (2010): 0.08312
+  xT_UO_0: 0.934127  # Initial temperature box 2 change, Mean of DFaIR (2020): 1.099454 (C from 1765) and Fair-DICE implementation for (2010): 0.7688
 
   # Temperature model
   xT_AT_0_FaIR: 1.243
