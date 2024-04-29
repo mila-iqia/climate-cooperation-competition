@@ -12,7 +12,7 @@ _DICE_CONSTANT:
   xPhi_M: [[0.88, 0.196, 0], [0.12, 0.797, 0.001465], [0, 0.007, 0.99853488]]
   # xB_M: [0.2727272727272727, 0, 0] # 12/44
   xB_M: [1.36388, 0, 0] # 12/44
-  xeta: 3.6813 #?? I don't find where it's used
+  xeta: 3.93 #?? I don't find where it's used
 
   xM_AT_1750: 588 # atmospheric mass of carbon in the year of 1750
   xf_0: 0.5 # in Eq 3  param to effect of greenhouse gases other than carbon dioxide
@@ -29,14 +29,14 @@ _DICE_CONSTANT:
   xmu_0: 0.03 # in EI define the initial simga_0: e0/(q0(1-mu0))
 
   # From Python implementation PyDICE
-  xF_2x: 3.6813 # 3.6813 # Forcing that doubles equilibrium carbon.
-  xT_2x: 3.1 # 3.1 # Equilibrium temperature increase at double carbon eq.
+  xF_2x: 3.93 # 3.93 FairDICE IPCC 6 # 3.6813 DICE # Forcing that doubles equilibrium carbon.
+  xT_2x: 3.0 # 3.0 FairDice and ICPCC 6 # 3.1 DICE # Equilibrium temperature increase at double carbon eq.
 
 _RICE_CONSTANT:
   xgamma: 0.3 # in CAP Eq 5 the capital elasticty
   xtheta_2: 2.6 # in CAP Eq 6
   xa_1: 0
-  xa_2: 0.00236 # in CAP Eq 6
+  xa_2: 0.003467 # in CAP Eq 6
   xa_3: 2 # in CAP Eq 6
   xdelta_K: 0.1 # in CAP Eq 9 param discribe the depreciate of the capital
   xalpha: 1.45 # Utility function param
@@ -88,4 +88,26 @@ _RICE_CONSTANT:
 #  xT_2y: 3.6813/3.1 #forcoings of eq co2 doubling/ETS
   xT_3: 0.73
   xT_4: 106
-  xT_kappa: 3.6813
+  xT_kappa: 3.93
+
+  irf0: 35
+  irC: 0.019
+  irT: 4.165
+
+  # DFAIR model
+  xF_2x_DFaIR: 3.93 # 3.93 DFair # Forcing that doubles equilibrium carbon set in the DFAIR model of Nordhaus 2023.
+  
+  xT_LO_tq: 0.324  # Thermal equilibration parameter for box 1 (m^2 per KW), 0.33 in FaIR
+  xT_UO_tq: 0.44  # Thermal equilibration parameter for box 2 (m^2 per KW), 0.41 in FaIR
+
+  xT_LO_rt: 236  #  Thermal response timescale for box 1 (lower/deep ocean) (year), 239 in FaIR 
+  xT_UO_rt: 4.07  # Thermal response timescale for box 2 (upper ocean) (year), 4.1 in FaIR
+  
+  xT_LO_0: 0.11541 # Mean # 0.1477 DFaIR (2020) # Initial temperature box 1 change in 2020 (C from 1765), 0.08312 in the Fair-DICE implementation for 2010
+  xT_UO_0: 0.934127 # Mean # 1.099454 DFaIR (2020) # Initial temperature box 2 change in 2020 (C from 1765), 0.7688 in the Fair-DICE implementation for 2010
+
+  xa_2_DFaIR: 0.003467 # in CAP Eq 6 #  updated Damage Function  0.003467
+
+  irf0_DFaIR: 32.4
+  irC_DFaIR: 0.019
+  irT_DFaIR: 4.165
