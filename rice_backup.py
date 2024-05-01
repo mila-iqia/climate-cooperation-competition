@@ -279,8 +279,7 @@ class Rice(gym.Env):
             "import_bids_all_regions": self.get_actions("import_bids", actions),
             "import_tariffs_all_regions": self.get_actions("import_tariffs", actions),
         }
-        if self.action_space_type == "continuous":
-            actions_dict = self.cont_implement_bounds(actions_dict)
+
         self.set_actions_in_global_state(actions_dict)
 
         damages = self.calc_damages()
@@ -1619,67 +1618,6 @@ class Rice(gym.Env):
         # if self.current_timestep == 2 and region_id == 26:
         #     print("flag")
         return obs_dict
-    
-    def cont_bound_scheduler(self, x, t, type_="pow", k=1):
-        """
-        Calculate the function value based on the provided version.
-        
-        Parameters:
-            x (float): The fixed value for x, should be in the interval [0, 1].
-            t (float): The value of t, should be greater than 0.
-            type_ (str): Specifies the version of the function to use.
-                        exp for exponential decay, pow for power decay.
-            k (float): The decay rate for the decay. The larger the faster but always slower
-        
-        Returns:
-            float: The result of the function calculation.
-        """
-        x_mask = np.logical_and(x > 0, x < 1)
-        if np.all(x == 0) or np.all(x == 1):
-            return [np.zeros(x.shape), np.ones(x.shape)]
-        if type_ == "exp":
-            u = x * np.exp(t/k)
-            l = x * (1 - np.exp(t/k))
-        elif type_ == "pow":
-            u = x + (t/k)**2
-            l = x - (t/k)**2
-        else:
-            raise ValueError(f"Unknown type: {type_}")
-        l = x_mask * l # make 0 or 1 input to have 0 as lower bound
-        u = x_mask * u + (1 - x_mask) # make 0 or 1 input to have 1 as upper bound
-        return [l, u]
-    
-    # def cont_override_action(self, action, bound):
-    #     if action > bound[1]:
-    #         action = bound[1]
-    #     elif action < bound[0]:
-    #         action = bound[0]
-    #     return action
-
-    def cont_override_action_batch(self, actions, bounds):
-        # Ensure actions and bounds are numpy arrays
-        actions = np.array(actions)
-        lower_bounds = bounds[0]
-        upper_bounds = bounds[1]
-
-        # Apply the bounds using vectorized operations
-        clipped_actions = np.clip(actions, lower_bounds, upper_bounds)
-
-        return clipped_actions
-    
-    def cont_implement_bounds(self, actions_dict):
-        keys = {"xsaving_0": "savings_all_regions", "xmitigation_0": "mitigation_rates_all_regions", "xexport": "export_limit_all_regions", "ximport": "import_bids_all_regions"}
-        for k, v in keys.items():
-            if k != "ximport":
-                bounds = self.cont_bound_scheduler(x=np.array([d[k] for d in self.all_regions_params]), t=self.current_timestep, type_="pow", k=8)
-                clipped_actions = self.cont_override_action_batch(actions=np.array(actions_dict[v]), bounds=bounds)
-                actions_dict[v] = clipped_actions
-            else:
-                for region_id in range(1, 1+self.num_regions):
-                    bounds = self.cont_bound_scheduler(x=np.array([d[k][str(region_id)] for d in self.all_regions_params]), t=self.current_timestep, type_="pow", k=8)
-                    clipped_actions = self.cont_override_action_batch(actions=np.array(actions_dict[v][region_id-1]), bounds=bounds)
-                    actions_dict[v][region_id-1] = clipped_actions
-        return actions_dict
 
     def get_rewards(self):
         # regions Ids must be strings

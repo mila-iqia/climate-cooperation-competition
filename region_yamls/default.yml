@@ -50,11 +50,11 @@ _RICE_CONSTANT:
   xtax: 0.0
 
   xexport: 0.0
-  ximport: 
-    '1': 0.0
-    '2': 0.0
-    '3': 0.0
-    
+  ximport:
+    "1": 0.0
+    "2": 0.0
+    "3": 0.0
+
   xA_0: 5.115 # in TFP technology at starting point
   xg_A: 0.076 # in TFP control the rate of increasing of tech larger->faster
   xdelta_A: 0.005 # in TFP control the rate of increasing of tech smaller->faster
@@ -75,7 +75,7 @@ _RICE_CONSTANT:
   xM_R2_0: 93.313
   xM_R3_0: 37.840
   xM_R4_0: 7.721
-  
+
   xM_a0: 0.217
   xM_a1: 0.224
   xM_a2: 0.282
@@ -96,7 +96,23 @@ _RICE_CONSTANT:
   xT_AT_0_FaIR: 1.243
   xT_LO_0_FaIR: 0.324
   xT_1: 7.3
-#  xT_2y: 3.6813/3.1 #forcoings of eq co2 doubling/ETS
+  #  xT_2y: 3.6813/3.1 #forcoings of eq co2 doubling/ETS
   xT_3: 0.73
   xT_4: 106
   xT_kappa: 3.6813
+
+  # bounds
+  b_savings_min: 0.0
+  b_savings_max: 1.0
+  b_mitigation_rate_min: 0.0
+  b_mitigation_rate_max: 1.0
+  b_export_limit_min: 0.0
+  b_export_limit_max: 1.0
+  b_import_bids_min: 0.0
+  b_import_bids_max: 1.0
+  b_import_tariffs_min: 0.0
+  b_import_tariffs_max: 1.0
+  b_proposal_min: 0.0
+  b_proposal_max: 1.0
+  b_proposal_decisions_min: 0.0
+  b_proposal_decisions_max: 1.0
