@@ -29,7 +29,7 @@ from scenarios import *
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--yaml", "-y", type=str, default="rice_rllib_cont_beta.yaml")
+parser.add_argument("--yaml", "-y", type=str, default="rice_rllib_discrete.yaml")
 args = parser.parse_args()
 sys.path.append(PUBLIC_REPO_DIR)
 
@@ -40,7 +40,8 @@ logging.getLogger().setLevel(logging.DEBUG)
 SCENARIO_MAPPING = {
     "default":Rice,
     "OptimalMitigation":OptimalMitigation,
-    "BasicClub":BasicClub
+    "BasicClub":BasicClub,
+    "ExportAction":ExportAction
 }
 
 def get_config_yaml(yaml_path):

@@ -80,6 +80,7 @@ class Rice(gym.Env):
         self.activity_timestep = None
         self.negotiation_on = negotiation_on
         self.apply_welfloss = True
+        self.apply_welfgain = True
         if self.negotiation_on:
             self.negotiation_stage = 0
             self.num_negotiation_stages = 2
@@ -309,7 +310,7 @@ class Rice(gym.Env):
 
         tariff_revenues, net_imports = self.calc_trade_sanctions(gross_imports)
         welfloss_multipliers = self.calc_welfloss_multiplier(
-            gross_outputs, gross_imports
+            gross_outputs, gross_imports, net_imports
         )
 
         consumptions = self.calc_consumptions(
@@ -751,34 +752,31 @@ class Rice(gym.Env):
 
         return tariff_revenues, net_imports
 
-    def calc_welfloss_multiplier(
-        self,
-        gross_outputs,
-        gross_imports,
-        welfare_loss_per_unit_tariff=None,
-        save_state=True,
-    ):
+    def calc_welfloss_multiplier(self, gross_outputs, gross_imports, net_imports, welfare_loss_per_unit_tariff=None,
+                                 welfare_gain_per_unit_exported = None, save_state=True):
         """Calculate the welfare loss multiplier of exporting region due to being tariffed."""
         if not self.apply_welfloss:
             return np.ones((self.num_regions), dtype=self.float_dtype)
 
         if welfare_loss_per_unit_tariff is None:
-            welfare_loss_per_unit_tariff = 0.4  # From Nordhaus 2015
+            welfare_loss_per_unit_tariff = 0.4 # From Nordhaus 2015
+        if welfare_gain_per_unit_exported is None:
+            welfare_gain_per_unit_exported = 0.4
 
         import_tariffs = self.get_prev_state("import_tariffs_all_regions")
         welfloss = np.ones((self.num_regions), dtype=self.float_dtype)
 
         for region_id in range(self.num_regions):
             for destination_region in range(self.num_regions):
-                welfloss[region_id] -= (
-                    (
-                        gross_imports[destination_region, region_id]
-                        / gross_outputs[region_id]
-                    )
-                    * import_tariffs[destination_region, region_id]
-                    * welfare_loss_per_unit_tariff
-                )
+                welfloss[region_id] -= \
+                    (gross_imports[destination_region, region_id] / gross_outputs[region_id]) * \
+                        import_tariffs[destination_region, region_id] * welfare_loss_per_unit_tariff
+                
+                if self.apply_welfgain:
+                    welfloss[region_id] += \
+                        (net_imports[destination_region, region_id]) / gross_outputs[region_id] * welfare_gain_per_unit_exported
 
+                
         if save_state:
             self.set_state("welfloss", welfloss)
 

@@ -1,5 +1,8 @@
 from rice import *
 
+_FEATURES = "features"
+_ACTION_MASK = "action_mask"
+
 class OptimalMitigation(Rice):
 
     """Scenario where all agents mitigate to a given extent
@@ -133,4 +136,448 @@ class BasicClub(Rice):
             
         return mask_dict
     
+class ExportAction(Rice):
 
+    """Scenario where a subset of regions mitigate to a set amount, 
+        other agents get a tariff based on the difference between their mitigation rate
+        and the club rate
+    
+        Arguments:
+        - num_discrete_action_levels (int):  the number of discrete levels for actions, > 1
+        - negotiation_on (boolean): whether negotiation actions are available to agents
+        - scenario (str): name of scenario 
+    
+        Attributes:
+        - club_mitigation_rate: the rate rate all agents will mitigate to.
+        - club_members: subset of states in club
+        """
+    
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="ExportAction",
+                 action_space_type="discrete",  # or "continuous"
+                 dmg_function="base",
+                 carbon_model="base",
+                 temperature_calibration="base",
+                 prescribed_emissions=None
+
+            ):
+        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels, 
+                action_space_type=action_space_type,  # or "continuous"
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions)
+        
+    def calc_possible_actions(self, action_type):
+        if action_type == "savings":
+            return [self.num_discrete_action_levels]
+        if action_type == "mitigation_rate":
+            return [self.num_discrete_action_levels]
+        if action_type == "export_limit":
+            return [self.num_discrete_action_levels]
+        if action_type == "import_bids":
+            return [self.num_discrete_action_levels] * self.num_regions
+        if action_type == "import_tariffs":
+            return [self.num_discrete_action_levels] * self.num_regions
+
+        if action_type == "proposal":
+            return [self.num_discrete_action_levels] * 2 * self.num_regions
+
+        if action_type == 'proposal_decisions':
+            return [2] * self.num_regions
+        
+        if action_type == "export_regions":
+            return [2] * self.num_regions
+        
+    def calc_total_possible_actions(self, negotiation_on):
+
+        total_possible_actions = (
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions
+                + self.import_tariff_possible_actions
+                + self.export_regions_possible_actions
+            )
+
+        if negotiation_on:
+            total_possible_actions += (
+                self.proposal_possible_actions
+                + self.evaluation_possible_actions
+            )
+
+        return total_possible_actions
+
+    def set_possible_actions(self):
+
+        super().set_possible_actions()
+        self.export_regions_possible_actions = self.calc_possible_actions(
+            "export_regions"
+        )
+
+    def get_actions_index(self, action_type):
+        
+        if action_type == "export_regions":
+            return (
+                len(self.savings_possible_actions)
+                + len(self.mitigation_rate_possible_actions)
+                + len(self.export_limit_possible_actions)
+                + len(self.import_bids_possible_actions)
+                + len(self.export_regions_possible_actions)
+            )
+        else:
+            return super().get_actions_index(action_type)
+
+        
+    def get_actions(self, action_type, actions):
+
+        if action_type == "export_regions":
+
+            export_regions_index_start = self.get_actions_index("export_regions")
+            num_export_regions_actions = len(self.export_regions_possible_actions)
+
+            export_regions = np.array(
+                [
+                    actions[region_id][
+                        export_regions_index_start : export_regions_index_start 
+                        + num_export_regions_actions
+                    ]
+                    for region_id in range(self.num_regions)
+                ]
+            )
+
+            for region_id in range(self.num_regions):
+                export_regions[region_id, region_id] = 0
+            return export_regions
+        else:
+            return super().get_actions(action_type, actions)
+        
+    def set_actions_in_global_state(self, actions_dict):
+        for (action_name, action_value) in actions_dict.items():
+            self.set_state(
+                key=action_name,
+                value=action_value,
+                timestep=self.current_timestep,
+                dtype=self.float_dtype,
+            )
+
+    def reset_state(self, key):
+        
+        if key != "export_regions_all_regions":
+            super().reset_state(key)
+        else:
+            self.set_state(key, value=np.zeros((self.num_regions, self.num_regions)))
+
+    def reset(self, *, seed=None, options=None):
+
+
+        self.current_timestep = 0
+        self.activity_timestep = 0
+        self.current_simulation_year = self.start_year
+        self.reset_state("timestep")
+        self.reset_state("activity_timestep")
+
+        # climate states
+        self.reset_state("global_temperature")
+        self.reset_state("global_carbon_mass")
+        self.reset_state("global_exogenous_emissions")
+        self.reset_state("global_land_emissions")
+        self.reset_state("intensity_all_regions")
+        self.reset_state("mitigation_rates_all_regions")
+
+        # additional climate states for carbon model
+        self.reset_state("global_alpha")
+        self.reset_state("global_carbon_reservoirs")
+        self.reset_state("global_cumulative_emissions")
+        self.reset_state("global_cumulative_land_emissions")
+        self.reset_state("global_emissions")
+        self.reset_state("global_acc_pert_carb_stock")
+
+        # economic states
+        self.reset_state("production_all_regions")
+        self.reset_state("gross_output_all_regions")
+        self.reset_state("aggregate_consumption")
+        self.reset_state("investment_all_regions")
+        self.reset_state("capital_all_regions")
+        self.reset_state("capital_depreciation_all_regions")
+        self.reset_state("labor_all_regions")
+        self.reset_state("production_factor_all_regions")
+        self.reset_state("current_balance_all_regions")
+        self.reset_state("abatement_cost_all_regions")
+        self.reset_state("mitigation_cost_all_regions")
+        self.reset_state("damages_all_regions")
+        self.reset_state("utility_all_regions")
+        self.reset_state("social_welfare_all_regions")
+        self.reset_state("reward_all_regions")
+
+        # trade states
+        self.reset_state("tariffs")
+        self.reset_state("import_tariffs")
+        self.reset_state("normalized_import_bids_all_regions")
+        self.reset_state("import_bids_all_regions")
+        self.reset_state("imports_minus_tariffs")
+        self.reset_state("export_limit_all_regions")
+        self.reset_state('export_regions_all_regions')
+
+        # negotiation states
+        self.reset_state("negotiation_stage")
+        self.reset_state("savings_all_regions")
+        self.reset_state("minimum_mitigation_rate_all_regions")
+        self.reset_state("promised_mitigation_rate")
+        self.reset_state("requested_mitigation_rate")
+        self.reset_state("proposal_decisions")
+
+        info = {
+            region: {} for region in range(self.num_regions)
+        }  # for the new ray rllib env format
+        return self.get_observations(), info
+
+    
+    def get_observations(self):
+        """
+        Format observations for each agent by concatenating global, public
+        and private features.
+        The observations are returned as a dictionary keyed by region index.
+        Each dictionary contains the features as well as the action mask.
+        """
+        # Observation array features
+
+        # Global features that are observable by all regions
+        global_features = [
+            "global_temperature",
+            "global_carbon_mass",
+            "global_exogenous_emissions",
+            "global_land_emissions",
+            "timestep",
+            "global_carbon_reservoirs",
+            "global_cumulative_emissions",
+            "global_cumulative_land_emissions",
+            "global_alpha",
+            "global_emissions",
+            "global_acc_pert_carb_stock",
+        ]
+
+        # Public features that are observable by all regions
+        public_features = [
+            "capital_all_regions",
+            "capital_depreciation_all_regions",
+            "labor_all_regions",
+            "gross_output_all_regions",
+            "investment_all_regions",
+            "aggregate_consumption",
+            "savings_all_regions",
+            "mitigation_rates_all_regions",
+            "export_limit_all_regions",
+            "current_balance_all_regions",
+            "export_regions_all_regions",
+            "tariffs",
+        ]
+
+        # Private features that are private to each region.
+        private_features = [
+            "production_factor_all_regions",
+            "intensity_all_regions",
+            "mitigation_cost_all_regions",
+            "damages_all_regions",
+            "abatement_cost_all_regions",
+            "production_all_regions",
+            "utility_all_regions",
+            "social_welfare_all_regions",
+            "reward_all_regions",
+        ]
+
+        # Features concerning two regions
+        bilateral_features = []
+
+        if self.negotiation_on:
+            global_features += ["negotiation_stage"]
+
+            public_features += []
+
+            private_features += [
+                "minimum_mitigation_rate_all_regions",
+            ]
+
+            bilateral_features += [
+                "promised_mitigation_rate",
+                "requested_mitigation_rate",
+                "proposal_decisions",
+            ]
+
+        shared_features = np.array([])
+        for feature in global_features + public_features:
+            shared_features = np.append(
+                shared_features,
+                self.flatten_array(
+                    self.global_state[feature]["value"][self.current_timestep]
+                    / self.global_state[feature]["norm"]
+                ),
+            )
+
+        # Form the feature dictionary, keyed by region_id.
+        features_dict = {}
+        for region_id in range(self.num_regions):
+
+            # Add a region indicator array to the observation
+            region_indicator = np.zeros(self.num_regions, dtype=self.float_dtype)
+            region_indicator[region_id] = 1
+
+            all_features = np.append(region_indicator, shared_features)
+
+            for feature in private_features:
+                assert self.global_state[feature]["value"].shape[1] == self.num_regions
+                assert (
+                    np.isnan(all_features).sum() == 0
+                ), f"NaN in the features: {feature}"
+                all_features = np.append(
+                    all_features,
+                    self.flatten_array(
+                        self.global_state[feature]["value"][
+                            self.current_timestep, region_id
+                        ]
+                        / self.global_state[feature]["norm"]
+                    ),
+                )
+
+            for feature in bilateral_features:
+                assert self.global_state[feature]["value"].shape[1] == self.num_regions
+                assert self.global_state[feature]["value"].shape[2] == self.num_regions
+                all_features = np.append(
+                    all_features,
+                    self.flatten_array(
+                        self.global_state[feature]["value"][
+                            self.current_timestep, region_id
+                        ]
+                        / self.global_state[feature]["norm"]
+                    ),
+                )
+                all_features = np.append(
+                    all_features,
+                    self.flatten_array(
+                        self.global_state[feature]["value"][
+                            self.current_timestep, :, region_id
+                        ]
+                        / self.global_state[feature]["norm"]
+                    ),
+                )
+
+            features_dict[region_id] = all_features
+
+        # Fetch the action mask dictionary, keyed by region_id.
+        action_mask_dict = self.calc_action_mask()
+
+        # Form the observation dictionary keyed by region id.
+        obs_dict = {}
+        for region_id in range(self.num_regions):
+            obs_dict[region_id] = {
+                _FEATURES: features_dict[region_id],
+                _ACTION_MASK: action_mask_dict[region_id],
+            }
+        # if self.current_timestep == 2 and region_id == 26:
+        #     print("flag")
+        return obs_dict
+    
+    def calc_action_mask(self):
+        """
+        Generate action masks.
+        """
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+
+            mask = self.default_agent_action_mask.copy()
+            open_for_trade = self.get_importable_regions(region_id)
+
+            imports_mask = []
+
+            for other_region in range(self.num_regions):
+                if other_region != region_id:
+                    if open_for_trade[other_region] == 1:
+                        imports_mask.extend([1]*self.num_discrete_action_levels)
+                    else:
+                        imports_mask.extend([0]*self.num_discrete_action_levels)
+                else:
+                    imports_mask.extend([0]*self.num_discrete_action_levels)
+            mask_dict[region_id] = mask
+            
+            mask_start = sum(self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions)
+
+            mask_end = mask_start + sum(self.calc_possible_actions("import_bids"))
+            mask[mask_start:mask_end] = np.array(imports_mask)
+
+        return mask_dict
+    
+    def get_importable_regions(self, region_id):
+        """
+        Get the output of the export_region action for a given region
+        """
+        
+        export_regions = self.get_state("export_regions_all_regions")
+        open_for_trade = export_regions[:, region_id]
+        return open_for_trade
+    
+    def step_climate_and_economy(self, actions=None):
+        self.calc_activity_timestep()
+        self.is_valid_negotiation_stage(negotiation_stage=0)
+        self.is_valid_actions_dict(actions)
+
+        actions_dict = {
+            "savings_all_regions" : self.get_actions("savings", actions),
+            "mitigation_rates_all_regions" : self.get_actions("mitigation_rate", actions),
+            "export_limit_all_regions" : self.get_actions("export_limit", actions),
+            "import_bids_all_regions" : self.get_actions("import_bids", actions),
+            "import_tariffs_all_regions" : self.get_actions("import_tariffs", actions),
+            "export_regions_all_regions" : self.get_actions("export_regions", actions)
+        }
+
+        self.set_actions_in_global_state(actions_dict)
+
+        damages = self.calc_damages()
+        abatement_costs = self.calc_abatement_costs(actions_dict["mitigation_rates_all_regions"])
+        productions = self.calc_productions()
+
+        gross_outputs = self.calc_gross_outputs(damages, abatement_costs, productions)
+        investments = self.calc_investments(gross_outputs, actions_dict["savings_all_regions"])
+
+        gov_balances_post_interest = self.calc_gov_balances_post_interest()
+        debt_ratios = self.calc_debt_ratios(gov_balances_post_interest)
+
+        # TODO: self.set_global_state("tariffs", self.global_state["import_tariffs"]["value"][self.current_timestep])
+        # TODO: fix dependency on gross_output_all_regions
+        # TODO: government should reuse tariff revenue
+        gross_imports = self.calc_gross_imports(actions_dict['import_bids_all_regions'], gross_outputs, investments, debt_ratios)
+
+        tariff_revenues, net_imports = self.calc_trade_sanctions(gross_imports)
+        welfloss_multipliers = self.calc_welfloss_multiplier(gross_outputs, gross_imports, net_imports)
+        consumptions = self.calc_consumptions(
+            gross_outputs, investments, gross_imports, net_imports
+        )
+        utilities = self.calc_utilities(consumptions)
+        self.calc_social_welfares(utilities)
+        self.calc_rewards(utilities, welfloss_multipliers)
+
+        self.calc_capitals(investments)
+        self.calc_labors()
+        self.calc_production_factors()
+        self.calc_gov_balances_post_trade(gov_balances_post_interest, gross_imports)
+
+        self.calc_carbon_intensities()
+        self.calc_global_carbon_mass(productions)
+        self.calc_global_temperature()
+
+        current_simulation_year = self.calc_current_simulation_year()
+        observations = self.get_observations()
+        rewards = self.get_rewards()
+        terminateds = {region_id: 0 for region_id in range(self.num_regions)}
+        terminateds = {"__all__": current_simulation_year == self.end_year}
+        truncateds = {region_id: 0 for region_id in range(self.num_regions)}
+        truncateds = {"__all__": current_simulation_year == self.episode_length}
+        info = {}
+
+        return observations, rewards, terminateds, truncateds, info
