@@ -828,9 +828,9 @@ class ExportAction(Rice):
                     if open_for_trade[other_region] == 1:
                         imports_mask.extend([1]*self.num_discrete_action_levels)
                     else:
-                        imports_mask.extend([0]*self.num_discrete_action_levels)
+                        imports_mask.extend([1] + [0]*(self.num_discrete_action_levels-1))
                 else:
-                    imports_mask.extend([0]*self.num_discrete_action_levels)
+                    imports_mask.extend([1] + [0]*(self.num_discrete_action_levels-1))
             mask_dict[region_id] = mask
             
             mask_start = sum(self.savings_possible_actions
