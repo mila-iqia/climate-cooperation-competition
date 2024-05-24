@@ -27,7 +27,7 @@ from opt_helper import save
 from rice import Rice
 from scenarios import *
 import argparse
-import tqdm
+from tqdm import tqdm
 parser = argparse.ArgumentParser()
 parser.add_argument("--yaml", "-y", type=str, default="rice_rllib_discrete.yaml")
 args = parser.parse_args()
