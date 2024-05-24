@@ -17,7 +17,7 @@ import os
 import subprocess
 import sys
 import time
-
+import wandb
 import numpy as np
 import yaml
 from desired_outputs import desired_outputs
@@ -27,7 +27,7 @@ from opt_helper import save
 from rice import Rice
 from scenarios import *
 import argparse
-
+import tqdm
 parser = argparse.ArgumentParser()
 parser.add_argument("--yaml", "-y", type=str, default="rice_rllib_discrete.yaml")
 args = parser.parse_args()
@@ -498,6 +498,15 @@ if __name__ == "__main__":
 
     ray.init(ignore_reinit_error=True)
 
+    if config_yaml["logging"]["enabled"]:
+        wandb_config = config_yaml["logging"]["wandb_config"]
+        wandb.login(key=wandb_config["login"])
+        wandb.init(
+            project=wandb_config["project"],
+            name=f'{wandb_config["run"]}_train',
+            entity=wandb_config["entity"],
+        )
+
     trainer = create_trainer(config_yaml)
     save_dir = create_save_dir_path(config_yaml)
     os.makedirs(save_dir)
@@ -520,11 +529,26 @@ if __name__ == "__main__":
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
 
-    for iteration in range(num_iters):
+    for iteration in tqdm(range(num_iters)):
         print(
             f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"
         )
         result = trainer.train()
+
+        if config_yaml["logging"]["enabled"]:
+            wandb.log(
+                {
+                    "episode_reward_min": result["episode_reward_min"],
+                    "episode_reward_mean": result["episode_reward_mean"],
+                    "episode_reward_max": result["episode_reward_max"],
+                },
+                step=result["episodes_total"],
+            )
+            wandb.log(
+                result["info"]["learner"]["regions"]["learner_stats"],
+                step=result["episodes_total"],
+            )
+
         total_timesteps = result.get("timesteps_total")
         if (
             iteration % config_yaml["saving"]["model_params_save_freq"] == 0
