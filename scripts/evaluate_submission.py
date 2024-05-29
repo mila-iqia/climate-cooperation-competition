@@ -66,7 +66,7 @@ def get_imports(framework=None):
     """
     assert framework is not None
     if framework == "rllib":
-        from deprecated.train_with_rllib_discrete import (
+        from train_with_rllib import (
             create_trainer,
             fetch_episode_states,
             load_model_checkpoints,
@@ -126,7 +126,7 @@ def validate_dir(results_dir=None):
     elif ".rllib" in files:
         framework = "rllib"
         # RLlib was used for training
-        for file in ["rice.py", "rice_helpers.py", "rice_rllib.yaml"]:
+        for file in ["rice.py", "rice_helpers.py"]:
             if file not in files:
                 success = False
                 logging.error(
@@ -135,6 +135,22 @@ def validate_dir(results_dir=None):
                     results_dir,
                 )
                 comment = f"{file} is not present in the results directory!"
+                break
+            yaml_success = False
+            for file in ["rice_rllib_discrete.yaml",
+                    "rice_rllib_cont.yaml",
+                    "rice_rllib_cont_beta.yaml"]:
+                if file in files:
+                    yaml_success = True
+                    discrete = "discrete" in file
+                    
+            if not yaml_success:
+                logging.error(
+                    "No yaml is present in the results directory: %s!",
+                    file,
+                    results_dir,
+                )
+                comment = f"yaml is not present in the results directory!"
                 break
             success = True
             comment = "Valid submission"
@@ -147,7 +163,7 @@ def validate_dir(results_dir=None):
         )
         comment = "Missing identifier file!"
     print("comment", comment)
-    return framework, success, comment
+    return framework, success, comment, discrete
 
 
 def compute_metrics(
@@ -156,6 +172,7 @@ def compute_metrics(
     framework,
     num_episodes=1,
     include_c_e_idx=True,
+    file_name = None
 ):
     """
     Generate episode rollouts and compute metrics.
@@ -173,94 +190,94 @@ def compute_metrics(
 
     episode_states = {}
     eval_metrics = {}
-    try:
-        for episode_id in range(num_episodes):
-            if fetch_episode_states is not None:
-                episode_states[episode_id] = fetch_episode_states(
-                    trainer, required_outputs
+    # try:
+    for episode_id in range(num_episodes):
+        if fetch_episode_states is not None:
+            episode_states[episode_id] = fetch_episode_states(
+                trainer, required_outputs, file_name
+            )
+        else:
+            episode_states[
+                episode_id
+            ] = trainer.fetch_episode_global_states(required_outputs)
+
+    for feature in desired_outputs:
+        feature_values = [None for _ in range(num_episodes)]
+
+        if feature == "global_temperature":
+            # Get the temp rise for upper strata
+            for episode_id in range(num_episodes):
+                feature_values[episode_id] = (
+                    episode_states[episode_id][feature][-1, 0]
+                    - episode_states[episode_id][feature][0, 0]
                 )
-            else:
-                episode_states[
-                    episode_id
-                ] = trainer.fetch_episode_global_states(required_outputs)
 
-        for feature in desired_outputs:
-            feature_values = [None for _ in range(num_episodes)]
+        elif feature == "global_carbon_mass":
+            for episode_id in range(num_episodes):
+                feature_values[episode_id] = episode_states[episode_id][
+                    feature
+                ][-1, 0]
 
-            if feature == "global_temperature":
-                # Get the temp rise for upper strata
-                for episode_id in range(num_episodes):
-                    feature_values[episode_id] = (
-                        episode_states[episode_id][feature][-1, 0]
-                        - episode_states[episode_id][feature][0, 0]
-                    )
-
-            elif feature == "global_carbon_mass":
-                for episode_id in range(num_episodes):
-                    feature_values[episode_id] = episode_states[episode_id][
-                        feature
-                    ][-1, 0]
-
-            elif feature == "gross_output_all_regions":
-                for episode_id in range(num_episodes):
-                    # collect gross output results based on activity timestep
-                    activity_timestep = episode_states[episode_id][
-                        "activity_timestep"
+        elif feature == "gross_output_all_regions":
+            for episode_id in range(num_episodes):
+                # collect gross output results based on activity timestep
+                activity_timestep = episode_states[episode_id][
+                    "activity_timestep"
+                ]
+                activity_index = np.append(
+                    1.0, np.diff(activity_timestep.squeeze())
+                )
+                activity_index = [
+                    np.isclose(v, 1.0) for v in activity_index
+                ]
+                feature_values[episode_id] = np.sum(
+                    episode_states[episode_id]["gross_output_all_regions"][
+                        activity_index
                     ]
-                    activity_index = np.append(
-                        1.0, np.diff(activity_timestep.squeeze())
-                    )
-                    activity_index = [
-                        np.isclose(v, 1.0) for v in activity_index
-                    ]
-                    feature_values[episode_id] = np.sum(
-                        episode_states[episode_id]["gross_output_all_regions"][
-                            activity_index
-                        ]
-                    )
+                )
 
-            else:
-                for episode_id in range(num_episodes):
-                    feature_values[episode_id] = np.sum(
-                        episode_states[episode_id][feature]
-                    )
+        else:
+            for episode_id in range(num_episodes):
+                feature_values[episode_id] = np.sum(
+                    episode_states[episode_id][feature]
+                )
 
-            # Compute mean feature value across episodes
-            mean_feature_value = np.mean(feature_values)
+        # Compute mean feature value across episodes
+        mean_feature_value = np.mean(feature_values)
 
-            # Formatting the values
-            metrics_to_label_dict = _METRICS_TO_LABEL_DICT[feature]
+        # Formatting the values
+        metrics_to_label_dict = _METRICS_TO_LABEL_DICT[feature]
 
-            eval_metrics[metrics_to_label_dict[0]] = perform_format(
-                mean_feature_value, metrics_to_label_dict[1]
-            )
-        if include_c_e_idx:
-            if not os.path.exists(_INDEXES_FILENAME):
-                # Write min, max climate and economic index values to a file
-                # for use during evaluation.
-                indices_dict = generate_min_max_climate_economic_indices()
-                # Write indices to a file
-                with open(_INDEXES_FILENAME, "w", encoding="utf-8") as file_ptr:
-                    file_ptr.write(json.dumps(indices_dict))
-            with open(_INDEXES_FILENAME, "r", encoding="utf-8") as file_ptr:
-                index_dict = json.load(file_ptr)
-            eval_metrics["climate_index"] = np.round(
-                (eval_metrics["Temperature Rise"] - index_dict["min_ci"])
-                / (index_dict["max_ci"] - index_dict["min_ci"]),
-                2,
-            )
-            eval_metrics["economic_index"] = np.round(
-                (eval_metrics["Gross Output"] - index_dict["min_ei"])
-                / (index_dict["max_ei"] - index_dict["min_ei"]),
-                2,
-            )
-        success = True
-        comment = "Successful submission"
-    except Exception as err:
-        logging.error(err)
-        success = False
-        comment = "Could not obtain an episode rollout!"
-        eval_metrics = {}
+        eval_metrics[metrics_to_label_dict[0]] = perform_format(
+            mean_feature_value, metrics_to_label_dict[1]
+        )
+    if include_c_e_idx:
+        if not os.path.exists(_INDEXES_FILENAME):
+            # Write min, max climate and economic index values to a file
+            # for use during evaluation.
+            indices_dict = generate_min_max_climate_economic_indices()
+            # Write indices to a file
+            with open(_INDEXES_FILENAME, "w", encoding="utf-8") as file_ptr:
+                file_ptr.write(json.dumps(indices_dict))
+        with open(_INDEXES_FILENAME, "r", encoding="utf-8") as file_ptr:
+            index_dict = json.load(file_ptr)
+        eval_metrics["climate_index"] = np.round(
+            (eval_metrics["Temperature Rise"] - index_dict["min_ci"])
+            / (index_dict["max_ci"] - index_dict["min_ci"]),
+            2,
+        )
+        eval_metrics["economic_index"] = np.round(
+            (eval_metrics["Gross Output"] - index_dict["min_ei"])
+            / (index_dict["max_ei"] - index_dict["min_ei"]),
+            2,
+        )
+    success = True
+    comment = "Successful submission"
+    # except Exception as err:
+    #     logging.error(err)
+    #     success = False
+    #     comment = "Could not obtain an episode rollout!"
+    #     eval_metrics = {}
 
     return success, comment, eval_metrics
 
@@ -379,6 +396,7 @@ def perform_evaluation(
     results_directory,
     framework,
     num_episodes=1,
+    discrete = True,
     eval_seed=None,
 ):
     """
@@ -386,16 +404,20 @@ def perform_evaluation(
     """
     assert results_directory is not None
     assert num_episodes > 0
-
+    
     (
         create_trainer,
         load_model_checkpoints,
         fetch_episode_states,
     ) = get_imports(framework=framework)
-
+    
     # Load a run configuration
-    config_file = os.path.join(results_directory, f"rice_{framework}.yaml")
-
+    if discrete:
+        yaml_path = f"rice_{framework}_discrete.yaml"
+    else:
+        yaml_path = f"rice_{framework}_cont.yaml"
+    config_file = os.path.join(results_directory, yaml_path)
+    
     try:
         assert os.path.exists(config_file)
     except Exception as err:
@@ -415,13 +437,12 @@ def perform_evaluation(
             os.path.join(PUBLIC_REPO_DIR, "rice_build.cu"),
             os.path.join(results_directory, "rice_build.cu"),
         )
-
+    
     # Create Trainer object
     try:
         with open(config_file, "r", encoding="utf-8") as file_ptr:
             run_config = yaml.safe_load(file_ptr)
-
-        trainer, _ = create_trainer(
+        trainer = create_trainer(
             run_config, source_dir=results_directory, seed=eval_seed
         )
 
@@ -434,25 +455,37 @@ def perform_evaluation(
         load_model_checkpoints(trainer, results_directory)
     except Exception as err:
         logging.error(f"Could not load model checkpoints.")
-        raise err
+        raise err   
 
     # Compute metrics
-    try:
-        success, comment, eval_metrics = compute_metrics(
+    # try:
+    #     success, comment, eval_metrics = compute_metrics(
+    #         fetch_episode_states,
+    #         trainer,
+    #         framework,
+    #         num_episodes=num_episodes,
+    #     )
+
+    #     if framework == "warpdrive":
+    #         trainer.graceful_close()
+
+    #     return success, eval_metrics, comment
+    success, comment, eval_metrics = compute_metrics(
             fetch_episode_states,
             trainer,
             framework,
             num_episodes=num_episodes,
+            file_name=run_config["env"]["scenario"]
         )
 
-        if framework == "warpdrive":
-            trainer.graceful_close()
+    if framework == "warpdrive":
+        trainer.graceful_close()
 
-        return success, eval_metrics, comment
+    return success, eval_metrics, comment
 
-    except Exception as err:
-        logging.error(f"Count not fetch episode and compute metrics.")
-        raise err
+    # except Exception as err:
+    #     logging.error(f"Count not fetch episode and compute metrics.")
+    #     raise err
 
 
 def get_temp_rise_and_gross_output(env, actions):
@@ -559,7 +592,7 @@ if __name__ == "__main__":
     logging.info(f"Using submission files in {results_dir}")
 
     # Validate the submission directory
-    framework, results_dir_is_valid, comment = validate_dir(results_dir)
+    framework, results_dir_is_valid, comment, discrete = validate_dir(results_dir)
     if not results_dir_is_valid:
         raise AssertionError(
             f"{results_dir} is not a valid submission directory."
@@ -567,7 +600,7 @@ if __name__ == "__main__":
 
     # Run unit tests on the simulation files
     skip_unit_tests = True  # = args.skip_unit_tests
-
+    
     try:
         if skip_unit_tests:
             logging.info("Skipping check_output test")
@@ -585,13 +618,13 @@ if __name__ == "__main__":
     except subprocess.CalledProcessError as err:
         logging.error(f"{results_dir}: unit tests were not successful.")
         raise err
-
+    
     # Run evaluation with submitted simulation and trained agents.
     logging.info("Starting eval...")
     succeeded, metrics, comments = perform_evaluation(
-        results_dir, framework, eval_seed=_EVAL_SEED
+        results_dir, framework, discrete, eval_seed=_EVAL_SEED
     )
-
+    
     # Report results.
     eval_result_str = "\n".join(
         [

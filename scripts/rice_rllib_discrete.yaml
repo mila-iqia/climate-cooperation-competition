@@ -30,7 +30,7 @@ trainer:
 # Environment configuration
 env:
     negotiation_on: True # flag to indicate whether negotiation is allowed or not
-    scenario: BasicClub # key that maps to either Rice or and alternate Rice class
+    scenario: "default" # key that maps to either Rice or and alternate Rice class
     num_discrete_action_levels: 10
     action_space_type: "discrete"
     dmg_function: "base"

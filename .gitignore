@@ -20,6 +20,10 @@ lib-cov
 coverage
 
 #experiment outputs
+evals/*
+!evals/
+
+#experiment outputs
 scripts/experiments/*
 *_.py
 region_yamls_/
