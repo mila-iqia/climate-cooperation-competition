@@ -468,10 +468,7 @@ def fetch_episode_states(trainer_obj=None, episode_states=None, file_name = None
             if (
                 len(agent_states[region_id]) == 0
             ):  # stateless, with a linear model, for example
-                # region_obs = obs[region_id]
-                # region_obs_ordered = OrderedDict()
-                # region_obs_ordered["action_mask"] = region_obs["action_mask"]
-                # region_obs_ordered["features"] = region_obs["feature"]
+
                 
                 actions[region_id] = trainer_obj.compute_single_action(
                     obs[region_id],
@@ -528,21 +525,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     config_yaml = get_config_yaml(yaml_path=args.yaml)
 
-    # if config_yaml["env"]["action_space_type"] == "discrete":
-    #     from scripts.torch_models_discrete import TorchLinear
-    # elif config_yaml["env"]["action_space_type"] == "continuous":
-    #     if "beta" in config_yaml["policy"]["regions"]["model"]["custom_model"].lower():
-    #         from scripts.torch_models_cont_beta import CustomBetaPolicyModel
-    #         from ray.rllib.models import ModelCatalog
-    #         from beta_action_dist import BetaActionDistribution
-    #         ModelCatalog.register_custom_action_dist("beta_distribution", BetaActionDistribution)
-
-    #         from beta_action_dist import BetaActionDistribution
-    #     elif "cont" in config_yaml["policy"]["regions"]["model"]["custom_model"].lower():
-    #         from scripts.torch_models_cont import TorchLinear
-    #     elif "discrete" in config_yaml["policy"]["regions"]["model"]["custom_model"].lower():
-    #         from scripts.torch_models_discrete import TorchLinear
-
     ray.init(ignore_reinit_error=True)
 
     if config_yaml["logging"]["enabled"]:
@@ -553,9 +535,7 @@ if __name__ == "__main__":
             name=f'{wandb_config["run"]}_train',
             entity=wandb_config["entity"],
         )
-
     trainer = create_trainer(config_yaml)
-    print("trainer_made AAAAAAAAAAAAAAAAAAAAAAAAAa")
     save_dir = create_save_dir_path(config_yaml)
     os.makedirs(save_dir)
 
