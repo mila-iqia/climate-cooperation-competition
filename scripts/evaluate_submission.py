@@ -458,34 +458,23 @@ def perform_evaluation(
         raise err   
 
     # Compute metrics
-    # try:
-    #     success, comment, eval_metrics = compute_metrics(
-    #         fetch_episode_states,
-    #         trainer,
-    #         framework,
-    #         num_episodes=num_episodes,
-    #     )
-
-    #     if framework == "warpdrive":
-    #         trainer.graceful_close()
-
-    #     return success, eval_metrics, comment
-    success, comment, eval_metrics = compute_metrics(
+    try:
+        success, comment, eval_metrics = compute_metrics(
             fetch_episode_states,
             trainer,
             framework,
             num_episodes=num_episodes,
-            file_name=run_config["env"]["scenario"]
         )
 
-    if framework == "warpdrive":
-        trainer.graceful_close()
+        if framework == "warpdrive":
+            trainer.graceful_close()
 
-    return success, eval_metrics, comment
+        return success, eval_metrics, comment
 
-    # except Exception as err:
-    #     logging.error(f"Count not fetch episode and compute metrics.")
-    #     raise err
+
+    except Exception as err:
+        logging.error(f"Count not fetch episode and compute metrics.")
+        raise err
 
 
 def get_temp_rise_and_gross_output(env, actions):
