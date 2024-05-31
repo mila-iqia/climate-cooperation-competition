@@ -30,9 +30,7 @@ from scenarios import *
 import argparse
 from collections import OrderedDict
 from tqdm import tqdm
-# parser = argparse.ArgumentParser()
-# parser.add_argument("--yaml", "-y", type=str, default="rice_rllib_discrete.yaml")
-# args = parser.parse_args()
+
 sys.path.append(PUBLIC_REPO_DIR)
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.DEBUG)
@@ -41,6 +39,7 @@ logging.getLogger().setLevel(logging.DEBUG)
 SCENARIO_MAPPING = {
     "default":Rice,
     "OptimalMitigation":OptimalMitigation,
+    "MinimalMitigation":MinimalMitigation,
     "BasicClub":BasicClub,
     "ExportAction":ExportAction
 }
@@ -581,7 +580,6 @@ if __name__ == "__main__":
     
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
-    num_iters = 1
     for iteration in tqdm(range(num_iters)):
         print(
             f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"

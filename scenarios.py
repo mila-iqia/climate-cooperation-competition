@@ -20,9 +20,22 @@ class OptimalMitigation(Rice):
     def __init__(self,
                  num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
                  negotiation_on=False, # If True then negotiation is on, else off
-                 scenario="OptimalMitigation"  
+                 scenario="OptimateMitigation",
+                 action_space_type="discrete",  # or "continuous"
+                 dmg_function="base",
+                 carbon_model="base",
+                 temperature_calibration="base",
+                 prescribed_emissions=None
+
             ):
-        super().__init__(num_discrete_action_levels,negotiation_on,scenario)
+        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels, 
+                action_space_type=action_space_type,  # or "continuous"
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions)
         self.maximum_mitigation_rate = 9
 
     def calc_action_mask(self):
@@ -44,6 +57,70 @@ class OptimalMitigation(Rice):
                     ]
                 )
 
+            mask_start = sum(self.savings_possible_actions)
+            mask_end = mask_start + sum(
+                    self.mitigation_rate_possible_actions
+                )
+            mask[mask_start:mask_end] = mitigation_mask
+            mask_dict[region_id] = mask
+
+        return mask_dict
+    
+class MinimalMitigation(Rice):
+
+    """Scenario where all agents mitigate to a given extent
+    
+        Arguments:
+        - num_discrete_action_levels (int):  the number of discrete levels for actions, > 1
+        - negotiation_on (boolean): whether negotiation actions are available to agents
+        - scenario (str): name of scenario 
+    
+        Attributes:
+        - maximum_mitigation_rate: the rate rate all agents will mitigate to.
+        """
+    
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="MinimalMitigation",
+                 action_space_type="discrete",  # or "continuous"
+                 dmg_function="base",
+                 carbon_model="base",
+                 temperature_calibration="base",
+                 prescribed_emissions=None
+
+            ):
+        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels, 
+                action_space_type=action_space_type,  # or "continuous"
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions)
+        self.maximum_mitigation_rate = 1
+
+    def calc_action_mask(self):
+        """
+        Generate action masks.
+        """
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+            mask = self.default_agent_action_mask.copy()
+
+            mitigation_mask = np.array(
+                    [1 for _ in range(self.maximum_mitigation_rate)]
+                    + [
+                        0
+                        for _ in range(
+                            self.num_discrete_action_levels
+                            - self.maximum_mitigation_rate
+                        )
+                    ]
+                )
+            print(mitigation_mask)
+            print(len(mitigation_mask))
             mask_start = sum(self.savings_possible_actions)
             mask_end = mask_start + sum(
                     self.mitigation_rate_possible_actions
