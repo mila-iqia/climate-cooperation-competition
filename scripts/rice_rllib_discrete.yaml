@@ -37,6 +37,9 @@ env:
     carbon_model: "base"
     temperature_calibration: "base"
 
+regions:
+    num_agents: 7 #can be either {3,7,20,27}
+
 # wandb config
 logging:
     enabled: False 

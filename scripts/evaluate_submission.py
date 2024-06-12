@@ -21,7 +21,7 @@ from pathlib import Path
 import json
 import numpy as np
 import yaml
-
+import wandb
 _path = Path(os.path.abspath(__file__))
 
 from fixed_paths import PUBLIC_REPO_DIR
@@ -50,14 +50,32 @@ _INDEXES_FILENAME = "climate_economic_min_max_indices.txt"
 _METRICS_TO_LABEL_DICT = OrderedDict()
 # Read the dict values below as
 # (label, decimal points used to round off value: 0 becomes an integer)
-_METRICS_TO_LABEL_DICT["reward_all_regions"] = ("Episode Reward", 2)
+
 _METRICS_TO_LABEL_DICT["global_temperature"] = ("Temperature Rise", 2)
-_METRICS_TO_LABEL_DICT["global_carbon_mass"] = ("Carbon Mass", 0)
-_METRICS_TO_LABEL_DICT["capital_all_regions"] = ("Capital", 0)
-_METRICS_TO_LABEL_DICT["production_all_regions"] = ("Production", 0)
-_METRICS_TO_LABEL_DICT["gross_output_all_regions"] = ("Gross Output", 0)
-_METRICS_TO_LABEL_DICT["investment_all_regions"] = ("Investment", 0)
+_METRICS_TO_LABEL_DICT["global_carbon_mass"] = ("Carbon Mass", 2)
+_METRICS_TO_LABEL_DICT["capital_all_regions"] = ("Capital", 2)
+_METRICS_TO_LABEL_DICT["labor_all_regions"] = ("Labor", 2)
+_METRICS_TO_LABEL_DICT["production_factor_all_regions"] = ("Production Factor", 2)
+_METRICS_TO_LABEL_DICT["production_all_regions"] = ("Production", 2)
+_METRICS_TO_LABEL_DICT["intensity_all_regions"] = ("Intensity", 2)
+# _METRICS_TO_LABEL_DICT["global_exegenous_emissions"] = ("Exogenous Emissions", 2)
+_METRICS_TO_LABEL_DICT["global_land_emissions"] = ("Land Emissions", 2)
+# _METRICS_TO_LABEL_DICT["capital_deprication_all_regions"] = ("Capital Deprication", 2)
+_METRICS_TO_LABEL_DICT["savings_all_regions"] = ("Savings", 2)
+_METRICS_TO_LABEL_DICT["mitigation_rates_all_regions"] = ("Mitigation Rate", 0)
+_METRICS_TO_LABEL_DICT["export_limit_all_regions"] = ("Max Export Limit", 2)
+_METRICS_TO_LABEL_DICT["mitigation_cost_all_regions"] = ("Mitigation Cost", 2)
+_METRICS_TO_LABEL_DICT["damages_all_regions"] = ("Damages", 2)
 _METRICS_TO_LABEL_DICT["abatement_cost_all_regions"] = ("Abatement Cost", 2)
+_METRICS_TO_LABEL_DICT["utility_all_regions"] = ("Utility", 2)
+_METRICS_TO_LABEL_DICT["social_welfare_all_regions"] = ("Social Welfare", 2)
+_METRICS_TO_LABEL_DICT["reward_all_regions"] = ("Reward", 2)
+#_METRICS_TO_LABEL_DICT["consumption_all_regions"] = ("Consumption", 2)
+_METRICS_TO_LABEL_DICT["current_balance_all_regions"] = ("Current Balance", 2)
+_METRICS_TO_LABEL_DICT["gross_output_all_regions"] = ("Gross Output", 2)
+_METRICS_TO_LABEL_DICT["investment_all_regions"] = ("Investment", 2)
+_METRICS_TO_LABEL_DICT["production_all_regions"] = ("Production", 2)
+_METRICS_TO_LABEL_DICT["minimum_mitigation_rate_all_regions"] = ("Minimum Mitigation Rate", 0)
 
 
 def get_imports(framework=None):
@@ -70,6 +88,7 @@ def get_imports(framework=None):
             create_trainer,
             fetch_episode_states,
             load_model_checkpoints,
+            set_num_agents
         )
     elif framework == "warpdrive":
         from train_with_warp_drive import (
@@ -77,9 +96,12 @@ def get_imports(framework=None):
             fetch_episode_states,
             load_model_checkpoints,
         )
+        from train_with_rllib import (
+            set_num_agents
+        )
     else:
         raise ValueError(f"Unknown framework {framework}!")
-    return create_trainer, load_model_checkpoints, fetch_episode_states
+    return create_trainer, load_model_checkpoints, fetch_episode_states, set_num_agents
 
 
 def try_to_unzip_file(path):
@@ -172,6 +194,7 @@ def compute_metrics(
     framework,
     num_episodes=1,
     include_c_e_idx=True,
+    log_config = None,
     file_name = None
 ):
     """
@@ -187,6 +210,13 @@ def compute_metrics(
     desired_outputs = list(_METRICS_TO_LABEL_DICT.keys())
     # Add auxiliary outputs required for processing
     required_outputs = desired_outputs + ["activity_timestep"]
+    log_config["enabled"] = True
+    if log_config and log_config["enabled"]:
+        wandb_config = log_config["wandb_config"]
+        wandb.login(key=wandb_config["login"])
+        wandb.init(project=wandb_config["project"],
+            name=f'{wandb_config["run"]}_eval',
+            entity=wandb_config["entity"])
 
     episode_states = {}
     eval_metrics = {}
@@ -251,6 +281,53 @@ def compute_metrics(
             eval_metrics[metrics_to_label_dict[0]] = perform_format(
                 mean_feature_value, metrics_to_label_dict[1]
             )
+
+            if log_config and log_config["enabled"]:
+                #TODO: fix dirty method to remove negotiation steps from results
+                interval = (len(episode_states[episode_id][feature]) - 1) // 20
+                ys = episode_states[episode_id][feature][0::interval].T
+
+
+                xs = list(range(len(ys[0])))
+                plot_name = feature.replace("_", " ").capitalize()
+
+                if feature == "global_temperature":
+                    plot = wandb.plot.line_series(
+                        xs=xs,
+                        ys=ys.tolist(),
+                        keys=["Atmosphere", "Ocean"],
+                        title=plot_name,
+                        xname="step",
+                    )
+                    wandb.log({plot_name: plot})
+                elif feature == "global_carbon_mass":
+                    plot = wandb.plot.line_series(
+                        xs=xs,
+                        ys=ys.tolist(),
+                        keys=["Atmosphere", "Upper ocean", "Lower ocean"],
+                        title=plot_name,
+                        xname="step",
+                    )
+                    wandb.log({plot_name: plot})
+                elif feature.endswith("_all_regions"):
+                    value_name = feature[:-12].replace("_", " ")
+                    plot_name = value_name.capitalize()
+                    plot_name_mean = f"Mean {value_name}"
+                    ys_mean = np.mean(ys, axis=0)
+                    data = [[x, y] for (x, y) in zip(xs, ys_mean.tolist())]
+                    table = wandb.Table(data=data, columns=["step", value_name])
+                    plot_mean = wandb.plot.line(
+                        table, "step", value_name, title=plot_name_mean
+                    )
+                    plot = wandb.plot.line_series(
+                        xs=xs,
+                        ys=ys.tolist(),
+                        keys=[f"Region {x}" for x in range(len(ys))],
+                        title=plot_name,
+                        xname="step",
+                    )
+                    wandb.log({plot_name_mean: plot_mean})
+                    wandb.log({plot_name: plot})
         if include_c_e_idx:
             if not os.path.exists(_INDEXES_FILENAME):
                 # Write min, max climate and economic index values to a file
@@ -409,6 +486,7 @@ def perform_evaluation(
         create_trainer,
         load_model_checkpoints,
         fetch_episode_states,
+        set_num_agents
     ) = get_imports(framework=framework)
     
     # Load a run configuration
@@ -417,6 +495,8 @@ def perform_evaluation(
     else:
         yaml_path = f"rice_{framework}_cont.yaml"
     config_file = os.path.join(results_directory, yaml_path)
+
+    
     
     try:
         assert os.path.exists(config_file)
@@ -425,6 +505,15 @@ def perform_evaluation(
             f"The run configuration is missing in {results_directory}."
         )
         raise err
+    
+    with open(config_file, "r", encoding="utf-8") as file_ptr:
+        run_config = yaml.safe_load(file_ptr)
+        #force eval on single worker
+        run_config["trainer"]["num_workers"] = 0
+        log_config = run_config["logging"]
+    #update region yamls
+    set_num_agents(run_config)
+    
 
     # Copy the PUBLIC region yamls and rice_build.cu to the results directory.
     if not os.path.exists(os.path.join(results_directory, "region_yamls")):
@@ -440,8 +529,6 @@ def perform_evaluation(
     
     # Create Trainer object
     try:
-        with open(config_file, "r", encoding="utf-8") as file_ptr:
-            run_config = yaml.safe_load(file_ptr)
         trainer = create_trainer(
             run_config, source_dir=results_directory, seed=eval_seed
         )
@@ -464,6 +551,7 @@ def perform_evaluation(
             trainer,
             framework,
             num_episodes=num_episodes,
+            log_config = log_config,
             file_name=run_config["env"]["scenario"]
         )
 

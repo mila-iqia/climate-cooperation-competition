@@ -509,8 +509,49 @@ def fetch_episode_states(trainer_obj=None, episode_states=None, file_name = None
 
     return outputs
 
+def set_num_agents(config_yaml):
+    """
+    updates the region_yamls folder with the appropriate number of regions
+    as defined by the yaml config
+    """
+    num_agents = config_yaml["regions"]["num_agents"]
 
+    assert num_agents in [3,7,20,27]
+    
+    # Get the directory where the script is located
+    script_directory = os.path.dirname(os.path.abspath(__file__))
 
+    # Get the parent directory of the script
+    parent_directory = os.path.dirname(script_directory)
+
+    # Path to the 'other_yamls' directory
+    target_directory = os.path.join(parent_directory, 'other_yamls')
+
+    # List everything in the 'other_yamls' directory
+    entries = os.listdir(target_directory)
+
+    # Filter out files, only keep directories
+    folders = [entry for entry in entries if os.path.isdir(os.path.join(target_directory, entry))]
+
+    # Get target directory containing relevant .yml files
+    target_region_yamls = os.path.join(target_directory, [folder for folder in folders if folder.startswith(str(num_agents))][0])
+
+    # Path to the 'test_regions' directory
+    test_regions_directory = os.path.join(parent_directory, 'region_yamls')
+
+    # Delete all files in 'test_regions' except 'default.yml'
+    for file in os.listdir(test_regions_directory):
+        file_path = os.path.join(test_regions_directory, file)
+        if os.path.isfile(file_path) and file != 'default.yml':
+            os.remove(file_path)
+
+    # Copy all .yml files from target_region_yamls to test_regions
+    for file in os.listdir(target_region_yamls):
+        if file.endswith('.yml'):
+            source_file_path = os.path.join(target_region_yamls, file)
+            destination_file_path = os.path.join(test_regions_directory, file)
+            shutil.copy2(source_file_path, destination_file_path)
+    logging.info(f"region yamls updated to {num_agents} regions")
 
 if __name__ == "__main__":
     print("Training with RLlib...")
@@ -534,9 +575,12 @@ if __name__ == "__main__":
             name=f'{wandb_config["run"]}_train',
             entity=wandb_config["entity"],
         )
+
+    set_num_agents(config_yaml)
     trainer = create_trainer(config_yaml)
     save_dir = create_save_dir_path(config_yaml)
     os.makedirs(save_dir)
+    
 
     for file in ["rice.py",
                  "rice_helpers.py",
@@ -550,12 +594,6 @@ if __name__ == "__main__":
             os.path.join(PUBLIC_REPO_DIR, "scripts", file),
             os.path.join(save_dir, file),
         )
-    # Copy region yaml file as these can change from run to run
-    shutil.copytree(
-        os.path.join(PUBLIC_REPO_DIR, "region_yamls"),
-        os.path.join(save_dir, "region_yamls"),
-        dirs_exist_ok=True  # This allows the copy to overwrite existing files
-    )
     
 
     # Add an identifier file
@@ -580,6 +618,7 @@ if __name__ == "__main__":
     
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
+    num_iters = 1
     for iteration in tqdm(range(num_iters)):
         print(
             f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"

@@ -40,6 +40,11 @@ bower_components
 # node-waf configuration
 .lock-wscript
 
+#region yamls
+region_yamls/
+
+region_yamls_/*
+
 # IDEs and editors
 .idea
 .project

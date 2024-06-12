@@ -119,8 +119,7 @@ class MinimalMitigation(Rice):
                         )
                     ]
                 )
-            print(mitigation_mask)
-            print(len(mitigation_mask))
+
             mask_start = sum(self.savings_possible_actions)
             mask_end = mask_start + sum(
                     self.mitigation_rate_possible_actions
