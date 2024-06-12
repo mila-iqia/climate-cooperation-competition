@@ -21,7 +21,7 @@ from pathlib import Path
 import json
 import numpy as np
 import yaml
-
+import wandb
 _path = Path(os.path.abspath(__file__))
 
 from fixed_paths import PUBLIC_REPO_DIR
@@ -50,14 +50,32 @@ _INDEXES_FILENAME = "climate_economic_min_max_indices.txt"
 _METRICS_TO_LABEL_DICT = OrderedDict()
 # Read the dict values below as
 # (label, decimal points used to round off value: 0 becomes an integer)
-_METRICS_TO_LABEL_DICT["reward_all_regions"] = ("Episode Reward", 2)
+
 _METRICS_TO_LABEL_DICT["global_temperature"] = ("Temperature Rise", 2)
-_METRICS_TO_LABEL_DICT["global_carbon_mass"] = ("Carbon Mass", 0)
-_METRICS_TO_LABEL_DICT["capital_all_regions"] = ("Capital", 0)
-_METRICS_TO_LABEL_DICT["production_all_regions"] = ("Production", 0)
-_METRICS_TO_LABEL_DICT["gross_output_all_regions"] = ("Gross Output", 0)
-_METRICS_TO_LABEL_DICT["investment_all_regions"] = ("Investment", 0)
+_METRICS_TO_LABEL_DICT["global_carbon_mass"] = ("Carbon Mass", 2)
+_METRICS_TO_LABEL_DICT["capital_all_regions"] = ("Capital", 2)
+_METRICS_TO_LABEL_DICT["labor_all_regions"] = ("Labor", 2)
+_METRICS_TO_LABEL_DICT["production_factor_all_regions"] = ("Production Factor", 2)
+_METRICS_TO_LABEL_DICT["production_all_regions"] = ("Production", 2)
+_METRICS_TO_LABEL_DICT["intensity_all_regions"] = ("Intensity", 2)
+# _METRICS_TO_LABEL_DICT["global_exegenous_emissions"] = ("Exogenous Emissions", 2)
+_METRICS_TO_LABEL_DICT["global_land_emissions"] = ("Land Emissions", 2)
+# _METRICS_TO_LABEL_DICT["capital_deprication_all_regions"] = ("Capital Deprication", 2)
+_METRICS_TO_LABEL_DICT["savings_all_regions"] = ("Savings", 2)
+_METRICS_TO_LABEL_DICT["mitigation_rates_all_regions"] = ("Mitigation Rate", 0)
+_METRICS_TO_LABEL_DICT["export_limit_all_regions"] = ("Max Export Limit", 2)
+_METRICS_TO_LABEL_DICT["mitigation_cost_all_regions"] = ("Mitigation Cost", 2)
+_METRICS_TO_LABEL_DICT["damages_all_regions"] = ("Damages", 2)
 _METRICS_TO_LABEL_DICT["abatement_cost_all_regions"] = ("Abatement Cost", 2)
+_METRICS_TO_LABEL_DICT["utility_all_regions"] = ("Utility", 2)
+_METRICS_TO_LABEL_DICT["social_welfare_all_regions"] = ("Social Welfare", 2)
+_METRICS_TO_LABEL_DICT["reward_all_regions"] = ("Reward", 2)
+#_METRICS_TO_LABEL_DICT["consumption_all_regions"] = ("Consumption", 2)
+_METRICS_TO_LABEL_DICT["current_balance_all_regions"] = ("Current Balance", 2)
+_METRICS_TO_LABEL_DICT["gross_output_all_regions"] = ("Gross Output", 2)
+_METRICS_TO_LABEL_DICT["investment_all_regions"] = ("Investment", 2)
+_METRICS_TO_LABEL_DICT["production_all_regions"] = ("Production", 2)
+_METRICS_TO_LABEL_DICT["minimum_mitigation_rate_all_regions"] = ("Minimum Mitigation Rate", 0)
 
 
 def get_imports(framework=None):
@@ -66,10 +84,11 @@ def get_imports(framework=None):
     """
     assert framework is not None
     if framework == "rllib":
-        from deprecated.train_with_rllib_discrete import (
+        from train_with_rllib import (
             create_trainer,
             fetch_episode_states,
             load_model_checkpoints,
+            set_num_agents
         )
     elif framework == "warpdrive":
         from train_with_warp_drive import (
@@ -77,9 +96,12 @@ def get_imports(framework=None):
             fetch_episode_states,
             load_model_checkpoints,
         )
+        from train_with_rllib import (
+            set_num_agents
+        )
     else:
         raise ValueError(f"Unknown framework {framework}!")
-    return create_trainer, load_model_checkpoints, fetch_episode_states
+    return create_trainer, load_model_checkpoints, fetch_episode_states, set_num_agents
 
 
 def try_to_unzip_file(path):
@@ -126,7 +148,7 @@ def validate_dir(results_dir=None):
     elif ".rllib" in files:
         framework = "rllib"
         # RLlib was used for training
-        for file in ["rice.py", "rice_helpers.py", "rice_rllib.yaml"]:
+        for file in ["rice.py", "rice_helpers.py"]:
             if file not in files:
                 success = False
                 logging.error(
@@ -135,6 +157,22 @@ def validate_dir(results_dir=None):
                     results_dir,
                 )
                 comment = f"{file} is not present in the results directory!"
+                break
+            yaml_success = False
+            for file in ["rice_rllib_discrete.yaml",
+                    "rice_rllib_cont.yaml",
+                    "rice_rllib_cont_beta.yaml"]:
+                if file in files:
+                    yaml_success = True
+                    discrete = "discrete" in file
+                    
+            if not yaml_success:
+                logging.error(
+                    "No yaml is present in the results directory: %s!",
+                    file,
+                    results_dir,
+                )
+                comment = f"yaml is not present in the results directory!"
                 break
             success = True
             comment = "Valid submission"
@@ -147,7 +185,7 @@ def validate_dir(results_dir=None):
         )
         comment = "Missing identifier file!"
     print("comment", comment)
-    return framework, success, comment
+    return framework, success, comment, discrete
 
 
 def compute_metrics(
@@ -156,6 +194,8 @@ def compute_metrics(
     framework,
     num_episodes=1,
     include_c_e_idx=True,
+    log_config = None,
+    file_name = None
 ):
     """
     Generate episode rollouts and compute metrics.
@@ -170,6 +210,13 @@ def compute_metrics(
     desired_outputs = list(_METRICS_TO_LABEL_DICT.keys())
     # Add auxiliary outputs required for processing
     required_outputs = desired_outputs + ["activity_timestep"]
+    log_config["enabled"] = True
+    if log_config and log_config["enabled"]:
+        wandb_config = log_config["wandb_config"]
+        wandb.login(key=wandb_config["login"])
+        wandb.init(project=wandb_config["project"],
+            name=f'{wandb_config["run"]}_eval',
+            entity=wandb_config["entity"])
 
     episode_states = {}
     eval_metrics = {}
@@ -177,7 +224,7 @@ def compute_metrics(
         for episode_id in range(num_episodes):
             if fetch_episode_states is not None:
                 episode_states[episode_id] = fetch_episode_states(
-                    trainer, required_outputs
+                    trainer, required_outputs, file_name
                 )
             else:
                 episode_states[
@@ -234,6 +281,53 @@ def compute_metrics(
             eval_metrics[metrics_to_label_dict[0]] = perform_format(
                 mean_feature_value, metrics_to_label_dict[1]
             )
+
+            if log_config and log_config["enabled"]:
+                #TODO: fix dirty method to remove negotiation steps from results
+                interval = (len(episode_states[episode_id][feature]) - 1) // 20
+                ys = episode_states[episode_id][feature][0::interval].T
+
+
+                xs = list(range(len(ys[0])))
+                plot_name = feature.replace("_", " ").capitalize()
+
+                if feature == "global_temperature":
+                    plot = wandb.plot.line_series(
+                        xs=xs,
+                        ys=ys.tolist(),
+                        keys=["Atmosphere", "Ocean"],
+                        title=plot_name,
+                        xname="step",
+                    )
+                    wandb.log({plot_name: plot})
+                elif feature == "global_carbon_mass":
+                    plot = wandb.plot.line_series(
+                        xs=xs,
+                        ys=ys.tolist(),
+                        keys=["Atmosphere", "Upper ocean", "Lower ocean"],
+                        title=plot_name,
+                        xname="step",
+                    )
+                    wandb.log({plot_name: plot})
+                elif feature.endswith("_all_regions"):
+                    value_name = feature[:-12].replace("_", " ")
+                    plot_name = value_name.capitalize()
+                    plot_name_mean = f"Mean {value_name}"
+                    ys_mean = np.mean(ys, axis=0)
+                    data = [[x, y] for (x, y) in zip(xs, ys_mean.tolist())]
+                    table = wandb.Table(data=data, columns=["step", value_name])
+                    plot_mean = wandb.plot.line(
+                        table, "step", value_name, title=plot_name_mean
+                    )
+                    plot = wandb.plot.line_series(
+                        xs=xs,
+                        ys=ys.tolist(),
+                        keys=[f"Region {x}" for x in range(len(ys))],
+                        title=plot_name,
+                        xname="step",
+                    )
+                    wandb.log({plot_name_mean: plot_mean})
+                    wandb.log({plot_name: plot})
         if include_c_e_idx:
             if not os.path.exists(_INDEXES_FILENAME):
                 # Write min, max climate and economic index values to a file
@@ -379,6 +473,7 @@ def perform_evaluation(
     results_directory,
     framework,
     num_episodes=1,
+    discrete = True,
     eval_seed=None,
 ):
     """
@@ -386,16 +481,23 @@ def perform_evaluation(
     """
     assert results_directory is not None
     assert num_episodes > 0
-
+    
     (
         create_trainer,
         load_model_checkpoints,
         fetch_episode_states,
+        set_num_agents
     ) = get_imports(framework=framework)
-
+    
     # Load a run configuration
-    config_file = os.path.join(results_directory, f"rice_{framework}.yaml")
+    if discrete:
+        yaml_path = f"rice_{framework}_discrete.yaml"
+    else:
+        yaml_path = f"rice_{framework}_cont.yaml"
+    config_file = os.path.join(results_directory, yaml_path)
 
+    
+    
     try:
         assert os.path.exists(config_file)
     except Exception as err:
@@ -403,6 +505,15 @@ def perform_evaluation(
             f"The run configuration is missing in {results_directory}."
         )
         raise err
+    
+    with open(config_file, "r", encoding="utf-8") as file_ptr:
+        run_config = yaml.safe_load(file_ptr)
+        #force eval on single worker
+        run_config["trainer"]["num_workers"] = 0
+        log_config = run_config["logging"]
+    #update region yamls
+    set_num_agents(run_config)
+    
 
     # Copy the PUBLIC region yamls and rice_build.cu to the results directory.
     if not os.path.exists(os.path.join(results_directory, "region_yamls")):
@@ -415,13 +526,10 @@ def perform_evaluation(
             os.path.join(PUBLIC_REPO_DIR, "rice_build.cu"),
             os.path.join(results_directory, "rice_build.cu"),
         )
-
+    
     # Create Trainer object
     try:
-        with open(config_file, "r", encoding="utf-8") as file_ptr:
-            run_config = yaml.safe_load(file_ptr)
-
-        trainer, _ = create_trainer(
+        trainer = create_trainer(
             run_config, source_dir=results_directory, seed=eval_seed
         )
 
@@ -434,7 +542,7 @@ def perform_evaluation(
         load_model_checkpoints(trainer, results_directory)
     except Exception as err:
         logging.error(f"Could not load model checkpoints.")
-        raise err
+        raise err   
 
     # Compute metrics
     try:
@@ -443,12 +551,15 @@ def perform_evaluation(
             trainer,
             framework,
             num_episodes=num_episodes,
+            log_config = log_config,
+            file_name=run_config["env"]["scenario"]
         )
 
         if framework == "warpdrive":
             trainer.graceful_close()
 
         return success, eval_metrics, comment
+
 
     except Exception as err:
         logging.error(f"Count not fetch episode and compute metrics.")
@@ -559,7 +670,7 @@ if __name__ == "__main__":
     logging.info(f"Using submission files in {results_dir}")
 
     # Validate the submission directory
-    framework, results_dir_is_valid, comment = validate_dir(results_dir)
+    framework, results_dir_is_valid, comment, discrete = validate_dir(results_dir)
     if not results_dir_is_valid:
         raise AssertionError(
             f"{results_dir} is not a valid submission directory."
@@ -567,7 +678,7 @@ if __name__ == "__main__":
 
     # Run unit tests on the simulation files
     skip_unit_tests = True  # = args.skip_unit_tests
-
+    
     try:
         if skip_unit_tests:
             logging.info("Skipping check_output test")
@@ -585,13 +696,13 @@ if __name__ == "__main__":
     except subprocess.CalledProcessError as err:
         logging.error(f"{results_dir}: unit tests were not successful.")
         raise err
-
+    
     # Run evaluation with submitted simulation and trained agents.
     logging.info("Starting eval...")
     succeeded, metrics, comments = perform_evaluation(
-        results_dir, framework, eval_seed=_EVAL_SEED
+        results_dir, framework, discrete, eval_seed=_EVAL_SEED
     )
-
+    
     # Report results.
     eval_result_str = "\n".join(
         [

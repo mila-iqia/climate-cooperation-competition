@@ -19,6 +19,15 @@ lib-cov
 # Coverage directory used by tools like istanbul
 coverage
 
+#experiment outputs
+evals/*
+!evals/
+
+#experiment outputs
+scripts/experiments/*
+*_.py
+region_yamls_/
+
 # nyc test coverage
 .nyc_output
 
@@ -30,6 +39,11 @@ bower_components
 
 # node-waf configuration
 .lock-wscript
+
+#region yamls
+region_yamls/
+
+region_yamls_/*
 
 # IDEs and editors
 .idea

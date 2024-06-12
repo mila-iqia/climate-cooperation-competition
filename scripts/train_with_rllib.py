@@ -12,12 +12,13 @@ https://docs.ray.io/en/latest/rllib-training.html
 
 import logging
 import os
-
+import shutil
+import json
 # import shutil
 import subprocess
 import sys
 import time
-
+import wandb
 import numpy as np
 import yaml
 from desired_outputs import desired_outputs
@@ -27,12 +28,10 @@ from opt_helper import save
 from rice import Rice
 from scenarios import *
 import argparse
+from collections import OrderedDict
+from tqdm import tqdm
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--yaml", "-y", type=str, default="rice_rllib_cont_beta.yaml")
-args = parser.parse_args()
 sys.path.append(PUBLIC_REPO_DIR)
-
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -40,7 +39,9 @@ logging.getLogger().setLevel(logging.DEBUG)
 SCENARIO_MAPPING = {
     "default":Rice,
     "OptimalMitigation":OptimalMitigation,
-    "BasicClub":BasicClub
+    "MinimalMitigation":MinimalMitigation,
+    "BasicClub":BasicClub,
+    "ExportAction":ExportAction
 }
 
 def get_config_yaml(yaml_path):
@@ -55,22 +56,6 @@ def get_config_yaml(yaml_path):
         run_config = yaml.safe_load(fp)
     return run_config
 
-config_yaml = get_config_yaml(yaml_path=args.yaml)
-
-if config_yaml["env"]["action_space_type"] == "discrete":
-    from scripts.torch_models_discrete import TorchLinear
-elif config_yaml["env"]["action_space_type"] == "continuous":
-    if "beta" in config_yaml["policy"]["regions"]["model"]["custom_model"].lower():
-        from scripts.torch_models_cont_beta import CustomBetaPolicyModel
-        from ray.rllib.models import ModelCatalog
-        from beta_action_dist import BetaActionDistribution
-        ModelCatalog.register_custom_action_dist("beta_distribution", BetaActionDistribution)
-
-        from beta_action_dist import BetaActionDistribution
-    elif "cont" in config_yaml["policy"]["regions"]["model"]["custom_model"].lower():
-        from scripts.torch_models_cont import TorchLinear
-    elif "discrete" in config_yaml["policy"]["regions"]["model"]["custom_model"].lower():
-        from scripts.torch_models_discrete import TorchLinear
 
 import ray
 import torch
@@ -78,7 +63,7 @@ import gymnasium as gym
 from gymnasium.spaces import Box, Dict
 from ray.rllib.algorithms.a2c import A2CConfig
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
-
+from datetime import datetime
 from ray.tune.logger import NoopLogger
 
 logging.info("Finished imports")
@@ -263,6 +248,7 @@ def get_multiagent_policies_config(config_yaml=None, env_object=None):
     # Define all the policies here
     regions_policy_config = config_yaml["policy"]["regions"]
 
+
     # Map of type MultiAgentPolicyConfigDict from policy ids to tuples
     # of (policy_cls, obs_space, act_space, config). This defines the
     # observation and action spaces of the policies and any extra config.
@@ -361,6 +347,21 @@ def create_trainer(config_yaml=None, source_dir=None, seed=None):
     # Create the A2C trainer.
     config_yaml["env"]["source_dir"] = source_dir
 
+    if config_yaml["env"]["action_space_type"] == "discrete":
+        from scripts.torch_models_discrete import TorchLinear
+    elif config_yaml["env"]["action_space_type"] == "continuous":
+        if "beta" in config_yaml["policy"]["regions"]["model"]["custom_model"].lower():
+            from scripts.torch_models_cont_beta import CustomBetaPolicyModel
+            from ray.rllib.models import ModelCatalog
+            from beta_action_dist import BetaActionDistribution
+            ModelCatalog.register_custom_action_dist("beta_distribution", BetaActionDistribution)
+
+            from beta_action_dist import BetaActionDistribution
+        elif "cont" in config_yaml["policy"]["regions"]["model"]["custom_model"].lower():
+            from scripts.torch_models_cont import TorchLinear
+        elif "discrete" in config_yaml["policy"]["regions"]["model"]["custom_model"].lower():
+            from scripts.torch_models_discrete import TorchLinear
+
     rllib_config = get_rllib_config(
         config_yaml=config_yaml,
         env_class=EnvWrapper,
@@ -369,7 +370,7 @@ def create_trainer(config_yaml=None, source_dir=None, seed=None):
 
     config = A2CConfig()
 
-    # config.num_agents = rllib_config["num_envs_per_worker"]
+    #config.num_agents = rllib_config["num_envs_per_worker"]
 
     config = config.training(train_batch_size=rllib_config["train_batch_size"])
     config = config.environment(disable_env_checking=True)
@@ -414,8 +415,14 @@ def create_save_dir_path(exp_run_config, results_dir=None):
 
     return results_save_dir
 
+class NumpyArrayEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
 
-def fetch_episode_states(trainer_obj=None, episode_states=None):
+
+def fetch_episode_states(trainer_obj=None, episode_states=None, file_name = None):
     """
     Helper function to rollout the env and fetch env states for an episode.
     """
@@ -428,7 +435,7 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
 
     # Fetch the env object from the trainer
     env_object = trainer_obj.workers.local_worker().env
-    obs = env_object.reset()
+    obs, _ = env_object.reset()
 
     env = env_object.env
 
@@ -460,7 +467,9 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
             if (
                 len(agent_states[region_id]) == 0
             ):  # stateless, with a linear model, for example
-                actions[region_id] = trainer_obj.compute_action(
+
+                
+                actions[region_id] = trainer_obj.compute_single_action(
                     obs[region_id],
                     agent_states[region_id],
                     policy_id=policy_ids[region_id],
@@ -470,23 +479,79 @@ def fetch_episode_states(trainer_obj=None, episode_states=None):
                     actions[region_id],
                     agent_states[region_id],
                     _,
-                ) = trainer_obj.compute_action(
+                ) = trainer_obj.compute_actions(
                     obs[region_id],
                     agent_states[region_id],
                     policy_id=policy_ids[region_id],
                 )
-        obs, _, done, _ = env_object.step(actions)
+        obs, rewards, done, truncateds, info = env_object.step(actions)
         if done["__all__"]:
             for state in episode_states:
                 outputs[state][timestep + 1] = env.global_state[state]["value"][
                     timestep + 1
                 ]
+            if file_name:
+                # Get the current script's directory
+                current_directory = os.path.dirname(__file__)
+                # Construct the path to the 'eval' directory
+                eval_directory = os.path.join(current_directory, '..', 'evals')
+                # Ensure the path is absolute
+                eval_directory = os.path.abspath(eval_directory)
+                formatted_datetime = datetime.now()\
+                    .strftime("%Y%m%d%H%M%S")
+                name = f"global_state_{file_name}_{formatted_datetime}.json"
+                # Define the file name and construct the full file path
+                file_path = os.path.join(eval_directory, name)
+                
+                with open(file_path, "w") as f:
+                    json.dump(env.global_state, f, cls=NumpyArrayEncoder)
             break
 
     return outputs
 
+def set_num_agents(config_yaml):
+    """
+    updates the region_yamls folder with the appropriate number of regions
+    as defined by the yaml config
+    """
+    num_agents = config_yaml["regions"]["num_agents"]
 
+    assert num_agents in [3,7,20,27]
+    
+    # Get the directory where the script is located
+    script_directory = os.path.dirname(os.path.abspath(__file__))
 
+    # Get the parent directory of the script
+    parent_directory = os.path.dirname(script_directory)
+
+    # Path to the 'other_yamls' directory
+    target_directory = os.path.join(parent_directory, 'other_yamls')
+
+    # List everything in the 'other_yamls' directory
+    entries = os.listdir(target_directory)
+
+    # Filter out files, only keep directories
+    folders = [entry for entry in entries if os.path.isdir(os.path.join(target_directory, entry))]
+
+    # Get target directory containing relevant .yml files
+    target_region_yamls = os.path.join(target_directory, [folder for folder in folders if folder.startswith(str(num_agents))][0])
+
+    # Path to the 'test_regions' directory
+    test_regions_directory = os.path.join(parent_directory, 'region_yamls')
+
+    # Delete all files in 'test_regions' except 'default.yml'
+    for file in os.listdir(test_regions_directory):
+        file_path = os.path.join(test_regions_directory, file)
+        if os.path.isfile(file_path) and file != 'default.yml':
+            os.remove(file_path)
+
+    # Copy all .yml files from target_region_yamls to test_regions
+    for file in os.listdir(target_region_yamls):
+        if file.endswith('.yml'):
+            source_file_path = os.path.join(target_region_yamls, file)
+            destination_file_path = os.path.join(test_regions_directory, file)
+            shutil.copy2(source_file_path, destination_file_path)
+    logging.info(f"region yamls updated to {num_agents} regions")
 
 if __name__ == "__main__":
     print("Training with RLlib...")
@@ -495,11 +560,46 @@ if __name__ == "__main__":
     # Note: The run config yaml(s) can be edited at warp_drive/training/run_configs
     # -----------------------------------------------------------------------------
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--yaml", "-y", type=str, default="rice_rllib_discrete.yaml")
+    args = parser.parse_args()
+    config_yaml = get_config_yaml(yaml_path=args.yaml)
+
     ray.init(ignore_reinit_error=True)
 
+    if config_yaml["logging"]["enabled"]:
+        wandb_config = config_yaml["logging"]["wandb_config"]
+        wandb.login(key=wandb_config["login"])
+        wandb.init(
+            project=wandb_config["project"],
+            name=f'{wandb_config["run"]}_train',
+            entity=wandb_config["entity"],
+        )
+
+    set_num_agents(config_yaml)
     trainer = create_trainer(config_yaml)
     save_dir = create_save_dir_path(config_yaml)
     os.makedirs(save_dir)
+    
+
+    for file in ["rice.py",
+                 "rice_helpers.py",
+                 "scenarios.py"]:
+        shutil.copyfile(
+            os.path.join(PUBLIC_REPO_DIR, file),
+            os.path.join(save_dir, file),
+        )
+    for file in [args.yaml]:
+        shutil.copyfile(
+            os.path.join(PUBLIC_REPO_DIR, "scripts", file),
+            os.path.join(save_dir, file),
+        )
+    
+
+    # Add an identifier file
+    with open(os.path.join(save_dir, ".rllib"), "x", encoding="utf-8") as fp:
+        pass
+    fp.close()
 
     # Perform training
     # ----------------
@@ -518,12 +618,26 @@ if __name__ == "__main__":
     
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
-
-    for iteration in range(num_iters):
+    for iteration in tqdm(range(num_iters)):
         print(
             f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"
         )
         result = trainer.train()
+
+        if config_yaml["logging"]["enabled"]:
+            wandb.log(
+                {
+                    "episode_reward_min": result["episode_reward_min"],
+                    "episode_reward_mean": result["episode_reward_mean"],
+                    "episode_reward_max": result["episode_reward_max"],
+                },
+                step=result["episodes_total"],
+            )
+            wandb.log(
+                result["info"]["learner"]["regions"]["learner_stats"],
+                step=result["episodes_total"],
+            )
+
         total_timesteps = result.get("timesteps_total")
         if (
             iteration % config_yaml["saving"]["model_params_save_freq"] == 0
@@ -532,5 +646,22 @@ if __name__ == "__main__":
             save_model_checkpoint(trainer, save_dir, total_timesteps)
             logging.info(result)
         print(f"""episode_reward_mean: {result.get('episode_reward_mean')}""")
+    
+    # Create a (zipped) submission file
+    # ---------------------------------
+    subprocess.call(
+        [
+            "python",
+            os.path.join(
+                PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"
+            ),
+            "--results_dir",
+            save_dir,
+        ]
+    )
+
     # Close Ray gracefully after completion
     ray.shutdown()
+
+    if config_yaml["logging"]["enabled"]:
+        wandb.finish()
