@@ -41,7 +41,8 @@ SCENARIO_MAPPING = {
     "OptimalMitigation":OptimalMitigation,
     "MinimalMitigation":MinimalMitigation,
     "BasicClub":BasicClub,
-    "ExportAction":ExportAction
+    "ExportAction":ExportAction,
+    "CarbonLeakage":CarbonLeakage
 }
 
 def get_config_yaml(yaml_path):

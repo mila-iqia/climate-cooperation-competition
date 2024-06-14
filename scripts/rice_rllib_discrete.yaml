@@ -21,7 +21,7 @@ trainer:
     framework: torch # framework setting.
     # Note: RLlib supports TF as well, but our end-to-end pipeline is built for Pytorch only.
     # === Hardware Settings ===
-    num_workers: 10 # number of rollout worker actors to create for parallel sampling.
+    num_workers: 0 # number of rollout worker actors to create for parallel sampling.
     # Note: Setting the num_workers to 0 will force rollouts to be done in the trainer actor.
     # do not set to -1
     num_cpus_per_worker: 1 # do not set to -1
@@ -30,7 +30,7 @@ trainer:
 # Environment configuration
 env:
     negotiation_on: False # flag to indicate whether negotiation is allowed or not
-    scenario: "MinimalMitigation" # key that maps to either Rice or and alternate Rice class
+    scenario: "CarbonLeakage" # key that maps to either Rice or and alternate Rice class
     num_discrete_action_levels: 10
     action_space_type: "discrete"
     dmg_function: "base"
