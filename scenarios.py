@@ -53,6 +53,9 @@ class CarbonLeakage(Rice):
     def reset(self, *, seed=None, options=None):
         obs, info = super().reset(seed=seed, options=options)
 
+        #recreate club each time
+        self.club_members = random.sample(range(1, self.num_regions + 1), self.club_size)
+
         #during training, switch up control conditions
         if self.training:
             if random.uniform(0,1) < 0.3:
