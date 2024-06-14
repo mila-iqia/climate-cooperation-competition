@@ -44,7 +44,7 @@ regions:
 logging:
     enabled: False 
     wandb_config:
-        login: "91f4b56e70eb59889967350b045b94cd0d7bcaa8" 
+        login: "PLACE_HOLDER" #insert your wandb api key here 
         project: "benchmarks_test"
         run: "export"
         entity: "ai4gcc-gaia"
