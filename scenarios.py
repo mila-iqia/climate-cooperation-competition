@@ -43,10 +43,24 @@ class CarbonLeakage(Rice):
                 prescribed_emissions=prescribed_emissions)
         
         #if its the control group, don't apply the club rules
+        
         self.control = False
+        self.training = True
         self.minimum_mitigation_rate = 8
         self.club_size = ceil(self.num_regions/2)
         self.club_members = random.sample(range(1, self.num_regions + 1), self.club_size)
+
+    def reset(self, *, seed=None, options=None):
+        obs, info = super().reset(seed=seed, options=options)
+
+        #during training, switch up control conditions
+        if self.training:
+            if random.uniform(0,1) < 0.3:
+                self.control = True
+            else:
+                self.control = False
+        return obs, info
+
 
     def calc_action_mask(self):
         """
@@ -75,8 +89,10 @@ class CarbonLeakage(Rice):
                         self.mitigation_rate_possible_actions
                     )
                 mask[mask_start:mask_end] = mitigation_mask
+            else:
+                pass
             mask_dict[region_id] = mask
-
+            
         return mask_dict
 
 
