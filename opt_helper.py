@@ -329,8 +329,8 @@ def packup_regions(raw_data, groupnum, countryclass, exc_code, raw_results):
 def merge_region_dict(datadict, gamma=0.3, mode="classic"):
     return merge_region(
         datadict,
-        gamma=0.3,
-        mode="classic",
+        gamma=gamma,
+        mode=mode,
     )
 
 
