@@ -48,13 +48,13 @@ class CarbonLeakage(Rice):
         self.training = True
         self.minimum_mitigation_rate = 8
         self.club_size = ceil(self.num_regions/2)
-        self.club_members = random.sample(range(1, self.num_regions + 1), self.club_size)
+        self.club_members = random.sample(range(0, self.num_regions + 1), self.club_size)
 
     def reset(self, *, seed=None, options=None):
         obs, info = super().reset(seed=seed, options=options)
 
         #recreate club each time
-        self.club_members = random.sample(range(1, self.num_regions + 1), self.club_size)
+        #self.club_members = random.sample(range(1, self.num_regions + 1), self.club_size)
 
         #during training, switch up control conditions
         if self.training:
@@ -402,13 +402,14 @@ class BasicClub(Rice):
         self.reset_state("intensity_all_regions")
         self.reset_state("mitigation_rates_all_regions")
 
-        # additional climate states for carbon model
+        # additional climate states for carbon and temperature model
         self.reset_state("global_alpha")
         self.reset_state("global_carbon_reservoirs")
         self.reset_state("global_cumulative_emissions")
         self.reset_state("global_cumulative_land_emissions")
         self.reset_state("global_emissions")
         self.reset_state("global_acc_pert_carb_stock")
+        self.reset_state('global_temperature_boxes')
 
         # economic states
         self.reset_state("production_all_regions")
