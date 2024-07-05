@@ -4,6 +4,115 @@ from math import ceil
 _FEATURES = "features"
 _ACTION_MASK = "action_mask"
 
+class ConsumptionLeakage(ExportAction):
+
+    """
+    Scenario to test whether consumption leakage occurs.
+
+    Consumption leakage is finding new importers to avoid a tariff
+
+    we can check for consumption leakage by looking at the change 
+    in import actions when a tariff is applied vs when not
+
+    """
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="ConsumptionLeakage",
+                 action_space_type="discrete",  # or "continuous"
+                 dmg_function="base",
+                 carbon_model="base",
+                 temperature_calibration="base",
+                 prescribed_emissions=None
+            ):
+        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels,
+                action_space_type=action_space_type,  # or "continuous"
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions)
+
+        #if its the control group, don't apply the club rules
+        self.control = False
+        self.training = True
+        self.minimum_tariff_rate = 8
+        self.club_size = ceil(self.num_regions/2)
+        self.club_members = random.sample(range(0, self.num_regions + 1), self.club_size)
+
+    def reset(self, *, seed=None, options=None):
+        obs, info = super().reset(seed=seed, options=options)
+
+        #recreate club each time
+        if self.training:
+            self.club_members = random.sample(range(0, self.num_regions + 1), self.club_size)
+
+        #during training, switch up control conditions
+        if self.training:
+            if random.uniform(0,1) < 0.3:
+                self.control = True
+            else:
+                self.control = False
+        return obs, info
+
+
+    def calc_action_mask(self):
+        """
+        Generate action masks.
+        """
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+
+            mask = self.default_agent_action_mask.copy()
+
+            if region_id in self.club_members and not self.control:
+
+                tariff_mask = []
+                for other_region_id in range(self.num_regions):
+                    if other_region_id != region_id and other_region_id not in self.club_members:
+
+                        #make tarrif mask for region
+                        regional_tariff_mask = [0] * self.minimum_tariff_rate \
+                            + [1] * (self.num_discrete_action_levels-self.minimum_tariff_rate)
+                        tariff_mask.extend(regional_tariff_mask)
+
+                        #apply mask tariff
+                        tariffs_mask_start = self.get_actions_index("import_tariffs")
+                        tariff_mask_end = self.num_regions * self.num_discrete_action_levels + tariffs_mask_start
+                        mask[tariffs_mask_start:tariff_mask_end] = np.array(tariff_mask)
+                    else:
+                        pass
+
+            else:
+                pass
+
+            #export action mask on imports
+            open_for_trade = self.get_importable_regions(region_id)
+            imports_mask = []
+            for other_region in range(self.num_regions):
+                if other_region != region_id:
+                    if open_for_trade[other_region] == 1:
+                        imports_mask.extend([1]*self.num_discrete_action_levels)
+                    else:
+                        imports_mask.extend([1] + [0]*(self.num_discrete_action_levels-1))
+                else:
+                    imports_mask.extend([1] + [0]*(self.num_discrete_action_levels-1))
+            mask_dict[region_id] = mask
+
+            mask_start = sum(self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions)
+
+            mask_end = mask_start + sum(self.calc_possible_actions("import_bids"))
+            mask[mask_start:mask_end] = np.array(imports_mask)
+
+            mask_dict[region_id] = mask
+
+        return mask_dict
+
+
 class CarbonLeakage(Rice):
 
     """
