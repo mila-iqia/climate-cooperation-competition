@@ -16,12 +16,12 @@ saving:
 trainer:
     num_envs_per_worker: 1 # number of environment replicas per worker
     rollout_fragment_length: 100 # divide episodes into fragments of this many steps each during rollouts.
-    train_batch_size: 2000 # total batch size used for training per iteration (across all the environments)
-    num_episodes: 100000 # number of episodes to run the training for
+    train_batch_size: 1500 # total batch size used for training per iteration (across all the environments)
+    num_episodes: 30000 # number of episodes to run the training for
     framework: torch # framework setting.
     # Note: RLlib supports TF as well, but our end-to-end pipeline is built for Pytorch only.
     # === Hardware Settings ===
-    num_workers: 10 # number of rollout worker actors to create for parallel sampling.
+    num_workers: 12 # number of rollout worker actors to create for parallel sampling.
     # Note: Setting the num_workers to 0 will force rollouts to be done in the trainer actor.
     # do not set to -1
     num_cpus_per_worker: 1 # do not set to -1
@@ -30,12 +30,14 @@ trainer:
 # Environment configuration
 env:
     negotiation_on: False # flag to indicate whether negotiation is allowed or not
-    scenario: "MinimalMitigation" # key that maps to either Rice or and alternate Rice class
+    scenario: "APrioriBasicClub" # key that maps to either Rice or and alternate Rice class
     num_discrete_action_levels: 10
     action_space_type: "discrete"
     dmg_function: "base"
     carbon_model: "base"
     temperature_calibration: "base"
+    club_members: [0,1,2] # 2
+    club_mitigation_rate: 8
 
 regions:
     num_agents: 7 #can be either {3,7,20,27}
@@ -44,9 +46,9 @@ regions:
 logging:
     enabled: False 
     wandb_config:
-        login: "PLACE_HOLDER" #insert your wandb api key here 
-        project: "benchmarks_test"
-        run: "export"
+        login: "5fc88477d031bf055c42466a1ba887afb56068fd" #insert your wandb api key here 
+        project: "training-log-test"
+        run: "test-run-Kai"
         entity: "ai4gcc-gaia"
 
 # Policy network settings

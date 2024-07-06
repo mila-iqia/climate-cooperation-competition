@@ -1,7 +1,142 @@
 from rice import *
+import random
+from math import ceil
 
 _FEATURES = "features"
 _ACTION_MASK = "action_mask"
+
+class APrioriBasicClub(Rice):
+
+    """Scenario where a subset of regions form a basic bluc right from the start and 
+        mitigate to a set amount, other agents get a tariff based on the difference between 
+        their mitigation rate and the club rate, but they can potentially join the club
+        or form own clubs.
+    
+        Depending on who the a priori club is, 
+        - will other agents join the club?
+        - will other agents form their own clubs?
+    
+        Attributes:
+        - club_mitigation_rate: the rate rate all agents will mitigate to.
+        - club_members: subset of states in club
+        """
+    
+
+    def __init__(self,
+                num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                negotiation_on=False, # If True then negotiation is on, else off
+                scenario="BasicClub",
+                action_space_type="discrete",  # or "continuous"
+                dmg_function="base",
+                carbon_model="base",
+                temperature_calibration="base",
+                prescribed_emissions=None,
+                club_members=[0,1,2],
+                club_mitigation_rate=8
+                
+            ):
+        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels, 
+                action_space_type=action_space_type,  # or "continuous"
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions)
+        
+        # random or fixed club
+        self.control = False
+        self.training = True
+        self.club_members = club_members
+        self.club_mitigation_rate = club_mitigation_rate
+        
+        # TODO: implement fixed or random
+        
+        # check type of club_members. If it is an integer, then it is the size of the club
+        # if it is a float between 0 and 1 it is a percentage
+        if isinstance(self.club_members, int):
+            self.fixed_club = False
+            self.club_size = self.club_members
+            self.club_members = random.sample(range(0, self.num_regions + 1), self.club_size)
+        elif isinstance(self.club_members, float):
+            self.fixed_club = False
+            self.club_size =  ceil(self.num_regions * self.club_members)
+            self.club_members = random.sample(range(0, self.num_regions + 1), self.club_size)
+        else:
+            self.fixed_club = True
+            self.club_size = len(self.club_members)
+        
+    def reset(self, *, seed=None, options=None):
+        obs, info = super().reset(seed=seed, options=options)
+
+        #recreate club each only if not fixed
+        if self.training and not self.fixed_club:
+            self.club_members = random.sample(range(0, self.num_regions + 1), self.club_size)
+
+        #during training, switch up control conditions
+        if self.training:
+            if random.uniform(0,1) < 0.3:
+                self.control = True
+            else:
+                self.control = False
+        return obs, info
+
+    def calc_action_mask(self):
+        """
+        Generate action masks.
+        """
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+
+            mask = self.default_agent_action_mask.copy()
+
+            #club members mitigate
+            if region_id in self.club_members:
+                mask = self.default_agent_action_mask.copy()
+                #mask mitigation
+                mitigation_mask = np.array(
+                        [0 for _ in range(self.club_mitigation_rate)]
+                        + [
+                            1
+                            for _ in range(
+                                self.num_discrete_action_levels
+                                - self.club_mitigation_rate
+                            )
+                        ]
+                    )
+
+                mask_start = sum(self.savings_possible_actions)
+                mask_end = mask_start + sum(
+                        self.mitigation_rate_possible_actions
+                    )
+                mask[mask_start:mask_end] = mitigation_mask
+                
+                #tariff non club members
+                tariff_mask = []
+                for other_region_id in range(self.num_regions):
+                    # if other region is self or in club
+                    if (other_region_id == region_id) or (other_region_id in self.club_members):
+                        # minimize tariff for free trade
+                        regional_tariff_mask = [1] + [0] * (self.num_discrete_action_levels-1)
+                    else:
+                        other_region_mitigation_rate = self.get_state("mitigation_rates_all_regions",
+                                                                       region_id=other_region_id)
+                        #min tariff by difference between mitigation rate and club mitigation rate
+                        tariff_rate = int(self.club_mitigation_rate - other_region_mitigation_rate)
+                        regional_tariff_mask = [0] * tariff_rate \
+                            + [1] * (self.num_discrete_action_levels-tariff_rate)
+                    tariff_mask.extend(regional_tariff_mask)
+
+                #mask tariff
+                tariffs_mask_start = self.get_actions_index("import_tariffs")
+                tariff_mask_end = self.num_regions * self.num_discrete_action_levels + tariffs_mask_start
+                mask[tariffs_mask_start:tariff_mask_end] = np.array(tariff_mask)
+
+
+            mask_dict[region_id] = mask
+
+        return mask_dict
+
 
 class OptimalMitigation(Rice):
 
