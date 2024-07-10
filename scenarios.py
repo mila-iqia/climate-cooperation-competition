@@ -4,113 +4,7 @@ from math import ceil
 _FEATURES = "features"
 _ACTION_MASK = "action_mask"
 
-class ConsumptionLeakage(ExportAction):
 
-    """
-    Scenario to test whether consumption leakage occurs.
-
-    Consumption leakage is finding new importers to avoid a tariff
-
-    we can check for consumption leakage by looking at the change 
-    in import actions when a tariff is applied vs when not
-
-    """
-
-    def __init__(self,
-                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
-                 negotiation_on=False, # If True then negotiation is on, else off
-                 scenario="ConsumptionLeakage",
-                 action_space_type="discrete",  # or "continuous"
-                 dmg_function="base",
-                 carbon_model="base",
-                 temperature_calibration="base",
-                 prescribed_emissions=None
-            ):
-        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
-                scenario=scenario,
-                num_discrete_action_levels=num_discrete_action_levels,
-                action_space_type=action_space_type,  # or "continuous"
-                dmg_function=dmg_function,
-                carbon_model=carbon_model,
-                temperature_calibration=temperature_calibration,
-                prescribed_emissions=prescribed_emissions)
-
-        #if its the control group, don't apply the club rules
-        self.control = False
-        self.training = True
-        self.minimum_tariff_rate = 8
-        self.club_size = ceil(self.num_regions/2)
-        self.club_members = random.sample(range(0, self.num_regions + 1), self.club_size)
-
-    def reset(self, *, seed=None, options=None):
-        obs, info = super().reset(seed=seed, options=options)
-
-        #recreate club each time
-        if self.training:
-            self.club_members = random.sample(range(0, self.num_regions + 1), self.club_size)
-
-        #during training, switch up control conditions
-        if self.training:
-            if random.uniform(0,1) < 0.3:
-                self.control = True
-            else:
-                self.control = False
-        return obs, info
-
-
-    def calc_action_mask(self):
-        """
-        Generate action masks.
-        """
-        mask_dict = {region_id: None for region_id in range(self.num_regions)}
-        for region_id in range(self.num_regions):
-
-            mask = self.default_agent_action_mask.copy()
-
-            if region_id in self.club_members and not self.control:
-
-                tariff_mask = []
-                for other_region_id in range(self.num_regions):
-                    if other_region_id != region_id and other_region_id not in self.club_members:
-
-                        #make tarrif mask for region
-                        regional_tariff_mask = [0] * self.minimum_tariff_rate \
-                            + [1] * (self.num_discrete_action_levels-self.minimum_tariff_rate)
-                        tariff_mask.extend(regional_tariff_mask)
-
-                        #apply mask tariff
-                        tariffs_mask_start = self.get_actions_index("import_tariffs")
-                        tariff_mask_end = self.num_regions * self.num_discrete_action_levels + tariffs_mask_start
-                        mask[tariffs_mask_start:tariff_mask_end] = np.array(tariff_mask)
-                    else:
-                        pass
-
-            else:
-                pass
-
-            #export action mask on imports
-            open_for_trade = self.get_importable_regions(region_id)
-            imports_mask = []
-            for other_region in range(self.num_regions):
-                if other_region != region_id:
-                    if open_for_trade[other_region] == 1:
-                        imports_mask.extend([1]*self.num_discrete_action_levels)
-                    else:
-                        imports_mask.extend([1] + [0]*(self.num_discrete_action_levels-1))
-                else:
-                    imports_mask.extend([1] + [0]*(self.num_discrete_action_levels-1))
-            mask_dict[region_id] = mask
-
-            mask_start = sum(self.savings_possible_actions
-                + self.mitigation_rate_possible_actions
-                + self.export_limit_possible_actions)
-
-            mask_end = mask_start + sum(self.calc_possible_actions("import_bids"))
-            mask[mask_start:mask_end] = np.array(imports_mask)
-
-            mask_dict[region_id] = mask
-
-        return mask_dict
 
 
 class CarbonLeakage(Rice):
@@ -837,6 +731,49 @@ class ExportAction(Rice):
         )
 
     def get_actions_index(self, action_type):
+
+        if action_type == "savings":
+            return 0
+        if action_type == "mitigation_rate":
+            return len(self.savings_possible_actions)
+        if action_type == "export_limit":
+            return len(self.savings_possible_actions) + len(
+                self.mitigation_rate_possible_actions
+            )
+        if action_type == "import_bids":
+            return (
+                len(self.savings_possible_actions)
+                + len(self.mitigation_rate_possible_actions)
+                + len(self.export_limit_possible_actions)
+            )
+        if action_type == "import_tariffs":
+            return (
+                len(self.savings_possible_actions)
+                + len(self.mitigation_rate_possible_actions)
+                + len(self.export_limit_possible_actions)
+                + len(self.import_bids_possible_actions)
+            )
+
+        if action_type == "proposal":
+            return len(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions
+                + self.import_tariff_possible_actions
+                + self.export_regions_possible_actions
+            )
+
+        if action_type == "proposal_decisions":
+            return len(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions
+                + self.import_tariff_possible_actions
+                + self.export_regions_possible_actions
+                + self.proposal_possible_actions
+            )
         
         if action_type == "export_regions":
             return (
@@ -844,13 +781,104 @@ class ExportAction(Rice):
                 + len(self.mitigation_rate_possible_actions)
                 + len(self.export_limit_possible_actions)
                 + len(self.import_bids_possible_actions)
-                + len(self.export_regions_possible_actions)
+                + len(self.import_tariff_possible_actions)
             )
-        else:
-            return super().get_actions_index(action_type)
+       
 
         
     def get_actions(self, action_type, actions):
+
+        if action_type == "savings":
+            savings_actions_index = self.get_actions_index("savings")
+            return [
+                actions[region_id][savings_actions_index]
+                / self.num_discrete_action_levels  # TODO: change this for savings levels?
+                for region_id in range(self.num_regions)
+            ]
+
+        if action_type == "mitigation_rate":
+            mitigation_rate_action_index = self.get_actions_index("mitigation_rate")
+            return [
+                actions[region_id][mitigation_rate_action_index]
+                / self.num_discrete_action_levels
+                for region_id in range(self.num_regions)
+            ]
+
+        if action_type == "export_limit":
+            export_action_index = self.get_actions_index("export_limit")
+            return [
+                actions[region_id][export_action_index]
+                / self.num_discrete_action_levels
+                for region_id in range(self.num_regions)
+            ]
+
+        if action_type == "import_bids":
+            tariffs_action_index = self.get_actions_index("import_bids")
+            return [
+                actions[region_id][
+                    tariffs_action_index : tariffs_action_index + self.num_regions
+                ]
+                / self.num_discrete_action_levels
+                for region_id in range(self.num_regions)
+            ]
+
+        if action_type == "import_tariffs":
+            tariffs_action_index = self.get_actions_index("import_tariffs")
+            return [
+                actions[region_id][
+                    tariffs_action_index : tariffs_action_index + self.num_regions
+                ]
+                / self.num_discrete_action_levels
+                for region_id in range(self.num_regions)
+            ]
+
+        if action_type == "promised_mitigation_rate":
+            proposal_actions_index_start = self.get_actions_index("proposal")
+            num_proposal_actions = len(self.proposal_possible_actions)
+
+            value = [
+                actions[region_id][
+                    proposal_actions_index_start : proposal_actions_index_start
+                    + num_proposal_actions : 2
+                ]
+                / self.num_discrete_action_levels
+                for region_id in range(self.num_regions)
+            ]
+            return value
+
+        if action_type == "requested_mitigation_rate":
+            proposal_actions_index_start = self.get_actions_index("proposal")
+            num_proposal_actions = len(self.proposal_possible_actions)
+
+            return [
+                actions[region_id][
+                    proposal_actions_index_start
+                    + 1 : proposal_actions_index_start
+                    + num_proposal_actions : 2
+                ]
+                / self.num_discrete_action_levels
+                for region_id in range(self.num_regions)
+            ]
+
+        if action_type == "proposal_decisions":
+            proposal_decisions_index_start = self.get_actions_index(
+                "proposal_decisions"
+            )
+            num_evaluation_actions = len(self.evaluation_possible_actions)
+
+            proposal_decisions = np.array(
+                [
+                    actions[region_id][
+                        proposal_decisions_index_start : proposal_decisions_index_start
+                        + num_evaluation_actions
+                    ]
+                    for region_id in range(self.num_regions)
+                ]
+            )
+            for region_id in range(self.num_regions):
+                proposal_decisions[region_id, region_id] = 0
+
+            return proposal_decisions
 
         if action_type == "export_regions":
 
@@ -870,8 +898,7 @@ class ExportAction(Rice):
             for region_id in range(self.num_regions):
                 export_regions[region_id, region_id] = 0
             return export_regions
-        else:
-            return super().get_actions(action_type, actions)
+
         
     def set_actions_in_global_state(self, actions_dict):
         for (action_name, action_value) in actions_dict.items():
@@ -905,6 +932,7 @@ class ExportAction(Rice):
         self.reset_state("global_land_emissions")
         self.reset_state("intensity_all_regions")
         self.reset_state("mitigation_rates_all_regions")
+        
 
         # additional climate states for carbon model
         self.reset_state("global_alpha")
@@ -913,6 +941,8 @@ class ExportAction(Rice):
         self.reset_state("global_cumulative_land_emissions")
         self.reset_state("global_emissions")
         self.reset_state("global_acc_pert_carb_stock")
+        self.reset_state('global_temperature_boxes')
+
 
         # economic states
         self.reset_state("production_all_regions")
@@ -971,6 +1001,7 @@ class ExportAction(Rice):
             "global_land_emissions",
             "timestep",
             "global_carbon_reservoirs",
+            "global_temperature_boxes",
             "global_cumulative_emissions",
             "global_cumulative_land_emissions",
             "global_alpha",
@@ -1196,3 +1227,124 @@ class ExportAction(Rice):
         info = {}
 
         return observations, rewards, terminateds, truncateds, info
+
+
+class ConsumptionLeakage(ExportAction):
+
+    """
+    Scenario to test whether consumption leakage occurs.
+
+    Consumption leakage is finding new importers to avoid a tariff
+
+    we can check for consumption leakage by looking at the change 
+    in import actions when a tariff is applied vs when not
+
+    """
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="ConsumptionLeakage",
+                 action_space_type="discrete",  # or "continuous"
+                 dmg_function="base",
+                 carbon_model="base",
+                 temperature_calibration="base",
+                 prescribed_emissions=None
+            ):
+        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels,
+                action_space_type=action_space_type,  # or "continuous"
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions)
+
+        #if its the control group, don't apply the club rules
+        self.control = False
+        self.training = False
+        self.minimum_tariff_rate = 9
+        self.club_size = ceil(self.num_regions/2)
+        self.club_members = random.sample(range(0, self.num_regions), self.club_size)
+
+    def reset(self, *, seed=None, options=None):
+        obs, info = super().reset(seed=seed, options=options)
+
+        #recreate club each time
+        if self.training:
+            self.club_members = random.sample(range(0, self.num_regions), self.club_size)
+
+        #during training, switch up control conditions
+        if self.training:
+            if random.uniform(0,1) < 0.3:
+                self.control = True
+            else:
+                self.control = False
+        else:
+            print("not training")
+        return obs, info
+
+    
+
+
+    def calc_action_mask(self):
+        """
+        Generate action masks.
+        """
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+
+            mask = self.default_agent_action_mask.copy()
+
+
+
+            if region_id in self.club_members and not self.control:
+
+                tariff_mask = []
+                for other_region_id in range(self.num_regions):
+                    if other_region_id != region_id and other_region_id not in self.club_members:
+
+                        #make tarrif mask for region
+                        regional_tariff_mask = [0] * self.minimum_tariff_rate \
+                            + [1] * (self.num_discrete_action_levels-self.minimum_tariff_rate)
+                           
+                    else:
+                        regional_tariff_mask = [1] + [0] * (self.num_discrete_action_levels - 1)
+
+                    tariff_mask.extend(regional_tariff_mask)
+                #apply mask tariff
+                tariff_mask_start = sum(
+                    self.savings_possible_actions
+                    + self.mitigation_rate_possible_actions
+                    + self.export_limit_possible_actions
+                    + self.import_bids_possible_actions
+                )
+                #tariffs_mask_start = self.get_actions_index("import_tariffs")
+                tariff_mask_end = sum(self.import_tariff_possible_actions) + tariff_mask_start
+                #tariff_mask_end = self.num_regions * self.num_discrete_action_levels + tariffs_mask_start
+                mask[tariff_mask_start:tariff_mask_end] = np.array(tariff_mask)
+
+
+
+            #export action mask on imports
+            open_for_trade = self.get_importable_regions(region_id)
+            imports_mask = []
+            for other_region in range(self.num_regions):
+                if other_region != region_id:
+                    if open_for_trade[other_region] == 1:
+                        imports_mask.extend([1]*self.num_discrete_action_levels)
+                    else:
+                        imports_mask.extend([1] + [0]*(self.num_discrete_action_levels-1))
+                else:
+                    imports_mask.extend([1] + [0]*(self.num_discrete_action_levels-1))
+
+            mask_start = sum(self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions)
+
+            mask_end = mask_start + sum(self.calc_possible_actions("import_bids"))
+            mask[mask_start:mask_end] = np.array(imports_mask)
+
+            mask_dict[region_id] = mask
+
+        return mask_dict
