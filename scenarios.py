@@ -553,10 +553,16 @@ class BasicClub(Rice):
                         + [1] * (self.num_discrete_action_levels-tariff_rate)
                 tariff_mask.extend(regional_tariff_mask)
 
-            #mask tariff
-            tariffs_mask_start = self.get_actions_index("import_tariffs")
-            tariff_mask_end = self.num_regions * self.num_discrete_action_levels + tariffs_mask_start
-            mask[tariffs_mask_start:tariff_mask_end] = np.array(tariff_mask)
+            #apply mask tariff
+            tariff_mask_start = sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions
+            )
+            tariff_mask_end = sum(self.import_tariff_possible_actions) + tariff_mask_start
+            mask[tariff_mask_start:tariff_mask_end] = np.array(tariff_mask)
+
 
 
             mask_dict[region_id] = mask
