@@ -5,6 +5,110 @@ _FEATURES = "features"
 _ACTION_MASK = "action_mask"
 
 
+class CarbonLeakageVariable(Rice):
+
+    """
+    Scenario to test whether carbon leakage occurs.
+
+    Carbon leakage is an increase of emissions in one region as a 
+    result of a policy to decrease emissions in another region
+
+    We can check for carbon leakage at the policy level (do they change their mitigation rate)
+    and at the emissions level (do their absolute emissions increase)
+
+    Followup experiment
+    - create a random club of a given minimum mitigation rate
+    - run the rollout with the club and measure emissions of non-club members and measure mitigation rates of non-club members
+    - reset the env and re-run the env without the club (self.control = True) and measure the same
+    - compare the emissions / mitigation rates of the non-club members in the presence and absence of the club
+    - NOTE: it may be that emissions need to be normalized w.r.t. emissions as carbon
+    """
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="CarbonLeakageVariable",
+                 action_space_type="discrete",  # or "continuous"
+                 dmg_function="base",
+                 carbon_model="base",
+                 temperature_calibration="base",
+                 prescribed_emissions=None
+            ):
+        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels, 
+                action_space_type=action_space_type,  # or "continuous"
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions)
+        
+        #if its the control group, don't apply the club rules
+        
+        self.control = False
+        self.training = True
+        self.minimum_mitigation_rate = random.sample(range(0,10, 2), 1)[0]
+
+
+        club_step_size = int(self.num_regions/4)
+        self.club_size = random.sample(range(0, self.num_regions, club_step_size), 1)[0] + 1 #always at least 1
+        self.club_members = random.sample(range(0, self.num_regions), self.club_size)
+
+    def reset(self, *, seed=None, options=None):
+        obs, info = super().reset(seed=seed, options=options)
+
+        #recreate club each time
+        if self.training:
+            
+            #new random mitigation rate
+            self.minimum_mitigation_rate = random.sample(range(0,10, 2), 1)[0]
+
+            #new random club
+            club_step_size = int(self.num_regions/4)
+            self.club_size = random.sample(range(0, self.num_regions, club_step_size), 1)[0] + 1
+            self.club_members = random.sample(range(0, self.num_regions), self.club_size)
+
+        #during training, switch up control conditions
+        if self.training:
+            if random.uniform(0,1) < 0.1:
+                self.control = True
+            else:
+                self.control = False
+        return obs, info
+
+
+    def calc_action_mask(self):
+        """
+        Generate action masks.
+        """
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+
+            mask = self.default_agent_action_mask.copy()
+
+            if region_id in self.club_members and not self.control:
+
+                mitigation_mask = np.array(
+                        [0 for _ in range(self.minimum_mitigation_rate)]
+                        + [
+                            1
+                            for _ in range(
+                                self.num_discrete_action_levels
+                                - self.minimum_mitigation_rate
+                            )
+                        ]
+                    )
+
+                mask_start = sum(self.savings_possible_actions)
+                mask_end = mask_start + sum(
+                        self.mitigation_rate_possible_actions
+                    )
+                mask[mask_start:mask_end] = mitigation_mask
+            else:
+                pass
+            mask_dict[region_id] = mask
+            
+        return mask_dict
 
 
 class CarbonLeakage(Rice):
