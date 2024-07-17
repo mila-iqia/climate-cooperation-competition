@@ -41,6 +41,7 @@ class Rice(gym.Env):
         negotiation_on=False,  # If True then negotiation is on, else off
         action_space_type="discrete",  # or "continuous"
         dmg_function="base",
+        pct_reward=True,
         abatement_cost_type="base_abatement",
         pliability=None,
         debugging_folder=None,
@@ -62,6 +63,7 @@ class Rice(gym.Env):
 
         # Potential additions for improved DICE model
         self.debugging_folder = debugging_folder
+        self.pct_reward = pct_reward
         self.dmg_function = dmg_function
         self.abatement_cost_type = abatement_cost_type
         self.pliability = pliability
@@ -434,7 +436,22 @@ class Rice(gym.Env):
     def calc_rewards(self, utilities, welfloss_multipliers, save_state=True):
         rewards = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
-            rewards[region_id] = utilities[region_id] * welfloss_multipliers[region_id]
+            if self.pct_reward:
+                previous_acc_reward = self.get_state(
+                    "utility_all_regions",
+                    region_id=region_id,
+                    timestep=self.current_timestep - 1,
+                ) * self.get_state(
+                    "welfloss",
+                    region_id=region_id,
+                    timestep=self.current_timestep - 1,
+                )
+                acc_reward = utilities[region_id] * welfloss_multipliers[region_id]
+                rewards[region_id] = acc_reward / previous_acc_reward - 1
+            else:
+                rewards[region_id] = (
+                    utilities[region_id] * welfloss_multipliers[region_id]
+                )
             self.set_state(
                 "reward_all_regions", rewards[region_id], region_id=region_id
             )
@@ -675,17 +692,32 @@ class Rice(gym.Env):
         elif self.abatement_cost_type == "path_dependent":
             for region_id in range(self.num_regions):
                 current_mitigation_rate = mitigation_rates_all_regions[region_id]
-                prev_mitigation_rate = self.get_prev_state(
-                    "mitigation_rates_all_regions", region_id
-                )
+                moving_difference = 0
+                for t in range(0, self.current_timestep):
+                    moving_difference += np.abs(
+                        current_mitigation_rate
+                        - self.get_state(
+                            "mitigation_rates_all_regions",
+                            region_id=region_id,
+                            timestep=t,
+                        )
+                    ) * (t / self.current_timestep)
+                moving_difference /= self.current_timestep
+
                 theta_2 = self.all_regions_params[region_id]["xtheta_2"]
                 original_part = pow(current_mitigation_rate, theta_2) * (
                     1 - self.pliability
                 )
+                # prev_mitigation_rate = self.get_prev_state(
+                #     "mitigation_rates_all_regions", region_id
+                # )
+                # path_dependent_part = (
+                #     pow(np.abs(current_mitigation_rate - prev_mitigation_rate), theta_2)
+                #     * self.pliability
+                #     / (theta_2 + 1)
+                # )
                 path_dependent_part = (
-                    pow(np.abs(current_mitigation_rate - prev_mitigation_rate), theta_2)
-                    * self.pliability
-                    / (theta_2 + 1)
+                    pow(moving_difference, theta_2) * self.pliability / (theta_2 + 1)
                 )
                 abatement_costs[region_id] = mitigation_costs[region_id] * (
                     original_part + path_dependent_part
@@ -703,6 +735,7 @@ class Rice(gym.Env):
         return abatement_costs
 
     def calc_mitigation_costs(self, save_state=True):
+        # \theta_1,i,t is the cost of mitigation_cost
         mitigation_costs = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             regional_params = self.all_regions_params[region_id]

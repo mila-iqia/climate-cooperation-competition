@@ -38,7 +38,7 @@ env:
     temperature_calibration: "base"
 
 regions:
-    num_agents: 7 #can be either {3,7,20,27}
+    num_agents: 3 #can be either {3,7,20,27}
 
 # wandb config
 logging:
@@ -60,7 +60,7 @@ policy:
             - [5000000, 0.05]
         clip_grad_norm: True # flag indicating whether to clip the gradient norm or not
         max_grad_norm: 0.5 # when clip_grad_norm is True, the clip level
-        gamma: 0.92 # discount factor
+        gamma: 0.99 # discount factor
         lr: 0.0005 # learning rate
         model:
             custom_model: torch_linear_discrete

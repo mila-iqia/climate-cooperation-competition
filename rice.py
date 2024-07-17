@@ -161,7 +161,7 @@ class Rice(gym.Env):
         self.reset_state("global_cumulative_land_emissions")
         self.reset_state("global_emissions")
         self.reset_state("global_acc_pert_carb_stock")
-        self.reset_state('global_temperature_boxes')
+        self.reset_state("global_temperature_boxes")
 
         # economic states
         self.reset_state("production_all_regions")
@@ -429,7 +429,22 @@ class Rice(gym.Env):
     def calc_rewards(self, utilities, welfloss_multipliers, save_state=True):
         rewards = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
-            rewards[region_id] = utilities[region_id] * welfloss_multipliers[region_id]
+            if self.pct_reward:
+                previous_acc_reward = self.get_state(
+                    "utility_all_regions",
+                    region_id=region_id,
+                    timestep=self.current_timestep - 1,
+                ) * self.get_state(
+                    "welfloss",
+                    region_id=region_id,
+                    timestep=self.current_timestep - 1,
+                )
+                acc_reward = utilities[region_id] * welfloss_multipliers[region_id]
+                rewards[region_id] = acc_reward / previous_acc_reward - 1
+            else:
+                rewards[region_id] = (
+                    utilities[region_id] * welfloss_multipliers[region_id]
+                )
             self.set_state(
                 "reward_all_regions", rewards[region_id], region_id=region_id
             )
@@ -753,14 +768,21 @@ class Rice(gym.Env):
 
         return tariff_revenues, net_imports
 
-    def calc_welfloss_multiplier(self, gross_outputs, gross_imports, net_imports, welfare_loss_per_unit_tariff=None,
-                                 welfare_gain_per_unit_exported = None, save_state=True):
+    def calc_welfloss_multiplier(
+        self,
+        gross_outputs,
+        gross_imports,
+        net_imports,
+        welfare_loss_per_unit_tariff=None,
+        welfare_gain_per_unit_exported=None,
+        save_state=True,
+    ):
         """Calculate the welfare loss multiplier of exporting region due to being tariffed."""
         if not self.apply_welfloss:
             return np.ones((self.num_regions), dtype=self.float_dtype)
 
         if welfare_loss_per_unit_tariff is None:
-            welfare_loss_per_unit_tariff = 0.4 # From Nordhaus 2015
+            welfare_loss_per_unit_tariff = 0.4  # From Nordhaus 2015
         if welfare_gain_per_unit_exported is None:
             welfare_gain_per_unit_exported = 0.4
 
@@ -769,15 +791,22 @@ class Rice(gym.Env):
 
         for region_id in range(self.num_regions):
             for destination_region in range(self.num_regions):
-                welfloss[region_id] -= \
-                    (gross_imports[destination_region, region_id] / gross_outputs[region_id]) * \
-                        import_tariffs[destination_region, region_id] * welfare_loss_per_unit_tariff
-                
-                if self.apply_welfgain:
-                    welfloss[region_id] += \
-                        (net_imports[destination_region, region_id]) / gross_outputs[region_id] * welfare_gain_per_unit_exported
+                welfloss[region_id] -= (
+                    (
+                        gross_imports[destination_region, region_id]
+                        / gross_outputs[region_id]
+                    )
+                    * import_tariffs[destination_region, region_id]
+                    * welfare_loss_per_unit_tariff
+                )
 
-                
+                if self.apply_welfgain:
+                    welfloss[region_id] += (
+                        (net_imports[destination_region, region_id])
+                        / gross_outputs[region_id]
+                        * welfare_gain_per_unit_exported
+                    )
+
         if save_state:
             self.set_state("welfloss", welfloss)
 
@@ -892,16 +921,30 @@ class Rice(gym.Env):
             global_exogenous_emissions = self.calc_exogenous_emissions()
             prev_carbon_mass = self.get_prev_state("global_carbon_mass")
             prev_global_temperature = self.get_prev_state("global_temperature")
-            prev_global_temperature_boxes = self.get_prev_state("global_temperature_boxes")            
-            
+            prev_global_temperature_boxes = self.get_prev_state(
+                "global_temperature_boxes"
+            )
+
             # TODO: why the zero index?
             # global_exogenous_emissions = global_exogenous_emissions[0]
             prev_atmospheric_carbon_mass = prev_carbon_mass[0]
-            atmospheric_carbon_mass = np.array(self.all_regions_params[0]["xM_AT_1750"])  # Equilibrium atmospheric carbon mass
+            atmospheric_carbon_mass = np.array(
+                self.all_regions_params[0]["xM_AT_1750"]
+            )  # Equilibrium atmospheric carbon mass
             f_2x = np.array(self.all_regions_params[0]["xF_2x"])
 
-            d = np.array([self.all_regions_params[0]["xT_LO_rt"], self.all_regions_params[0]["xT_UO_rt"]])
-            teq = np.array([self.all_regions_params[0]["xT_LO_tq"], self.all_regions_params[0]["xT_UO_tq"]])
+            d = np.array(
+                [
+                    self.all_regions_params[0]["xT_LO_rt"],
+                    self.all_regions_params[0]["xT_UO_rt"],
+                ]
+            )
+            teq = np.array(
+                [
+                    self.all_regions_params[0]["xT_LO_tq"],
+                    self.all_regions_params[0]["xT_UO_tq"],
+                ]
+            )
 
             forcings = (
                 f_2x
@@ -910,7 +953,9 @@ class Rice(gym.Env):
                 + global_exogenous_emissions
             )
 
-            global_temperature_boxes = prev_global_temperature_boxes * np.exp(-5/d) + teq * forcings * (1 - np.exp(-5/d))
+            global_temperature_boxes = prev_global_temperature_boxes * np.exp(
+                -5 / d
+            ) + teq * forcings * (1 - np.exp(-5 / d))
 
             if save_state:
                 self.set_state("global_temperature_boxes", global_temperature_boxes)
@@ -921,7 +966,6 @@ class Rice(gym.Env):
                 self.set_state("global_temperature", global_temperature)
 
             return global_temperature
-
 
     def calc_global_carbon_mass(self, productions, save_state=True):
         if self.carbon_model == "base":
@@ -979,7 +1023,11 @@ class Rice(gym.Env):
             tau = np.array([self.all_regions_params[0][f"xM_t{i}"] for i in range(4)])
             C0 = self.all_regions_params[0]["xM_AT_1750"]
 
-            irf0, irC, irT = self.all_regions_params[0]["irf0"], self.all_regions_params[0]["irC"], self.all_regions_params[0]["irT"]
+            irf0, irC, irT = (
+                self.all_regions_params[0]["irf0"],
+                self.all_regions_params[0]["irC"],
+                self.all_regions_params[0]["irT"],
+            )
 
             # DAE determines given concentrations and temperature how much the reservoirs can absorb
             if self.carbon_model in ["FaIR", "DFaIR"]:
@@ -1059,11 +1107,12 @@ class Rice(gym.Env):
                 self.set_state(
                     "global_cumulative_land_emissions", global_cumulative_land_emissions
                 )
-            if self.carbon_model in ["AR5","FaIR"]:
+            if self.carbon_model in ["AR5", "FaIR"]:
                 global_carbon_reservoirs = prev_global_carbon_reservoirs ** np.exp(
                     -5 / (global_alpha * tau)
                 ) + a * sum_aux_m / 5 * conv * (
-                    np.exp(-1 / (global_alpha * tau)) - np.exp(-6 / (global_alpha * tau))
+                    np.exp(-1 / (global_alpha * tau))
+                    - np.exp(-6 / (global_alpha * tau))
                 ) / (
                     1 - np.exp(-1 / (global_alpha * tau))
                 )
@@ -1662,18 +1711,18 @@ class Rice(gym.Env):
         # if self.current_timestep == 2 and region_id == 26:
         #     print("flag")
         return obs_dict
-    
+
     def cont_bound_scheduler(self, x, t, type_="pow", k=1):
         """
         Calculate the function value based on the provided version.
-        
+
         Parameters:
             x (float): The fixed value for x, should be in the interval [0, 1].
             t (float): The value of t, should be greater than 0.
             type_ (str): Specifies the version of the function to use.
                         exp for exponential decay, pow for power decay.
             k (float): The decay rate for the decay. The larger the faster but always slower
-        
+
         Returns:
             float: The result of the function calculation.
         """
@@ -1681,17 +1730,17 @@ class Rice(gym.Env):
         if np.all(x == 0) or np.all(x == 1):
             return [np.zeros(x.shape), np.ones(x.shape)]
         if type_ == "exp":
-            u = x * np.exp(t/k)
-            l = x * (1 - np.exp(t/k))
+            u = x * np.exp(t / k)
+            l = x * (1 - np.exp(t / k))
         elif type_ == "pow":
-            u = x + (t/k)**2
-            l = x - (t/k)**2
+            u = x + (t / k) ** 2
+            l = x - (t / k) ** 2
         else:
             raise ValueError(f"Unknown type: {type_}")
-        l = x_mask * l # make 0 or 1 input to have 0 as lower bound
-        u = x_mask * u + (1 - x_mask) # make 0 or 1 input to have 1 as upper bound
+        l = x_mask * l  # make 0 or 1 input to have 0 as lower bound
+        u = x_mask * u + (1 - x_mask)  # make 0 or 1 input to have 1 as upper bound
         return [l, u]
-    
+
     # def cont_override_action(self, action, bound):
     #     if action > bound[1]:
     #         action = bound[1]
@@ -1709,19 +1758,40 @@ class Rice(gym.Env):
         clipped_actions = np.clip(actions, lower_bounds, upper_bounds)
 
         return clipped_actions
-    
+
     def cont_implement_bounds(self, actions_dict):
-        keys = {"xsaving_0": "savings_all_regions", "xmitigation_0": "mitigation_rates_all_regions", "xexport": "export_limit_all_regions", "ximport": "import_bids_all_regions"}
+        keys = {
+            "xsaving_0": "savings_all_regions",
+            "xmitigation_0": "mitigation_rates_all_regions",
+            "xexport": "export_limit_all_regions",
+            "ximport": "import_bids_all_regions",
+        }
         for k, v in keys.items():
             if k != "ximport":
-                bounds = self.cont_bound_scheduler(x=np.array([d[k] for d in self.all_regions_params]), t=self.current_timestep, type_="pow", k=8)
-                clipped_actions = self.cont_override_action_batch(actions=np.array(actions_dict[v]), bounds=bounds)
+                bounds = self.cont_bound_scheduler(
+                    x=np.array([d[k] for d in self.all_regions_params]),
+                    t=self.current_timestep,
+                    type_="pow",
+                    k=8,
+                )
+                clipped_actions = self.cont_override_action_batch(
+                    actions=np.array(actions_dict[v]), bounds=bounds
+                )
                 actions_dict[v] = clipped_actions
             else:
-                for region_id in range(1, 1+self.num_regions):
-                    bounds = self.cont_bound_scheduler(x=np.array([d[k][str(region_id)] for d in self.all_regions_params]), t=self.current_timestep, type_="pow", k=8)
-                    clipped_actions = self.cont_override_action_batch(actions=np.array(actions_dict[v][region_id-1]), bounds=bounds)
-                    actions_dict[v][region_id-1] = clipped_actions
+                for region_id in range(1, 1 + self.num_regions):
+                    bounds = self.cont_bound_scheduler(
+                        x=np.array(
+                            [d[k][str(region_id)] for d in self.all_regions_params]
+                        ),
+                        t=self.current_timestep,
+                        type_="pow",
+                        k=8,
+                    )
+                    clipped_actions = self.cont_override_action_batch(
+                        actions=np.array(actions_dict[v][region_id - 1]), bounds=bounds
+                    )
+                    actions_dict[v][region_id - 1] = clipped_actions
         return actions_dict
 
     def get_rewards(self):
@@ -1846,17 +1916,22 @@ class Rice(gym.Env):
                     ),
                     norm=1e1,
                 )
-            elif self.temperature_calibration == 'DFaIR':
+            elif self.temperature_calibration == "DFaIR":
                 self.set_state(
-                    key, 
-                    value=np.array([params[0]["xT_LO_0"]+params[0]["xT_UO_0"], params[0]["xT_LO_0"]]), 
-                    norm=1e1, 
+                    key,
+                    value=np.array(
+                        [
+                            params[0]["xT_LO_0"] + params[0]["xT_UO_0"],
+                            params[0]["xT_LO_0"],
+                        ]
+                    ),
+                    norm=1e1,
                 )
         if key == "global_temperature_boxes":
             self.set_state(
-                key, 
-                value=np.array([params[0]["xT_LO_0"], params[0]["xT_UO_0"]]), 
-                norm=1e1, 
+                key,
+                value=np.array([params[0]["xT_LO_0"], params[0]["xT_UO_0"]]),
+                norm=1e1,
             )
 
         if key == "global_carbon_mass":

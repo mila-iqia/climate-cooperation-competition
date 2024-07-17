@@ -3,6 +3,7 @@ import wandb
 import time
 from rice import Rice
 from copy import deepcopy
+
 rice_env = Rice()
 rice_env.reset()
 total_actions = rice_env.total_possible_actions
@@ -66,7 +67,15 @@ def run_single_experiment():
         elif carbon_model in ["FaIR", "AR5"]:
             temperature_calibration = "FaIR"
     # Create the Rice environment
-    env = Rice(dmg_function=damage_type, abatement_cost_type=abatement_cost_type, pliability=pliability, debugging_folder=debugging_folder, carbon_model=carbon_model, prescribed_emissions=prescribed_emissions, temperature_calibration=temperature_calibration)
+    env = Rice(
+        dmg_function=damage_type,
+        abatement_cost_type=abatement_cost_type,
+        pliability=pliability,
+        debugging_folder=debugging_folder,
+        carbon_model=carbon_model,
+        prescribed_emissions=prescribed_emissions,
+        temperature_calibration=temperature_calibration,
+    )
     env.reset()
     # Create a unique name for the experiment based on the parameters
     if debugging_folder == "2_region":
@@ -90,9 +99,7 @@ def run_single_experiment():
         s_r = savings_rate
 
     while True:  # Or some other condition to terminate the loop
-        ind_actions = RiceAction(
-            {"savings": s_r, "mitigation_rate": m_r}
-        ).actions
+        ind_actions = RiceAction({"savings": s_r, "mitigation_rate": m_r}).actions
 
         actions = {region_id: ind_actions for region_id in regions}
         obs, rew, done, truncated, info = env.step(actions)
@@ -108,9 +115,15 @@ def run_single_experiment():
                 "Year": current_timestep * 5,
             }
         )
-        if isinstance(mitigation_rate, (list, tuple, np.ndarray)) and len(mitigation_rates) > 0:
+        if (
+            isinstance(mitigation_rate, (list, tuple, np.ndarray))
+            and len(mitigation_rates) > 0
+        ):
             m_r = mitigation_rates.pop(0)
-        if isinstance(savings_rate, (list, tuple, np.ndarray)) and len(savings_rates) > 0:
+        if (
+            isinstance(savings_rate, (list, tuple, np.ndarray))
+            and len(savings_rates) > 0
+        ):
             s_r = savings_rates.pop(0)
         # Log the current states, not the empty 'result' variable
         wandb.log(current_states)
@@ -125,15 +138,25 @@ sweep_config = {
     },
     "parameters": {
         "mitigation_rate": {
-            "values": [0,5,9,[9,9,9,9,9,9,9,9,9,9,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,9,9,9,9,9,9,9,9,9,9],[0,0,0,0,0,0,0,0,0,9,9,9,9,9,9,9,9,9,9], [0,9,0,9,0,9,0,9,0,9,0,9,0,9,0,9,0,9,0], [0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9], [0,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9]]
+            "values": [
+                0,
+                5,
+                9,
+                [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+                [0, 9, 0, 9, 0, 9, 0, 9, 0, 9, 0, 9, 0, 9, 0, 9, 0, 9, 0],
+                [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9],
+                [0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+            ]
         },
         "savings_rate": {"values": [2.5]},  # Or any other values you want to try
-        "pliability": {"values": [0,0.5,0.7,0.9]},
+        "pliability": {"values": [0, 0.5, 0.7, 0.9]},
         "damage_type": {"values": ["updated"]},
         "abatement_cost_type": {"values": ["path_dependent"]},
         # "debugging_folder": {"values": ["2_region", "region_yamls"]},
         "debugging_folder": {"values": ["region_yamls"]},
-        "carbon_model": {"values": ["FaIR", "AR5","base"]},
+        "carbon_model": {"values": ["FaIR", "AR5", "base"]},
         "prescribed_emissions": {"values": [None]},
         "temperature_calibration": {"values": ["FaIR", "base"]},
     },
@@ -145,13 +168,10 @@ sweep_config = {
     #     "pliability": {"values": [0.5, 0.7, 0.9]},
     #     "damage_type": {"values": ["base", "updated"]},
     #     "abatement_cost_type": {"values": ["path_dependent"]},
-        
     # },
 }
 
-sweep_id = wandb.sweep(
-    sweep_config, project="ricen-fair-abatement-function-debugging"
-)
+sweep_id = wandb.sweep(sweep_config, project="ricen-fair-abatement-function-debugging")
 
 
 def main():

@@ -3,6 +3,30 @@ import wandb
 import time
 from rice import Rice
 from copy import deepcopy
+import pickle
+from fire import Fire
+import random
+
+
+with open(
+    "/home/work/climate-cooperation-competition/debugging_env/sequences.pkl", "rb"
+) as f:
+    sequences = pickle.load(f)
+
+# randomly sample one sequence from the list of sequences
+random_idx = np.random.randint(0, len(sequences))
+dice = random.random()
+# dice = 0.7
+if dice < 0.3333:
+    type_ = "increasing"
+    lst = sequences[random_idx]
+elif dice < 0.6666:
+    type_ = "decreasing"
+    lst = sequences[random_idx][::-1]
+else:
+    type_ = "random"
+    lst = np.random.randint(0, 9 + 1, 19).tolist()
+
 
 rice_env = Rice()
 rice_env.reset()
@@ -57,11 +81,12 @@ def run_single_experiment(
     carbon_model=None,
     prescribed_emissions=None,
     temperature_calibration=None,
+    mitigation_type=None,
 ):
     if is_wandb:
         # Initialize a wandb run
-        run = wandb.init(project="ricen-fair-abatement-function-debugging")
-
+        run = wandb.init(project="ricen-fair-movingdiff-mitigation-pct_reward")
+        wandb.config.update(locals())
     # Create the Rice environment
     if temperature_calibration is None:
         if carbon_model == "base":
@@ -108,7 +133,9 @@ def run_single_experiment(
         s_r = savings_rate
     while True:  # Or some other condition to terminate the loop
         current_timestep = env.current_timestep
-        current_states = get_state_at_time_t(env.global_state, current_timestep)
+        current_states = get_state_at_time_t(
+            env.global_state, current_timestep, nb_region=env.num_regions
+        )
         current_states.update(
             {
                 "Mitigation rate": m_r,
@@ -147,15 +174,29 @@ if __name__ == "__main__":
     # run_single_experiment(is_wandb=True, mitigation_rate = [0,0,0,0,0,0,0,0,0,9,9,9,9,9,9,9,9,9,9], savings_rate=1)
     # run_single_experiment(is_wandb=False, mitigation_rate = [0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9], savings_rate=1, pliability=0.9, damage_type="updated", abatement_cost_type="path_dependent")
     # run_single_experiment(is_wandb=True, mitigation_rate = [0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9], savings_rate=1, pliability=0, damage_type="updated", abatement_cost_type="path_dependent")
+    # run_single_experiment(
+    #     is_wandb=True,
+    #     mitigation_rate=lst,
+    #     savings_rate=2.5,
+    #     pliability=0.4,
+    #     damage_type="updated",
+    #     abatement_cost_type="path_dependent",
+    #     debugging_folder=None,
+    #     carbon_model="FaIR",
+    #     prescribed_emissions=None,
+    #     temperature_calibration=None,
+    #     mitigation_type=type_,
+    # )
     run_single_experiment(
         is_wandb=True,
-        mitigation_rate=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        mitigation_rate=[0] * 19,
         savings_rate=2.5,
-        pliability=0.9,
+        pliability=0.4,
         damage_type="updated",
         abatement_cost_type="path_dependent",
         debugging_folder=None,
         carbon_model="FaIR",
         prescribed_emissions=None,
         temperature_calibration=None,
+        mitigation_type=type_,
     )

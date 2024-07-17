@@ -254,3 +254,6 @@ scripts/eval_by_logs.py
 *Zone.Identifier
 wandb
 dev.py
+debugging_env/dev.ipynb
+debugging_env/project.csv
+all_project_data.csv
