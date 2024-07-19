@@ -133,6 +133,17 @@ As training progresses, some key metrics (such as the mean episode reward) are p
 - PyTorch policy model(s) (of type ".state_dict") containing the trained weights for the policy network(s). Only the trained policy model for the final timestep will be copied over into the submission zip. If you would like to instead submit the trained policy model at a different timestep, please see the section below on creating your submission file.
 - For submissions using WarpDrive, the submission will also contain CUDA-specific files [rice_step.cu](rice_step.cu) and [rice_cuda](rice_cuda.py) that were used for training.
 
+# Evaluate a trained model
+
+After training a model you are probably curious how well performs in climate and economic terms. This is measurable using the evaluation script.
+
+USAGE: To see how your trained model performs, invoke the evaluation script with:
+```commandline
+    python scripts/evaluate_submission.py -r Submissions/[name_of_submission_file].zip
+```
+Note, if logging is set to True in the config yaml, then it will log outputs to weights-and-biases (wandb). Please supply your wandb credentials in the config yaml (apikey, project_name, run_name). [evaluate_submission.py](/scripts/evaluate_submissions.py) contains the `METRICS_TO_LABEL_DICT` which sets which observations are logged. If you wish for an observation to be logged to wandb, simply ensure that the name of the metric is included in the dict. Note, the key is the observation name and the values are a tuple of `(display_name, rounding_off_value)`
+
+If logging is set to False, then only aggregate level outputs will be printed in the console.
 
 # Contributing
 
