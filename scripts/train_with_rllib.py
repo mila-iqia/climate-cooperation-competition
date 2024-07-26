@@ -42,8 +42,9 @@ SCENARIO_MAPPING = {
     "MinimalMitigation":MinimalMitigation,
     "BasicClub":BasicClub,
     "ExportAction":ExportAction,
-    "CarbonLeakage":CarbonLeakage
-}
+    "CarbonLeakage":CarbonLeakage,
+    "Damages":Damages
+    }
 
 def get_config_yaml(yaml_path):
     config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", yaml_path)

@@ -4,6 +4,100 @@ from math import ceil
 _FEATURES = "features"
 _ACTION_MASK = "action_mask"
 
+class Damages(Rice):
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="CarbonLeakage",
+                 action_space_type="discrete",  # or "continuous"
+                 dmg_function="base",
+                 carbon_model="base",
+                 temperature_calibration="base",
+                 prescribed_emissions=None,
+                 pct_reward = False,
+                 damage_coefficient = 1.5
+            ):
+        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels, 
+                action_space_type=action_space_type,  # or "continuous"
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions,
+                pct_reward= pct_reward)
+        
+        self.damage_coefficient = damage_coefficient
+        self.constant_savings_rate = 2
+
+
+    def calc_damages(self, save_state=True):
+        damages = np.zeros(self.num_regions, dtype=self.float_dtype)
+        for region_id in range(self.num_regions):
+            prev_atmospheric_temperature = self.get_prev_state("global_temperature")[0]
+
+            if self.dmg_function == "base":
+                # Isnt this supposedly like in the original one of nordhaus?
+                damages[region_id] = 1 / (
+                    1
+                    + self.damage_coefficient*(self.all_regions_params[region_id]["xa_1"]
+                    * prev_atmospheric_temperature
+                    + self.all_regions_params[region_id]["xa_2"]
+                    * pow(
+                        prev_atmospheric_temperature,
+                        self.all_regions_params[region_id]["xa_3"],
+                    ))
+                )
+            elif self.dmg_function == "updated":
+                damages[region_id] = (
+                    1 - self.damage_coefficient*(0.7438 * (prev_atmospheric_temperature**2)) / 100
+                )
+            else:
+                raise ValueError(f"Unknown damage function: {self.dmg_function}")
+
+            if save_state:
+                self.set_state(
+                    "damages_all_regions", damages[region_id], region_id=region_id
+                )
+
+        return damages
+    
+    def calc_action_mask(self):
+        """Mask savings rate to .2 for consistency of results
+        Currently savings rate drops off towards the end due to
+        """
+
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+
+            mask = self.default_agent_action_mask.copy()
+
+        
+
+            savings_mask = np.array(
+                    [0 for _ in range(self.constant_savings_rate)]
+                    + [1]
+                    + [
+                        0
+                        for _ in range(
+                            self.num_discrete_action_levels
+                            - self.constant_savings_rate - 1
+                        )
+                    ]
+                )
+
+            mask_start = 0
+            mask_end = mask_start + sum(
+                    self.savings_possible_actions
+                )
+            mask[mask_start:mask_end] = savings_mask
+
+            mask_dict[region_id] = mask
+            
+        return mask_dict
+    
+
 class CarbonLeakage(Rice):
 
     """
