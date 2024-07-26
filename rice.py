@@ -45,6 +45,7 @@ class Rice(gym.Env):
         carbon_model="base",
         temperature_calibration="base",
         prescribed_emissions=None,
+        pct_reward = False,
     ):
         self.action_space_type = action_space_type
         self.num_discrete_action_levels = num_discrete_action_levels
@@ -63,7 +64,7 @@ class Rice(gym.Env):
 
         # Add option to define own emissions path as a list of 21 emission values in CO2
         self.prescribed_emissions = prescribed_emissions
-
+        self.pct_reward = pct_reward
         self.global_state = {}
 
         self.set_dtypes()

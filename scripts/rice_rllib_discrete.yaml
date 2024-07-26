@@ -30,12 +30,13 @@ trainer:
 # Environment configuration
 env:
     negotiation_on: False # flag to indicate whether negotiation is allowed or not
-    scenario: "CarbonLeakage" # key that maps to either Rice or and alternate Rice class
+    scenario: "default" # key that maps to either Rice or and alternate Rice class
     num_discrete_action_levels: 10
     action_space_type: "discrete"
     dmg_function: "base"
     carbon_model: "base"
     temperature_calibration: "base"
+    pct_reward: False
 
 regions:
     num_agents: 3 #can be either {3,7,20,27}
