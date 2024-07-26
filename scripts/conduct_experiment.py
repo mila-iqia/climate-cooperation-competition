@@ -31,7 +31,8 @@ from experiments import *
 from evaluate_submission import get_imports
 
 #more exps will grow
-EXP = {"cl":run_carbon_leakage}
+EXP = {"cl":run_carbon_leakage,
+        "clv": run_carbon_leakage_variable}
 _path = Path(os.path.abspath(__file__))
 
 from fixed_paths import PUBLIC_REPO_DIR
@@ -59,7 +60,7 @@ def get_results_dir():
         "--results_dir",
         "-r",
         type=str,
-        default="./Submissions/1718376483_carbonleakage.zip",  # an example of a submission file
+        default="./Submissions/1719992055_carbonleakage2.zip",  # an example of a submission file
         help="The directory where all the submission files are saved. Can also be "
         "a zip-file containing all the submission files.",
     )
@@ -185,23 +186,27 @@ def perform_evaluation(
     # Add auxiliary outputs required for processing
     logging.info("beginning experiment")
     #run experiment
-    EXP[experiment](trainer,condition=condition)
+    EXP[experiment](trainer,condition=condition, seed=eval_seed)
     logging.info("experiment complete")
 
 if __name__ == "__main__":
 
     results_dir, experiment = get_results_dir()
-    # ray.init(ignore_reinit_error=True, local_mode = True)
-        
-    # perform_evaluation(
-    #     results_dir,condition="control", experiment = experiment
-    # )
-    for i in tqdm(range(20)):
+
+    #NOTE: execution time slows considerably after ~25 runs
+    # unless i call this from another script repeatedly
+    # if you don't have this problem, feel free to run this
+    # script for longer.
+    for i in tqdm(range(25)):
+
+        _SEED = np.random.randint(0,1000)
         ray.init(ignore_reinit_error=True, local_mode = True)
         
         perform_evaluation(
-            results_dir,condition="treatment", experiment = experiment
+            results_dir,condition="control", experiment = experiment
         )
-        # perform_evaluation(
-        #     results_dir,condition="control", experiment = experiment
-        # )
+        _SEED = np.random.randint(0,1000)
+        perform_evaluation(
+            results_dir,condition="treatment", experiment = experiment, eval_seed=_SEED
+        )
+   

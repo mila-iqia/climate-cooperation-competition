@@ -1,9 +1,9 @@
 from rice import *
 import random
 from math import ceil
+from datetime import datetime
 _FEATURES = "features"
 _ACTION_MASK = "action_mask"
-
 
 class CarbonLeakageVariable(Rice):
 
@@ -46,19 +46,27 @@ class CarbonLeakageVariable(Rice):
         #if its the control group, don't apply the club rules
         
         self.control = False
-        self.training = True
-        self.minimum_mitigation_rate = random.sample(range(0,10, 2), 1)[0]
+        self.training = False
+        self.set_local_random_seed()
 
 
-        club_step_size = int(self.num_regions/4)
-        self.club_size = random.sample(range(0, self.num_regions, club_step_size), 1)[0] + 1 #always at least 1
-        self.club_members = random.sample(range(0, self.num_regions), self.club_size)
+        self.minimum_mitigation_rate = self.local_random.sample(range(0, 10, 2), 1)[0]
 
+        club_step_size = int(self.num_regions / 4)
+        self.club_size = self.local_random.sample(range(0, self.num_regions, club_step_size), 1)[0] + 1  # always at least 1
+        self.club_members = self.local_random.sample(range(0, self.num_regions), self.club_size)
+
+    def set_local_random_seed(self):
+        # Use a unique local seed for non-deterministic random number generation
+        self.local_random = random.Random()  # Create a new random instance
+        self.local_random.seed(int(datetime.now().timestamp() * 1000))
+    
     def reset(self, *, seed=None, options=None):
         obs, info = super().reset(seed=seed, options=options)
 
         #recreate club each time
         if self.training:
+
             
             #new random mitigation rate
             self.minimum_mitigation_rate = random.sample(range(0,10, 2), 1)[0]
@@ -152,10 +160,13 @@ class CarbonLeakage(Rice):
         #if its the control group, don't apply the club rules
         
         self.control = False
-        self.training = True
+        self.training = False
         self.minimum_mitigation_rate = 8
-        self.club_size = ceil(self.num_regions/2)
-        self.club_members = random.sample(range(0, self.num_regions + 1), self.club_size)
+        self.set_local_random_seed()
+        #self.club_size = ceil(self.num_regions/2)
+        self.club_size = int((self.num_regions/3)*2)
+        self.club_members = self.local_random.sample(range(0, self.num_regions+1), self.club_size)
+
 
     def reset(self, *, seed=None, options=None):
         obs, info = super().reset(seed=seed, options=options)
@@ -171,6 +182,11 @@ class CarbonLeakage(Rice):
             else:
                 self.control = False
         return obs, info
+    
+    def set_local_random_seed(self):
+        # Use a unique local seed for non-deterministic random number generation
+        self.local_random = random.Random()  # Create a new random instance
+        self.local_random.seed(int(datetime.now().timestamp() * 1000))
 
 
     def calc_action_mask(self):
@@ -1391,7 +1407,7 @@ class ConsumptionLeakage(ExportAction):
             else:
                 self.control = False
         else:
-            print("not training")
+            pass
         return obs, info
 
     

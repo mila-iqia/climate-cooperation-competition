@@ -146,6 +146,7 @@ def validate_dir(results_dir=None):
             success = True
             comment = "Valid submission"
     elif ".rllib" in files:
+
         framework = "rllib"
         # RLlib was used for training
         for file in ["rice.py", "rice_helpers.py"]:
@@ -165,6 +166,7 @@ def validate_dir(results_dir=None):
                 if file in files:
                     yaml_success = True
                     discrete = "discrete" in file
+                    
                     
             if not yaml_success:
                 logging.error(
@@ -217,6 +219,7 @@ def compute_metrics(
         wandb.init(project=wandb_config["project"],
             name=f'{wandb_config["run"]}_eval',
             entity=wandb_config["entity"])
+
 
     episode_states = {}
     eval_metrics = {}
@@ -643,7 +646,7 @@ if __name__ == "__main__":
         "--results_dir",
         "-r",
         type=str,
-        default="./Submissions/1680502535.zip",  # an example of a submission file
+        default="./Submissions/1720773759_basicclubnewmask.zip",  # an example of a submission file
         help="The directory where all the submission files are saved. Can also be "
         "a zip-file containing all the submission files.",
     )
