@@ -431,17 +431,21 @@ class Rice(gym.Env):
         rewards = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             if self.pct_reward:
-                previous_acc_reward = self.get_state(
-                    "utility_all_regions",
-                    region_id=region_id,
-                    timestep=self.current_timestep - 1,
-                ) * self.get_state(
-                    "welfloss",
-                    region_id=region_id,
-                    timestep=self.current_timestep - 1,
-                )
-                acc_reward = utilities[region_id] * welfloss_multipliers[region_id]
-                rewards[region_id] = acc_reward / previous_acc_reward - 1
+                if self.current_timestep == 1:
+                    # For the first timestep, there's no previous accumulated reward
+                    rewards[region_id] = 0  # Or some other initialization value
+                else:
+                    previous_acc_reward = self.get_state(
+                        "utility_all_regions",
+                        region_id=region_id,
+                        timestep=self.current_timestep - 1,
+                    ) * self.get_state(
+                        "welfloss",
+                        region_id=region_id,
+                        timestep=self.current_timestep - 1,
+                    )
+                    acc_reward = utilities[region_id] * welfloss_multipliers[region_id]
+                    rewards[region_id] = acc_reward / previous_acc_reward - 1
             else:
                 rewards[region_id] = (
                     utilities[region_id] * welfloss_multipliers[region_id]
