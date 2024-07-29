@@ -45,7 +45,7 @@ class Rice(gym.Env):
         carbon_model="base",
         temperature_calibration="base",
         prescribed_emissions=None,
-        pct_reward = False,
+        pct_reward=False,
     ):
         self.action_space_type = action_space_type
         self.num_discrete_action_levels = num_discrete_action_levels
@@ -123,6 +123,18 @@ class Rice(gym.Env):
             for region_id in range(self.num_regions)
         }
         return action_space
+
+    def softthreshold(self, x, threshold, bias=0):
+        return np.sign(x) * np.maximum(np.abs(x) - threshold, 0) + bias
+
+    def percentage_adjustment(self, numerator, denominator):
+        # This function is used to handle division by zero and small values
+        if np.abs(denominator) < 1e-3:
+            return 0
+        elif np.abs(numerator) < 1e-3:
+            return 0
+        else:
+            return self.softthreshold(numerator / denominator - 1, 1e-3)
 
     def get_action_space(self):
         if self.action_space_type == "discrete":
@@ -445,7 +457,9 @@ class Rice(gym.Env):
                         timestep=self.current_timestep - 1,
                     )
                     acc_reward = utilities[region_id] * welfloss_multipliers[region_id]
-                    rewards[region_id] = acc_reward / previous_acc_reward - 1
+                    rewards[region_id] = (
+                        self.percentage_adjustment(acc_reward, previous_acc_reward) - 1
+                    )
             else:
                 rewards[region_id] = (
                     utilities[region_id] * welfloss_multipliers[region_id]
