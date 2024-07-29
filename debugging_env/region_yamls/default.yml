@@ -18,8 +18,8 @@ _DICE_CONSTANT:
   xf_0: 0.5 # in Eq 3  param to effect of greenhouse gases other than carbon dioxide
   xf_1: 1 # in Eq 3  param to effect of greenhouse gases other than carbon dioxide
   xt_f: 20 # in Eq 3  time step param to effect of greenhouse gases other than carbon dioxide
-  xE_L0: 2.6 # 2.6 # in Eq 4 param to the emissions due to land use changes
-  xdelta_EL: 0.001 # 0.115 # 0.115 # in Eq 4 param to the emissions due to land use changes
+  xE_L0: 2.6 # 2.6 # in Eq 4 param to the emissions due to land use changes # 5.9 in DICE2023
+  xdelta_EL: 0.001 # 0.115 # 0.115 # in Eq 4 param to the emissions due to land use changes # 0.01 in DICE2023
 
   xM_AT_0: 851 # in CAP the atmospheric mass of carbon in the year t
   xM_UP_0: 460 # in CAP the atmospheric upper bound of mass of carbon in the year t
@@ -36,7 +36,8 @@ _RICE_CONSTANT:
   xgamma: 0.3 # in CAP Eq 5 the capital elasticty
   xtheta_2: 2.6 # in CAP Eq 6
   xa_1: 0
-  xa_2: 0.00236 # in CAP Eq 6
+  # xa_2: 0.00236 # in CAP Eq 6
+  xa_2: 0.01
   xa_3: 2 # in CAP Eq 6
   xdelta_K: 0.1 # in CAP Eq 9 param discribe the depreciate of the capital
   xalpha: 1.45 # Utility function param
