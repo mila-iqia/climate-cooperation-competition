@@ -129,10 +129,10 @@ class Rice(gym.Env):
 
     def percentage_adjustment(self, numerator, denominator):
         # This function is used to handle division by zero and small values
-        if np.abs(denominator) < 1e-3:
+        if np.abs(denominator) < 1e-2 and np.abs(numerator) < 1e-2:
             return 0
-        elif np.abs(numerator) < 1e-3:
-            return 0
+        elif np.abs(denominator) < 1e-2:
+            return 1e-2
         else:
             return self.softthreshold(numerator / denominator - 1, 1e-3)
 
