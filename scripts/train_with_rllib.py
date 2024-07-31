@@ -43,7 +43,8 @@ SCENARIO_MAPPING = {
     "BasicClub":BasicClub,
     "ExportAction":ExportAction,
     "CarbonLeakage":CarbonLeakage,
-    "Damages":Damages
+    "Damages":Damages,
+    "CarbonLeakageDamages":CarbonLeakageDamages
 }
 
 def get_config_yaml(yaml_path):
