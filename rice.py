@@ -129,10 +129,11 @@ class Rice(gym.Env):
 
     def percentage_adjustment(self, numerator, denominator):
         # This function is used to handle division by zero and small values
+
         if np.abs(denominator) < 1e-2 and np.abs(numerator) < 1e-2:
             return 0
-        elif np.abs(denominator) < 1e-2:
-            return 1e-2
+        elif np.abs(denominator) < 1:
+            return numerator-denominator+1
         else:
             return self.softthreshold(numerator / denominator - 1, 1e-3)
 
@@ -457,9 +458,10 @@ class Rice(gym.Env):
                         timestep=self.current_timestep - 1,
                     )
                     acc_reward = utilities[region_id] * welfloss_multipliers[region_id]
+
                     rewards[region_id] = (
-                        self.percentage_adjustment(acc_reward, previous_acc_reward) - 1
-                    )
+                            self.percentage_adjustment(acc_reward, previous_acc_reward) - 1
+                        )
             else:
                 rewards[region_id] = (
                     utilities[region_id] * welfloss_multipliers[region_id]
