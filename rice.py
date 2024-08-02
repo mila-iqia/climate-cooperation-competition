@@ -46,6 +46,9 @@ class Rice(gym.Env):
         temperature_calibration="base",
         prescribed_emissions=None,
         pct_reward=False,
+        abatement_cost_type="base_abatement",
+        pliability = 1
+
     ):
         self.action_space_type = action_space_type
         self.num_discrete_action_levels = num_discrete_action_levels
@@ -61,7 +64,8 @@ class Rice(gym.Env):
         self.dmg_function = dmg_function
         self.carbon_model = carbon_model
         self.temperature_calibration = temperature_calibration
-
+        self.abatement_cost_type = abatement_cost_type
+        self.pliability = pliability
         # Add option to define own emissions path as a list of 21 emission values in CO2
         self.prescribed_emissions = prescribed_emissions
         self.pct_reward = pct_reward
@@ -690,17 +694,62 @@ class Rice(gym.Env):
     def calc_abatement_costs(self, mitigation_rates_all_regions, save_state=True):
         mitigation_costs = self.calc_mitigation_costs()
         abatement_costs = np.zeros(self.num_regions, dtype=self.float_dtype)
-        for region_id in range(self.num_regions):
-            abatement_costs[region_id] = mitigation_costs[region_id] * pow(
-                mitigation_rates_all_regions[region_id],
-                self.all_regions_params[region_id]["xtheta_2"],
-            )
-            if save_state:
-                self.set_state(
-                    "abatement_cost_all_regions",
-                    abatement_costs[region_id],
-                    region_id=region_id,
+        if self.abatement_cost_type == "base_abatement":
+
+            for region_id in range(self.num_regions):
+                abatement_costs[region_id] = mitigation_costs[region_id] * pow(
+                    mitigation_rates_all_regions[region_id],
+                    self.all_regions_params[region_id]["xtheta_2"],
                 )
+                if save_state:
+                    self.set_state(
+                        "abatement_cost_all_regions",
+                        abatement_costs[region_id],
+                        region_id=region_id,
+                    )
+        elif self.abatement_cost_type == "path_dependent":
+            for region_id in range(self.num_regions):
+                current_mitigation_rate = mitigation_rates_all_regions[region_id]
+                moving_difference = 0
+                for t in range(0, self.current_timestep):
+                    moving_difference += np.abs(
+                        current_mitigation_rate
+                        - self.get_state(
+                            "mitigation_rates_all_regions",
+                            region_id=region_id,
+                            timestep=t,
+                        )
+                    ) * (t / self.current_timestep)
+                moving_difference /= self.current_timestep
+
+                theta_2 = self.all_regions_params[region_id]["xtheta_2"]
+                original_part = pow(current_mitigation_rate, theta_2) * (
+                    1 - self.pliability
+                )
+                # prev_mitigation_rate = self.get_prev_state(
+                #     "mitigation_rates_all_regions", region_id
+                # )
+                # path_dependent_part = (
+                #     pow(np.abs(current_mitigation_rate - prev_mitigation_rate), theta_2)
+                #     * self.pliability
+                #     / (theta_2 + 1)
+                # )
+                path_dependent_part = (
+                    pow(moving_difference, theta_2) * self.pliability / (theta_2 + 1)
+                )
+                abatement_costs[region_id] = mitigation_costs[region_id] * (
+                    original_part + path_dependent_part
+                )
+                if save_state:
+                    self.set_state(
+                        "abatement_cost_all_regions",
+                        abatement_costs[region_id],
+                        region_id=region_id,
+                    )
+        else:
+            raise NotImplementedError(
+                f"Unknown abatement cost type {self.abatement_cost_type}"
+            )
         return abatement_costs
 
     def calc_mitigation_costs(self, save_state=True):
