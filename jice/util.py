@@ -1,10 +1,9 @@
 import os
 import yaml
 import jax.numpy as jnp
-from jice.environment.rice_and_region_data import RegionRiceConstants
 import wandb
 import jax
-import pandas as pd 
+from types import SimpleNamespace
 import time
 import wandb
 import numpy as np
@@ -59,7 +58,7 @@ def load_region_yamls(num_regions: int):
     region_yamls = []
     for file in sorted(os.listdir(f"{yaml_file_directory}{num_regions}_regions")):
         if file.endswith(".yml"):
-            with open(f"jice/region_yamls/{num_regions}_regions/{file}", "r") as f:
+            with open(f"{yaml_file_directory}{num_regions}_regions/{file}", "r") as f:
                 region = yaml.safe_load(f)
                 region = region["_RICE_CONSTANT"] # remove redundant key
                 region_yamls.append(region)
@@ -69,24 +68,28 @@ def load_region_yamls(num_regions: int):
     ximport_ = [dict(sorted(x.items())) for x in ximport_] # sort by region id
     ximport_ = [list(x.values()) for x in ximport_] 
 
-    region_params = RegionRiceConstants(
-        xA_0=np.array([region["xA_0"] for region in region_yamls]),
-        xK_0=np.array([region["xK_0"] for region in region_yamls]),
-        xL_0=np.array([region["xL_0"] for region in region_yamls]),
-        xL_a=np.array([region["xL_a"] for region in region_yamls]),
-        xa_1=np.array([region["xa_1"] for region in region_yamls]),
-        xa_2=np.array([region["xa_2"] for region in region_yamls]),
-        xa_3=np.array([region["xa_3"] for region in region_yamls]),
-        xdelta_A=np.array([region["xdelta_A"] for region in region_yamls]),
-        xg_A=np.array([region["xg_A"] for region in region_yamls]),
-        xgamma=np.array([region["xgamma"] for region in region_yamls]),
-        xl_g=np.array([region["xl_g"] for region in region_yamls]),
-        xmitigation_0=np.array([region["xmitigation_0"] for region in region_yamls]),
-        xsaving_0=np.array([region["xsaving_0"] for region in region_yamls]),
-        xsigma_0=np.array([region["xsigma_0"] for region in region_yamls]),
-        xtax=np.array([region["xtax"] for region in region_yamls]),
-        xexport=np.array([region["xexport"] for region in region_yamls]),
-        ximport=np.array(ximport_)
-    )
+    region_params = {k: np.array([region[k] for region in region_yamls]) for k in region_yamls[0].keys()}
+    region_params["ximport"] = np.array(ximport_) 
 
-    return region_params
+    # default params, that apply generally:
+    with open(f"{yaml_file_directory}/default.yml", "r") as f:
+        default_params = yaml.safe_load(f)
+        dice_params = default_params["_DICE_CONSTANT"]
+        rice_params = default_params["_RICE_CONSTANT"]
+
+        # in dice_params, convert all lists (or lists of lists) to tuples
+        def list_to_tuples(value):
+            if isinstance(value, list):
+                return tuple(list_to_tuples(v) for v in value)
+            return value
+        dice_params = {k: list_to_tuples(v) for k, v in dice_params.items()}
+
+        default_params = {**dice_params, **rice_params}
+    
+    # merge the region_params, overwriting the key,values that are already present
+    params = {**default_params, **region_params}
+
+    # allow for dot notation
+    params = SimpleNamespace(**params)
+
+    return params

@@ -20,7 +20,7 @@ def create_ppo_networks(
         critic_features: List[int],
         actions_nvec: int,
     ):
-    """Create actor, 2 critics and target networks"""
+    """Create PPO networks (actor critic)"""
     actor_key, critic1_key = jax.random.split(key)
     actor = ActorNetworkMultiDiscrete(actor_key, in_shape, actor_features, actions_nvec)
     critic = CriticNetwork(critic1_key, in_shape, critic_features)

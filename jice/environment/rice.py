@@ -4,6 +4,7 @@ import jax.numpy as jnp
 import chex
 from typing import Tuple, Optional
 from gymnax.environments.spaces import Box
+from types import SimpleNamespace
 
 from jice.environment.base_and_wrappers import JaxBaseEnv, EnvState, MultiDiscrete
 from jice.environment.rice_and_region_data import RegionRiceConstants, RiceEnvConstants, DiceEnvConstants
@@ -117,9 +118,7 @@ class EnvState:
 
 @chex.dataclass(frozen=True)
 class EnvParams:
-    region_params: RegionRiceConstants
-    rice_params: RiceEnvConstants = RiceEnvConstants()
-    dice_params: DiceEnvConstants = DiceEnvConstants()
+    region_params: SimpleNamespace
 
     num_regions: int = 3
     # scenario: str = "default" # NOTE: not implemented
@@ -160,9 +159,9 @@ class Rice(JaxBaseEnv):
         self.settings = params # Do not change anything in `self` after the init
 
         # setting this seperate for clarity
-        self.start_year = self.settings.dice_params.xt_0
-        self.years_per_step = self.settings.dice_params.xDelta
-        self.episode_length = self.settings.dice_params.xN # (max steps in episode)
+        self.start_year = self.settings.region_params.xt_0
+        self.years_per_step = self.settings.region_params.xDelta
+        self.episode_length = self.settings.region_params.xN # (max steps in episode)
         if self.settings.negotiation_on:
             # TODO: need to increase number of steps
             raise NotImplementedError("Negotiation not implemented yet")
@@ -171,15 +170,15 @@ class Rice(JaxBaseEnv):
 
         if self.settings.temperature_calibration == "base":
             global_temperature = jnp.array([
-                self.settings.rice_params.xT_AT_0, self.settings.rice_params.xT_LO_0
+                self.settings.region_params.xT_AT_0, self.settings.region_params.xT_LO_0
             ])
         elif self.settings.temperature_calibration == "FaIR":
             global_temperature = jnp.array([
-                self.settings.rice_params.xT_AT_0_FaIR, self.settings.rice_params.xT_LO_0_FaIR
+                self.settings.region_params.xT_AT_0_FaIR, self.settings.region_params.xT_LO_0_FaIR
             ])
         elif self.settings.temperature_calibration == 'DFaIR':
             global_temperature = jnp.array([
-                self.settings.rice_params.xT_LO_0 + self.settings.rice_params.xT_UO_0, self.settings.rice_params.xT_LO_0
+                self.settings.region_params.xT_LO_0 + self.settings.region_params.xT_UO_0, self.settings.region_params.xT_LO_0
             ])
         else:
             raise ValueError(
@@ -194,9 +193,9 @@ class Rice(JaxBaseEnv):
             # Climate states
             global_temperature=global_temperature,
             global_carbon_mass=jnp.array([
-                self.settings.dice_params.xM_AT_0, 
-                self.settings.dice_params.xM_UP_0, 
-                self.settings.dice_params.xM_LO_0
+                self.settings.region_params.xM_AT_0, 
+                self.settings.region_params.xM_UP_0, 
+                self.settings.region_params.xM_LO_0
             ]).astype(jnp.float32),
             global_exogenous_emissions=0.0, # NOTE: this is an array in the original (jnp.zeros(1))
             global_land_emissions=jnp.zeros(1),
@@ -204,27 +203,27 @@ class Rice(JaxBaseEnv):
             mitigation_rates_all_regions=self.settings.region_params.xmitigation_0,
 
             # additional climate states for carbon and temperature model
-            global_alpha=jnp.array(self.settings.rice_params.xalpha_0),
+            global_alpha=jnp.array(self.settings.region_params.xalpha_0),
             global_carbon_reservoirs=jnp.array([
-                self.settings.rice_params.xM_R1_0,
-                self.settings.rice_params.xM_R2_0,
-                self.settings.rice_params.xM_R3_0,
-                self.settings.rice_params.xM_R4_0
+                self.settings.region_params.xM_R1_0,
+                self.settings.region_params.xM_R2_0,
+                self.settings.region_params.xM_R3_0,
+                self.settings.region_params.xM_R4_0
             ]),
-            global_cumulative_emissions=jnp.array([self.settings.rice_params.xEcum_0]),
-            global_cumulative_land_emissions=jnp.array(self.settings.rice_params.xEcumL_0),
-            global_emissions=jnp.array(self.settings.rice_params.xEInd_0 + self.settings.rice_params.xEL_0),
+            global_cumulative_emissions=jnp.array([self.settings.region_params.xEcum_0]),
+            global_cumulative_land_emissions=jnp.array(self.settings.region_params.xEcumL_0),
+            global_emissions=jnp.array(self.settings.region_params.xEInd_0 + self.settings.region_params.xEL_0),
             global_acc_pert_carb_stock=jnp.array(
-                self.settings.rice_params.xEcum_0
-                + self.settings.rice_params.xEcumL_0
+                self.settings.region_params.xEcum_0
+                + self.settings.region_params.xEcumL_0
                 - (
-                    self.settings.rice_params.xM_R1_0
-                    + self.settings.rice_params.xM_R2_0
-                    + self.settings.rice_params.xM_R3_0
-                    + self.settings.rice_params.xM_R4_0
+                    self.settings.region_params.xM_R1_0
+                    + self.settings.region_params.xM_R2_0
+                    + self.settings.region_params.xM_R3_0
+                    + self.settings.region_params.xM_R4_0
                 )
             ),
-            global_temperature_boxes=jnp.array([self.settings.rice_params.xT_LO_0, self.settings.rice_params.xT_UO_0]),
+            global_temperature_boxes=jnp.array([self.settings.region_params.xT_LO_0, self.settings.region_params.xT_UO_0]),
 
             # economic states
             production_all_regions=jnp.zeros(self.settings.num_regions), 
@@ -633,10 +632,10 @@ class Rice(JaxBaseEnv):
 
         def calc_mitigation_costs():
             mitigation_costs = (
-                self.settings.rice_params.xp_b
-                / (1000 * self.settings.rice_params.xtheta_2)
+                self.settings.region_params.xp_b
+                / (1000 * self.settings.region_params.xtheta_2)
                 * jnp.power(
-                    1 - self.settings.rice_params.xdelta_pb, state.activity_timestep - 1
+                    1 - self.settings.region_params.xdelta_pb, state.activity_timestep - 1
                 )
                 * state.intensity_all_regions
             )
@@ -645,7 +644,7 @@ class Rice(JaxBaseEnv):
         mitigations_rates_all_agents = actions.mitigation_rate
         mitigation_costs = calc_mitigation_costs()
         abatement_costs = mitigation_costs * jnp.pow(
-            mitigations_rates_all_agents, self.settings.rice_params.xtheta_2
+            mitigations_rates_all_agents, self.settings.region_params.xtheta_2
         )
 
         return abatement_costs
@@ -797,31 +796,31 @@ class Rice(JaxBaseEnv):
             * (
                 jnp.power(
                     consumptions / scaled_labor_all_regions + 1e-0,
-                    1 - self.settings.rice_params.xalpha
+                    1 - self.settings.region_params.xalpha
                 )
                 - 1
             )
-            / (1 - self.settings.rice_params.xalpha)
+            / (1 - self.settings.region_params.xalpha)
         )
         return utilities
 
     def calc_social_welfares(self, state: EnvState, utilities: chex.Array, params: EnvParams) -> chex.Array:
         social_welfares = utilities / (
             jnp.power(
-                1 + self.settings.rice_params.xrho, 
-                self.settings.dice_params.xDelta * state.activity_timestep
+                1 + self.settings.region_params.xrho, 
+                self.settings.region_params.xDelta * state.activity_timestep
             )
         )
         return social_welfares
     
     def calc_capitals(self, state: EnvState, investments: chex.Array, params: EnvParams) -> chex.Array:
         capital_depreciation = jnp.power(
-            1 - self.settings.rice_params.xdelta_K, self.settings.dice_params.xDelta
+            1 - self.settings.region_params.xdelta_K, self.settings.region_params.xDelta
         )
         capitals = (
             capital_depreciation
             * state.capital_all_regions
-            + (self.settings.dice_params.xDelta * investments)
+            + (self.settings.region_params.xDelta * investments)
         )
         return capitals
 
@@ -841,7 +840,7 @@ class Rice(JaxBaseEnv):
                 + self.settings.region_params.xg_A
                 * jnp.exp(
                     -self.settings.region_params.xdelta_A
-                    * self.settings.dice_params.xDelta
+                    * self.settings.region_params.xDelta
                     * (state.activity_timestep - 1)
                 )
             )
@@ -850,7 +849,7 @@ class Rice(JaxBaseEnv):
 
     def calc_gov_balances_post_trade(self, gov_balances_post_interest: chex.Array, gross_imports: chex.Array, params: EnvParams) -> chex.Array:
         trade_balance = (
-            self.settings.dice_params.xDelta * ( 
+            self.settings.region_params.xDelta * ( 
                 jnp.sum(gross_imports, axis=1) #TODO: these axises might be flipped
                 - jnp.sum(gross_imports, axis=0)
             )
@@ -862,12 +861,12 @@ class Rice(JaxBaseEnv):
         carbon_intensity = (
             state.intensity_all_regions
             * jnp.exp(
-                -self.settings.rice_params.xg_sigma
+                -self.settings.region_params.xg_sigma
                 * jnp.power(
-                    1 - self.settings.rice_params.xdelta_sigma,
-                    self.settings.dice_params.xDelta * (state.activity_timestep - 1),
+                    1 - self.settings.region_params.xdelta_sigma,
+                    self.settings.region_params.xDelta * (state.activity_timestep - 1),
                 )
-                * self.settings.dice_params.xDelta
+                * self.settings.region_params.xDelta
             )
         )
         return carbon_intensity
@@ -876,8 +875,8 @@ class Rice(JaxBaseEnv):
 
         def calc_land_emissions():
             """Obtain the amount of land emissions."""
-            e_l0 = self.settings.dice_params.xE_L0
-            delta_el = self.settings.dice_params.xdelta_EL
+            e_l0 = self.settings.region_params.xE_L0
+            delta_el = self.settings.region_params.xdelta_EL
 
             global_land_emissions = (
                 e_l0 * jnp.power(1 - delta_el, state.activity_timestep - 1) / self.settings.num_regions
@@ -898,10 +897,10 @@ class Rice(JaxBaseEnv):
             sum_aux_m = np.sum(aux_m_all_regions)
             prev_global_carbon_mass = state.global_carbon_mass
             global_carbon_mass = jnp.dot(
-                jnp.asarray(self.settings.dice_params.xPhi_M),
+                jnp.asarray(self.settings.region_params.xPhi_M),
                 prev_global_carbon_mass
             ) + jnp.dot(
-                jnp.asarray(self.settings.dice_params.xB_M),
+                jnp.asarray(self.settings.region_params.xB_M),
                 sum_aux_m
             )
 
@@ -918,14 +917,14 @@ class Rice(JaxBaseEnv):
             prev_global_acc_pert_carb_stock = state.global_acc_pert_carb_stock
 
             a = np.array([
-                self.settings.rice_params.xM_a0, self.settings.rice_params.xM_a1, 
-                self.settings.rice_params.xM_a2, self.settings.rice_params.xM_a3
+                self.settings.region_params.xM_a0, self.settings.region_params.xM_a1, 
+                self.settings.region_params.xM_a2, self.settings.region_params.xM_a3
             ])
             tau = np.array([
-                self.settings.rice_params.xM_t0, self.settings.rice_params.xM_t1,
-                self.settings.rice_params.xM_t2, self.settings.rice_params.xM_t3
+                self.settings.region_params.xM_t0, self.settings.region_params.xM_t1,
+                self.settings.region_params.xM_t2, self.settings.region_params.xM_t3
             ])
-            C0 = self.settings.dice_params.xM_AT_1750
+            C0 = self.settings.region_params.xM_AT_1750
 
             irf0, irC, irT = self.all_regions_params[0]["irf0"], self.all_regions_params[0]["irC"], self.all_regions_params[0]["irT"]
 
@@ -957,7 +956,7 @@ class Rice(JaxBaseEnv):
                 self.set_state("global_alpha", global_alpha)
 
             # conversion 5/3.67 = 1.36388
-            conv = self.settings.dice_params.xB_M
+            conv = self.settings.region_params.xB_M
             global_land_emissions = calc_land_emissions()
             # TODO: fix aux_m treatment
             aux_m_all_regions = (
@@ -1030,9 +1029,9 @@ class Rice(JaxBaseEnv):
 
         def calc_exogenous_emissions():
             """Obtain the amount of exogeneous emissions."""
-            f_0 = self.settings.dice_params.xf_0
-            f_1 = self.settings.dice_params.xf_1
-            t_f = self.settings.dice_params.xt_f
+            f_0 = self.settings.region_params.xf_0
+            f_1 = self.settings.region_params.xf_1
+            t_f = self.settings.region_params.xt_f
 
             exogenous_emissions = f_0 + jnp.minimum(
                 f_1 - f_0, (f_1 - f_0) / t_f * (state.activity_timestep - 1)
@@ -1046,10 +1045,10 @@ class Rice(JaxBaseEnv):
             # (original) TODO: why the zero index?
             # global_exogenous_emissions = global_exogenous_emissions[0]
             prev_atmospheric_carbon_mass = prev_carbon_mass[0]
-            phi_t = jnp.asarray(self.settings.dice_params.xPhi_T)
-            b_t = jnp.asarray(self.settings.dice_params.xB_T)
-            f_2x = jnp.asarray(self.settings.dice_params.xF_2x)
-            atmospheric_carbon_mass = jnp.asarray(self.settings.dice_params.xM_AT_1750)
+            phi_t = jnp.asarray(self.settings.region_params.xPhi_T)
+            b_t = jnp.asarray(self.settings.region_params.xB_T)
+            f_2x = jnp.asarray(self.settings.region_params.xF_2x)
+            atmospheric_carbon_mass = jnp.asarray(self.settings.region_params.xM_AT_1750)
 
             global_temperature = jnp.dot(
                 phi_t, prev_global_temperature
@@ -1070,15 +1069,15 @@ class Rice(JaxBaseEnv):
             # (original) TODO: why the zero index?
             # global_exogenous_emissions = global_exogenous_emissions[0]
             prev_atmospheric_carbon_mass = prev_carbon_mass[0]
-            atmospheric_carbon_mass = np.array(self.settings.dice_params.xM_AT_1750)
+            atmospheric_carbon_mass = np.array(self.settings.region_params.xM_AT_1750)
 
-            t_2x = self.settings.dice_params.xT_2x # np.asarray(self.settings.dice_params.xT_2x)
-            f_2x = self.settings.dice_params.xF_2x # np.asarray(self.settings.dice_params.xF_2x)
+            t_2x = self.settings.region_params.xT_2x # np.asarray(self.settings.region_params.xT_2x)
+            f_2x = self.settings.region_params.xF_2x # np.asarray(self.settings.region_params.xF_2x)
 
-            xT_1 = self.settings.rice_params.xT_1 # np.asarray(self.settings.rice_params.xT_1)
+            xT_1 = self.settings.region_params.xT_1 # np.asarray(self.settings.region_params.xT_1)
             xT_2 = f_2x / t_2x
-            xT_3 = self.settings.rice_params.xT_3 # np.asarray(self.settings.rice_params.xT_3)
-            xT_4 = self.settings.rice_params.xT_4 # np.asarray(self.settings.rice_params.xT_4)
+            xT_3 = self.settings.region_params.xT_3 # np.asarray(self.settings.region_params.xT_3)
+            xT_4 = self.settings.region_params.xT_4 # np.asarray(self.settings.region_params.xT_4)
 
             forcings = (
                 f_2x
@@ -1146,7 +1145,7 @@ class Rice(JaxBaseEnv):
             )
 
     def calc_current_simulation_year(self, state: EnvState, params: EnvParams) -> chex.Array:
-        return state.current_simulation_year + self.settings.dice_params.xDelta
+        return state.current_simulation_year + self.settings.region_params.xDelta
     
     ### 
     ## Helper and environment functions
