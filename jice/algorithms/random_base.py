@@ -4,7 +4,7 @@ import equinox as eqx
 import chex
 from functools import partial
 from dataclasses import replace
-from jice.environment.rice import Rice, EnvParams as RiceEnvParams
+from jice.environment.rice import Rice
 from jice.environment.base_and_wrappers import LogWrapper
 from util import logwrapper_callback
 
@@ -25,20 +25,23 @@ class BaseTrainerParams:
     num_log_episodes_after_training: int = 10
 
 def build_random_trainer(
-        env_params: RiceEnvParams,
+        env_params: dict,
         trainer_params: BaseTrainerParams = BaseTrainerParams(),
     ):
-    env = Rice(env_params)
+    config = trainer_params
+
+    env = Rice(**env_params)
     env = LogWrapper(env)
-    eval_env_params = replace(
-        env_params,
-        train_env=False,
-    )
-    eval_env = Rice(eval_env_params)
+
+    # Below should be doable with eqx.tree_at, but runs into a bug
+    eval_env_params = env_params.copy()
+    eval_env_params["train_env"] = False
+    eval_env = Rice(**eval_env_params)
+    eval_env = LogWrapper(eval_env)
 
     rng = jax.random.PRNGKey(trainer_params.trainer_seed)
 
-    num_agents = env.settings.num_regions
+    num_agents = env.num_regions
     rng, reset_key = jax.random.split(rng)
 
     reset_keys = jax.random.split(reset_key, trainer_params.num_envs)
@@ -56,10 +59,12 @@ def build_random_trainer(
 
             sample_keys = jax.random.split(sample_key, num_agents)
             actions = jax.vmap(agent)(sample_keys)
-            obs, env_state, reward, done, info = eval_env.step(
+            (obs_v, reward, terminated, truncated, info), env_state = eval_env.step(
                 step_key, env_state, actions
             )
             episode_reward += reward
+
+            done = terminated or truncated
 
             return (rng, obs, env_state, done, episode_reward), info
         
@@ -91,7 +96,7 @@ def build_random_trainer(
             action = jax.vmap(jax.vmap(agent))(action_keys)
 
             step_key = jax.random.split(key, trainer_params.num_envs)
-            obs_v, env_state, reward_v, terminated, info = jax.vmap(
+            (obs_v, reward_v, terminated, truncated, info), env_state = jax.vmap(
                 env.step, in_axes=(0, 0, 0)
             )(step_key, env_state, action)
 
@@ -123,4 +128,4 @@ def build_random_trainer(
             "eval_logs": eval_logs,
         }
 
-    return train_function
+    return train_function, env

@@ -11,7 +11,7 @@ from jice.environment import LogWrapper
 from util import logwrapper_callback
 from jice.algorithms import BaseTrainerParams
 from jice.algorithms.networks import ActorNetworkMultiDiscrete, CriticNetwork
-from jice.environment import Rice, RiceEnvParams
+from jice.environment import Rice
 
 def create_ppo_networks(
         key,
@@ -60,7 +60,7 @@ class Transition:
     observation: chex.Array
     action: chex.Array
     reward: chex.Array
-    done: chex.Array
+    terminated: chex.Array
     value: chex.Array
     log_prob: chex.Array
     info: chex.Array
@@ -72,23 +72,24 @@ class TrainState(NamedTuple):
 
 # Jit the returned function, not this function
 def build_ppo_trainer(
-        env_params: RiceEnvParams,
+        env_params: dict,
         trainer_params: PpoTrainerParams = PpoTrainerParams(),
     ):
     config = trainer_params
 
-    env = Rice(env_params)
+    env = Rice(**env_params)
     env = LogWrapper(env)
-    eval_env_params = replace(
-        env_params,
-        train_env=False,
-    )
-    eval_env = Rice(eval_env_params)
+
+    # Below should be doable with eqx.tree_at, but runs into a bug
+    eval_env_params = env_params.copy()
+    eval_env_params["train_env"] = False
+    eval_env = Rice(**eval_env_params)
+    eval_env = LogWrapper(eval_env)
+
     observation_space = env.observation_space()
     action_space = env.action_space
     actions_nvec = action_space.nvec
-    num_agents = env.settings.num_regions
-
+    num_agents = env.num_regions
 
     # rng keys
     rng = jax.random.PRNGKey(config.trainer_seed)
@@ -143,10 +144,12 @@ def build_ppo_trainer(
 
             action_dist = jax.vmap(train_state.actor)(obs_v)
             actions = action_dist.sample(seed=sample_key)
-            obs_v, env_state, reward, done, info = eval_env.step(
+            (obs_v, reward, terminated, truncated, info), env_state = eval_env.step(
                 step_key, env_state, actions
             )
             episode_reward += reward
+
+            done = terminated or truncated
 
             return (rng, obs, env_state, done, episode_reward), info
         
@@ -178,18 +181,18 @@ def build_ppo_trainer(
             value = jax.vmap(jax.vmap(train_state.critic))(last_obs)
             action, log_prob = action_dist.sample_and_log_prob(seed=sample_key)
             step_keys = jax.random.split(step_key, config.num_envs)
-            obsv, env_state, reward, done, info = jax.vmap(
+            (obsv, reward, terminated, truncated, info), env_state = jax.vmap(
                 env.step, in_axes=(0, 0, 0)
             )(step_keys, env_state, action)
 
-            # broadcast done such that it has a dimension per agent
-            done = jnp.broadcast_to(done, (num_agents, done.shape[0])).T
+            # broadcast terminated such that it has a dimension per agent
+            terminated = jnp.broadcast_to(terminated, (num_agents, terminated.shape[0])).T
 
             transition = Transition(
                 observation=last_obs,
                 action=action,
                 reward=reward,
-                done=done,
+                terminated=terminated,
                 value=value,
                 log_prob=log_prob,
                 info=info
@@ -200,13 +203,13 @@ def build_ppo_trainer(
         
         def _calculate_gae(gae_and_next_values, transition):
             gae, next_value = gae_and_next_values
-            value, reward, done = (
+            value, reward, terminated = (
                 transition.value,
                 transition.reward,
-                transition.done,
+                transition.terminated,
             )
-            delta = reward + config.gamma * next_value * (1 - done) - value
-            gae = delta + config.gamma * config.gae_lambda * (1 - done) * gae
+            delta = reward + config.gamma * next_value * (1 - terminated) - value
+            gae = delta + config.gamma * config.gae_lambda * (1 - terminated) * gae
             return (gae, value), (gae, gae + value)
         
         def _update_epoch(update_state, _):
@@ -361,4 +364,4 @@ def build_ppo_trainer(
             "eval_logs": eval_logs,
         }
 
-    return train_func
+    return train_func, env

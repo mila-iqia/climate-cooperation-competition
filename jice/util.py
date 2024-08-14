@@ -27,10 +27,11 @@ def logwrapper_callback(metric, num_envs: int, counter: int | None = None):
             total_loss, actor_loss, value_loss, entropy = None, None, None, None
         episode_returns_averaged = np.mean(np.array(return_values), axis=0)
         wandb.log({
-            "episode_return": {
+            "per_agent_episode_return": {
                 f"{agent_id}": episode_returns_averaged[agent_id] 
                 for agent_id in range(len(episode_returns_averaged))
                 },
+            "total_episode_return_sum": np.sum(episode_returns_averaged),
             "total_loss": total_loss,
             "actor_loss": actor_loss,
             "value_loss": value_loss,
@@ -44,7 +45,7 @@ def log_episode_stats_to_wandb(episode_stats, config):
     num_steps = len(episode_stats[dummy_key][0])
     group_name = f"run_{time.time()}"
     for env in range(num_envs):
-        run = wandb.init(project="jice", config=config, reinit=True, group=group_name, tags=["eval_run"])
+        run = wandb.init(project="jice", config=config, entity="ai4gcc-gaia", reinit=True, group=group_name, tags=["eval_run"])
         for step in range(num_steps):
             step_dict = jax.tree_util.tree_map(
                 lambda x: x[env][step], episode_stats
