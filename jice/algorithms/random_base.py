@@ -59,12 +59,10 @@ def build_random_trainer(
 
             sample_keys = jax.random.split(sample_key, num_agents)
             actions = jax.vmap(agent)(sample_keys)
-            (obs_v, reward, terminated, truncated, info), env_state = eval_env.step(
+            (obs_v, reward, done, discount, info), env_state = eval_env.step(
                 step_key, env_state, actions
             )
             episode_reward += reward
-
-            done = terminated or truncated
 
             return (rng, obs, env_state, done, episode_reward), info
         
@@ -96,7 +94,7 @@ def build_random_trainer(
             action = jax.vmap(jax.vmap(agent))(action_keys)
 
             step_key = jax.random.split(key, trainer_params.num_envs)
-            (obs_v, reward_v, terminated, truncated, info), env_state = jax.vmap(
+            (obs_v, reward_v, done, discount, info), env_state = jax.vmap(
                 env.step, in_axes=(0, 0, 0)
             )(step_key, env_state, action)
 

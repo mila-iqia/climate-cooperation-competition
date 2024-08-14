@@ -60,7 +60,7 @@ class Transition:
     observation: chex.Array
     action: chex.Array
     reward: chex.Array
-    terminated: chex.Array
+    discount: chex.Array
     value: chex.Array
     log_prob: chex.Array
     info: chex.Array
@@ -76,6 +76,7 @@ def build_ppo_trainer(
         trainer_params: PpoTrainerParams = PpoTrainerParams(),
     ):
     config = trainer_params
+    env_params["init_gamma"] = config.gamma
 
     env = Rice(**env_params)
     env = LogWrapper(env)
@@ -144,12 +145,10 @@ def build_ppo_trainer(
 
             action_dist = jax.vmap(train_state.actor)(obs_v)
             actions = action_dist.sample(seed=sample_key)
-            (obs_v, reward, terminated, truncated, info), env_state = eval_env.step(
+            (obs_v, reward, done, discount, info), env_state = eval_env.step(
                 step_key, env_state, actions
             )
             episode_reward += reward
-
-            done = terminated or truncated
 
             return (rng, obs, env_state, done, episode_reward), info
         
@@ -181,18 +180,18 @@ def build_ppo_trainer(
             value = jax.vmap(jax.vmap(train_state.critic))(last_obs)
             action, log_prob = action_dist.sample_and_log_prob(seed=sample_key)
             step_keys = jax.random.split(step_key, config.num_envs)
-            (obsv, reward, terminated, truncated, info), env_state = jax.vmap(
+            (obsv, reward, done, discount, info), env_state = jax.vmap(
                 env.step, in_axes=(0, 0, 0)
             )(step_keys, env_state, action)
 
-            # broadcast terminated such that it has a dimension per agent
-            terminated = jnp.broadcast_to(terminated, (num_agents, terminated.shape[0])).T
+            # broadcast discount such that it has a dimension per agent
+            discount = jnp.broadcast_to(discount, (num_agents, discount.shape[0])).T
 
             transition = Transition(
                 observation=last_obs,
                 action=action,
                 reward=reward,
-                terminated=terminated,
+                discount=discount,
                 value=value,
                 log_prob=log_prob,
                 info=info
@@ -203,13 +202,13 @@ def build_ppo_trainer(
         
         def _calculate_gae(gae_and_next_values, transition):
             gae, next_value = gae_and_next_values
-            value, reward, terminated = (
+            value, reward, gamma = (
                 transition.value,
                 transition.reward,
-                transition.terminated,
+                transition.discount,
             )
-            delta = reward + config.gamma * next_value * (1 - terminated) - value
-            gae = delta + config.gamma * config.gae_lambda * (1 - terminated) * gae
+            delta = reward + gamma * next_value - value
+            gae = delta + gamma * config.gae_lambda * gae
             return (gae, value), (gae, gae + value)
         
         def _update_epoch(update_state, _):

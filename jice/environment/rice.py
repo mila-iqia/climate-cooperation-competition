@@ -11,7 +11,6 @@ from dataclasses import replace, asdict
 import numpy as np
 import equinox as eqx
 
-# os.environ["XLA_FLAGS"] = "--xla_gpu_deterministic_ops=true"
 
 normalization_factors = {
     "activity_timestep": 1e2,
@@ -145,6 +144,8 @@ class Rice(JaxBaseEnv):
     balance_interest_rate: float = 0.1
     consumption_substitution_rate: float = 0.5
     preference_for_domestic: float = 0.5
+
+    init_gamma: float = 0.99 # discount factor
 
     @property
     def start_year(self): return self.region_params.xt_0
@@ -283,10 +284,10 @@ class Rice(JaxBaseEnv):
         observations = self.generate_observation(state)
         # action_masks = self.generate_action_masks(state) #TODO for negotiation stage(?) maybe not needed
         reward = self.generate_rewards(state, prev_state) # rewards is zero for proposel steps
-        terminated, truncated = self.generate_terminated_truncated(state)
+        done, discount = self.generate_terminated_truncated_discount(state)
         info = self.generate_info(state, actions)
 
-        return (observations, reward, terminated, truncated, info), state
+        return (observations, reward, done, discount, info), state
 
     def generate_observation(self, state: EnvState) -> chex.Array:
         """
@@ -385,11 +386,16 @@ class Rice(JaxBaseEnv):
     def generate_rewards(self, new_state: EnvState, old_state: EnvState) -> chex.Array:
         return new_state.utility_times_welfloss_all_regions # - old_state.utility_times_welfloss_all_regions
     
-    def generate_terminated_truncated(self, state: EnvState) -> Tuple[bool, bool]:
+    def generate_terminated_truncated_discount(self, state: EnvState) -> Tuple[bool, bool]:
         """ Generate a done flag """
         terminated = False # termination only happens due to timesteps
         truncated = state.current_timestep >= self.episode_length
-        return terminated, truncated
+        done = terminated or truncated
+
+        # The environment has no terminal state which is not due to time, so we always discount
+        # TODO: gamma parameter should be calculated based on the state
+        discount = self.init_gamma
+        return done, discount
 
     def generate_info(self, state: EnvState, actions: Actions) -> dict:
         if self.train_env:

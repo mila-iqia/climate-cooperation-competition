@@ -11,14 +11,7 @@ class EnvState:
 class TimeStep(NamedTuple):
     observation: chex.Array
     reward: Union[float, chex.Array]
-    terminated: bool
-    truncated: bool
-    info: dict
-
-class DiscountedTimeStep(NamedTuple):
-    observation: chex.Array
-    reward: Union[float, chex.Array]
-    terminated: bool
+    done: bool
     discount: Union[float, chex.Array]
     info: dict
 
@@ -39,20 +32,19 @@ class JaxBaseEnv(eqx.Module):
         """
         pass
 
-    def step(self, key: chex.PRNGKey, state: EnvState, action: Union[int, float, chex.Array]) -> Tuple[Union[TimeStep, DiscountedTimeStep], EnvState]:
+    def step(self, key: chex.PRNGKey, state: EnvState, action: Union[int, float, chex.Array]) -> Tuple[TimeStep, EnvState]:
         """Performs step transitions in the environment."""
 
-        (obs_step, reward, terminated, truncated, info), state_step = self.step_env(key, state, action)
+        (obs_step, reward, done, discount, info), state_step = self.step_env(key, state, action)
         obs_reset, state_reset = self.reset_env(key) 
 
         # Auto-reset environment based on termination
-        done = terminated or truncated
         state = jax.tree_map(
             lambda x, y: jax.lax.select(done, x, y), state_reset, state_step
         )
         obs = jax.lax.cond(done, lambda: obs_reset, lambda: obs_step)
 
-        return TimeStep(obs, reward, terminated, truncated, info), state
+        return TimeStep(obs, reward, done, discount, info), state
 
     def reset(self, key: chex.PRNGKey) -> Tuple[chex.Array, EnvState]:
         """Performs resetting of environment."""
@@ -63,7 +55,7 @@ class JaxBaseEnv(eqx.Module):
         """Environment-specific reset transition."""
         raise NotImplementedError
 
-    def step_env(self, key: chex.PRNGKey, state: EnvState, action: Union[int, float, chex.Array]) -> Tuple[Union[TimeStep, DiscountedTimeStep], EnvState]:
+    def step_env(self, key: chex.PRNGKey, state: EnvState, action: Union[int, float, chex.Array]) -> Tuple[TimeStep, EnvState]:
         """Environment-specific step transition."""
         raise NotImplementedError
     
@@ -126,11 +118,10 @@ class LogWrapper(JaxEnvWrapper):
         key: chex.PRNGKey,
         state: LogEnvState,
         action: Union[int, float, chex.Array],
-    ) -> Tuple[Union[TimeStep, DiscountedTimeStep], LogEnvState]:
-        (obs, reward, terminated, truncated, info), env_state = self._env.step(
+    ) -> Tuple[TimeStep, LogEnvState]:
+        (obs, reward, done, discount, info), env_state = self._env.step(
             key, state.env_state, action
         )
-        done = terminated | truncated
         new_episode_return = state.episode_returns + reward
         state = LogEnvState(
             env_state=env_state,
@@ -142,4 +133,4 @@ class LogWrapper(JaxEnvWrapper):
         info["returned_episode_returns"] = state.returned_episode_returns
         info["returned_episode"] = done
         info["timestep"] = state.timestep
-        return TimeStep(obs, reward, terminated, truncated, info), state
+        return TimeStep(obs, reward, done, discount, info), state
