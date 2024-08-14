@@ -80,6 +80,7 @@ class MultiDiscrete(object):
             self.uniform = True
         else:
             self.uniform = False
+            raise NotImplementedError("Non-uniform MultiDiscrete spaces are not supported")
 
     def sample(self, key: chex.PRNGKey) -> chex.Array:
         return jax.random.randint(key, self.shape, self.start, self.nvec)

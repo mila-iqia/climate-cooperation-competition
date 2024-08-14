@@ -12,7 +12,18 @@ import numpy as np
 import equinox as eqx
 
 
-normalization_factors = {
+#TODO:
+# - input action masks
+# - random todos
+# - black formatting
+# - keep up with the active branche
+# - allow scenarios
+# - negotiation (this requires in-place action masking)
+
+
+OBSERVATIONS = "observations"
+ACTION_MASK = "action_mask"
+NORMALIZATION_FACTORS = {
     "activity_timestep": 1e2,
     "global_temperature": 1e1,
     "global_carbon_mass": 1e4,
@@ -249,8 +260,8 @@ class Rice(JaxBaseEnv):
             savings_all_regions=self.region_params.xsaving_0,
         )
 
-        observations = self.generate_observation(state)
-        return observations, state
+        obs_dict = self.generate_observation_and_action_mask(state)
+        return obs_dict, state
     
     def step_env(
         self,
@@ -260,13 +271,6 @@ class Rice(JaxBaseEnv):
     ) -> Tuple[chex.PyTreeDef, EnvState, float, bool, dict]:
         
         actions = self.process_actions(actions)
-
-        # NOTE: lets change the API structure a bit to: 
-        # Timestep[obs, reward, discount, info], state 
-        # this will allow for variable discount rates 
-        # ppo agent needs to be altered
-        # make it support Timestep[obs, reward, terminated, truncated, info] as well
-        # 
 
         state = replace(
             prev_state, 
@@ -281,14 +285,18 @@ class Rice(JaxBaseEnv):
 
         state = self.step_climate_and_economy(state, actions)
 
-        observations = self.generate_observation(state)
-        # action_masks = self.generate_action_masks(state) #TODO for negotiation stage(?) maybe not needed
+        obs_dict = self.generate_observation_and_action_mask(state)
         reward = self.generate_rewards(state, prev_state) # rewards is zero for proposel steps
         done, discount = self.generate_terminated_truncated_discount(state)
         info = self.generate_info(state, actions)
 
-        return (observations, reward, done, discount, info), state
+        return (obs_dict, reward, done, discount, info), state
 
+    def generate_observation_and_action_mask(self, state: EnvState) -> chex.Array:
+        observations = self.generate_observation(state)
+        action_masks = self.generate_action_masks(state)
+        return {OBSERVATIONS: observations, ACTION_MASK: action_masks}
+    
     def generate_observation(self, state: EnvState) -> chex.Array:
         """
         Format observations for each agent by concatenating global, public
@@ -355,12 +363,12 @@ class Rice(JaxBaseEnv):
 
         # Normalization:
         # assert that all keys in the dictionaries are present in normalization_factors
-        assert set(normalization_factors.keys()) == set(global_features.keys()) | set(public_features.keys()) | set(private_features.keys())
+        assert set(NORMALIZATION_FACTORS.keys()) == set(global_features.keys()) | set(public_features.keys()) | set(private_features.keys())
 
         normalized_features = jax.tree.map(
             lambda x, y: x / y, 
             {**global_features, **public_features, **private_features},
-            normalization_factors
+            NORMALIZATION_FACTORS
         )
 
         global_public_features = {
@@ -382,6 +390,15 @@ class Rice(JaxBaseEnv):
             private_features_per_agent
         ], axis=1)
         return observations
+    
+    def generate_action_masks(self, state: EnvState) -> chex.Array:
+        default_action_mask = jnp.ones( # allow everything
+            (self.num_regions, self.action_nvec.shape[0], self.num_discrete_action_levels),
+            dtype=jnp.bool
+        )
+        if self.negotiation_on:
+            raise NotImplementedError("Negotiation not implemented yet")
+        return default_action_mask
     
     def generate_rewards(self, new_state: EnvState, old_state: EnvState) -> chex.Array:
         return new_state.utility_times_welfloss_all_regions # - old_state.utility_times_welfloss_all_regions
@@ -1177,7 +1194,7 @@ class Rice(JaxBaseEnv):
     ## Helper and environment functions
     ###
     @property
-    def action_space(self) -> MultiDiscrete:
+    def action_nvec(self) -> chex.Array:
         if not self.negotiation_on:
             num_actions = len(Actions.__annotations__)
             num_regions = self.num_regions
@@ -1190,10 +1207,15 @@ class Rice(JaxBaseEnv):
                 import_bids_nvec,
                 import_tariff_nvec,
             ])
-            return MultiDiscrete(actions_nvec)
+            return actions_nvec
         else:
             raise NotImplementedError("Negotiation not implemented yet")
+
+    @property
+    def action_space(self) -> MultiDiscrete:
+        return MultiDiscrete(self.action_nvec)
         
     def observation_space(self) -> Box:
-        obs, _ = self.reset(jax.random.PRNGKey(0))
+        obs_dict, _ = self.reset(jax.random.PRNGKey(0))
+        obs = obs_dict[OBSERVATIONS]
         return Box(-9999, 9999, shape=obs.shape, dtype=obs.dtype)

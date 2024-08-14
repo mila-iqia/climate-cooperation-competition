@@ -3,7 +3,9 @@ import equinox as eqx
 from typing import List
 import distrax
 import jax.numpy as jnp
+from jice.environment import OBSERVATIONS, ACTION_MASK
 
+BIG_NUMBER_NEG = -1e7
 
 class ActorNetworkMultiDiscrete(eqx.Module):
     """'
@@ -36,12 +38,24 @@ class ActorNetworkMultiDiscrete(eqx.Module):
             )
 
     def __call__(self, x):
+        if isinstance(x, dict):
+            action_mask = x[ACTION_MASK]
+            x = x[OBSERVATIONS]
+        else: action_mask = None
+
         def forward(head, x):
             return head(x)
+        
         for layer in self.layers:
             x = jax.nn.tanh(layer(x))
-        output = jax.vmap(forward, in_axes=(0, None))(self.output_heads, x)
-        return distrax.Categorical(logits=output)
+        logits = jax.vmap(forward, in_axes=(0, None))(self.output_heads, x)
+        
+        if action_mask is not None: # mask the logits
+            logit_mask = jnp.ones_like(logits) * BIG_NUMBER_NEG
+            logit_mask = logit_mask * (1 - action_mask)
+            logits = logits + logit_mask
+
+        return distrax.Categorical(logits=logits)
 
 
 class Q_CriticNetworkMultiDiscrete(eqx.Module):
@@ -76,6 +90,8 @@ class Q_CriticNetworkMultiDiscrete(eqx.Module):
             )
 
     def __call__(self, x):
+        if isinstance(x, dict):
+            x = x[OBSERVATIONS]
         def forward(head, x):
             return head(x)
         for layer in self.layers:
@@ -105,6 +121,8 @@ class CriticNetwork(eqx.Module):
         self.layers.append(eqx.nn.Linear(hidden_layers[-1], 1, key=keys[-1]))
 
     def __call__(self, x):
+        if isinstance(x, dict):
+            x = x[OBSERVATIONS]
         for layer in self.layers[:-1]:
             x = jax.nn.selu(layer(x))
         return jnp.squeeze(self.layers[-1](x), axis=-1)
