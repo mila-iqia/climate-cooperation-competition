@@ -8,6 +8,7 @@ from jice.environment import OBSERVATIONS, ACTION_MASK
 
 BIG_NUMBER_NEG = -1e7
 
+
 class ActorNetworkMultiDiscrete(eqx.Module):
     """'
     Actor network for a multidiscrete output space
@@ -42,16 +43,17 @@ class ActorNetworkMultiDiscrete(eqx.Module):
         if isinstance(x, dict):
             action_mask = x[ACTION_MASK]
             x = x[OBSERVATIONS]
-        else: action_mask = None
+        else:
+            action_mask = None
 
         def forward(head, x):
             return head(x)
-        
+
         for layer in self.layers:
             x = jax.nn.tanh(layer(x))
         logits = jax.vmap(forward, in_axes=(0, None))(self.output_heads, x)
-        
-        if action_mask is not None: # mask the logits
+
+        if action_mask is not None:  # mask the logits
             logit_mask = jnp.ones_like(logits) * BIG_NUMBER_NEG
             logit_mask = logit_mask * (1 - action_mask)
             logits = logits + logit_mask
@@ -93,8 +95,10 @@ class Q_CriticNetworkMultiDiscrete(eqx.Module):
     def __call__(self, x):
         if isinstance(x, dict):
             x = x[OBSERVATIONS]
+
         def forward(head, x):
             return head(x)
+
         for layer in self.layers:
             x = jax.nn.tanh(layer(x))
         output = jax.vmap(forward, in_axes=(0, None))(self.output_heads, x)

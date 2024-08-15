@@ -11,14 +11,11 @@ import equinox as eqx
 
 from jice.environment.base_and_wrappers import JaxBaseEnv, EnvState, MultiDiscrete
 
-#TODO:
+# TODO:
 # - BUG export-limit 0 is always learned
-# - black formatting
 # - keep up with the active branche
-# - allow running from default location
 # - negotiation
 # - eval only mode, load and save models
-# - scenario also introduce min of mitigation
 
 
 OBSERVATIONS = "observations"
@@ -28,7 +25,7 @@ NORMALIZATION_FACTORS = {
     "global_temperature": 1e1,
     "global_carbon_mass": 1e4,
     "global_exogenous_emissions": 1,
-    "global_land_emissions": 1,   
+    "global_land_emissions": 1,
     "global_temperature_boxes": 1e1,
     "global_carbon_reservoirs": 1e4,
     "global_cumulative_emissions": 1e4,
@@ -58,6 +55,7 @@ NORMALIZATION_FACTORS = {
     # "utility_times_welfloss_all_regions": 1,
 }
 
+
 # jax.config.update("jax_disable_jit", True)
 @chex.dataclass(frozen=True)
 class Actions:
@@ -65,18 +63,19 @@ class Actions:
     # this can be toggled with the reduce_action_space_size flag
     # reduces the action space, but since a single model is used for all agents,
     # the action number may mean something different for each agent
-    savings_rate: chex.Array # one action (per region)
-    mitigation_rate: chex.Array # one action (per region)
-    export_limit: chex.Array # one action (per region)
-    import_bids: chex.Array # num_regions actions (-1(optional)) (per region)
-    import_tariff: chex.Array # num_regions actions (-1(optional)) (per region)
+    savings_rate: chex.Array  # one action (per region)
+    mitigation_rate: chex.Array  # one action (per region)
+    export_limit: chex.Array  # one action (per region)
+    import_bids: chex.Array  # num_regions actions (-1(optional)) (per region)
+    import_tariff: chex.Array  # num_regions actions (-1(optional)) (per region)
+
 
 @chex.dataclass
 class EnvState:
     current_timestep: int
     activity_timestep: int
     current_simulation_year: int
-    
+
     # climate states
     global_temperature: chex.Array
     global_carbon_mass: chex.Array
@@ -87,12 +86,12 @@ class EnvState:
     global_temperature_boxes: chex.Array
 
     # additional climate states for carbon model
-    global_alpha: int # or float?
+    global_alpha: int  # or float?
     global_carbon_reservoirs: chex.Array
     global_cumulative_emissions: chex.Array
-    global_cumulative_land_emissions: int # or float?
-    global_emissions: int # or float?
-    global_acc_pert_carb_stock: int # or float?
+    global_cumulative_land_emissions: int  # or float?
+    global_emissions: int  # or float?
+    global_acc_pert_carb_stock: int  # or float?
 
     # economic states
     production_all_regions: chex.Array
@@ -119,7 +118,9 @@ class EnvState:
     export_limit_all_regions: chex.Array
 
     savings_all_regions: chex.Array
-    utility_times_welfloss_all_regions: chex.Array # this is basically what used to be "rewards_all_regions"
+    utility_times_welfloss_all_regions: (
+        chex.Array
+    )  # this is basically what used to be "rewards_all_regions"
 
     # # negotiation states
     # negotiation_stage: chex.Array
@@ -128,10 +129,11 @@ class EnvState:
     # requested_mitigation_rate: chex.Array
     # proposal_decisions: chex.Array
 
+
 class Rice(JaxBaseEnv):
     """
-        Rice model environment written in JAX.
-        Optionally takes in a set of parameters to override the default ones.
+    Rice model environment written in JAX.
+    Optionally takes in a set of parameters to override the default ones.
     """
 
     region_params: SimpleNamespace = eqx.field(static=True)
@@ -140,8 +142,12 @@ class Rice(JaxBaseEnv):
     scenario: str = "default"
     # action_type: str = "discrete" # NOTE: continuous not implemented
     num_discrete_action_levels: int = 10
-    train_env: bool = False # if True, the environment will not create extensive "info" dicts on each step
-    reduce_action_space_size: bool = False # removes irrelevant actions from the action space (i.e. tarriff on itself). #NOTE: not sure if this confuses learning, so made this optional
+    train_env: bool = (
+        False  # if True, the environment will not create extensive "info" dicts on each step
+    )
+    reduce_action_space_size: bool = (
+        False  # removes irrelevant actions from the action space (i.e. tarriff on itself). #NOTE: not sure if this confuses learning, so made this optional
+    )
 
     negotiation_on: bool = False
     dmg_function: str = "base"
@@ -158,70 +164,82 @@ class Rice(JaxBaseEnv):
 
     # default discount factor, variable gamma can be returned from
     # "generate_terminated_truncated_discount" function
-    init_gamma: float = 0.99 # discount factor
+    init_gamma: float = 0.99  # discount factor
 
     @property
-    def start_year(self): return self.region_params.xt_0
+    def start_year(self):
+        return self.region_params.xt_0
+
     @property
-    def years_per_step(self): return self.region_params.xDelta
+    def years_per_step(self):
+        return self.region_params.xDelta
+
     @property
-    def episode_length(self): return self.region_params.xN # (max steps in episode)
+    def episode_length(self):
+        return self.region_params.xN  # (max steps in episode)
 
     # if self.negotiation_on:
     #     # NOTE: need to increase number of steps
     #     raise NotImplementedError("Negotiation not implemented yet")
-    
+
     def __check_init__(self):
         # eqx module function, may use to assert some things
-        pass        
+        pass
 
     def reset_env(self, key: chex.PRNGKey) -> Tuple[chex.Array, EnvState]:
 
         if self.temperature_calibration == "base":
-            global_temperature = jnp.array([
-                self.region_params.xT_AT_0, self.region_params.xT_LO_0
-            ])
+            global_temperature = jnp.array(
+                [self.region_params.xT_AT_0, self.region_params.xT_LO_0]
+            )
         elif self.temperature_calibration == "FaIR":
-            global_temperature = jnp.array([
-                self.region_params.xT_AT_0_FaIR, self.region_params.xT_LO_0_FaIR
-            ])
-        elif self.temperature_calibration == 'DFaIR':
-            global_temperature = jnp.array([
-                self.region_params.xT_LO_0 + self.region_params.xT_UO_0, self.region_params.xT_LO_0
-            ])
+            global_temperature = jnp.array(
+                [self.region_params.xT_AT_0_FaIR, self.region_params.xT_LO_0_FaIR]
+            )
+        elif self.temperature_calibration == "DFaIR":
+            global_temperature = jnp.array(
+                [
+                    self.region_params.xT_LO_0 + self.region_params.xT_UO_0,
+                    self.region_params.xT_LO_0,
+                ]
+            )
         else:
             raise ValueError(
                 f"Unknown temperature calibration: {self.temperature_calibration}"
             )
-        
+
         state = EnvState(
             current_timestep=0,
             activity_timestep=0,
             current_simulation_year=self.start_year,
-            
             # Climate states
             global_temperature=global_temperature,
-            global_carbon_mass=jnp.array([
-                self.region_params.xM_AT_0, 
-                self.region_params.xM_UP_0, 
-                self.region_params.xM_LO_0
-            ]).astype(jnp.float32),
-            global_exogenous_emissions=0.0, # NOTE: this is an array in the original (jnp.zeros(1))
+            global_carbon_mass=jnp.array(
+                [
+                    self.region_params.xM_AT_0,
+                    self.region_params.xM_UP_0,
+                    self.region_params.xM_LO_0,
+                ]
+            ).astype(jnp.float32),
+            global_exogenous_emissions=0.0,  # NOTE: this is an array in the original (jnp.zeros(1))
             global_land_emissions=jnp.zeros(1),
             intensity_all_regions=self.region_params.xsigma_0,
             mitigation_rates_all_regions=self.region_params.xmitigation_0,
-
             # additional climate states for carbon and temperature model
             global_alpha=jnp.array(self.region_params.xalpha_0),
-            global_carbon_reservoirs=jnp.array([
-                self.region_params.xM_R1_0,
-                self.region_params.xM_R2_0,
-                self.region_params.xM_R3_0,
-                self.region_params.xM_R4_0
-            ]),
+            global_carbon_reservoirs=jnp.array(
+                [
+                    self.region_params.xM_R1_0,
+                    self.region_params.xM_R2_0,
+                    self.region_params.xM_R3_0,
+                    self.region_params.xM_R4_0,
+                ]
+            ),
             global_cumulative_emissions=jnp.array([self.region_params.xEcum_0]),
             global_cumulative_land_emissions=jnp.array(self.region_params.xEcumL_0),
-            global_emissions=jnp.array(self.region_params.xEInd_0 + self.region_params.xEL_0),
+            global_emissions=jnp.array(
+                self.region_params.xEInd_0 + self.region_params.xEL_0
+            ),
             global_acc_pert_carb_stock=jnp.array(
                 self.region_params.xEcum_0
                 + self.region_params.xEcumL_0
@@ -232,53 +250,56 @@ class Rice(JaxBaseEnv):
                     + self.region_params.xM_R4_0
                 )
             ),
-            global_temperature_boxes=jnp.array([self.region_params.xT_LO_0, self.region_params.xT_UO_0]),
-
+            global_temperature_boxes=jnp.array(
+                [self.region_params.xT_LO_0, self.region_params.xT_UO_0]
+            ),
             # economic states
-            production_all_regions=jnp.zeros(self.num_regions), 
-            gross_output_all_regions=jnp.zeros(self.num_regions), 
-            aggregate_consumption=jnp.zeros(self.num_regions), 
-            investment_all_regions=jnp.zeros(self.num_regions), 
+            production_all_regions=jnp.zeros(self.num_regions),
+            gross_output_all_regions=jnp.zeros(self.num_regions),
+            aggregate_consumption=jnp.zeros(self.num_regions),
+            investment_all_regions=jnp.zeros(self.num_regions),
             capital_all_regions=self.region_params.xK_0,
-            capital_depreciation_all_regions=jnp.zeros(self.num_regions), 
+            capital_depreciation_all_regions=jnp.zeros(self.num_regions),
             labor_all_regions=self.region_params.xL_0,
             production_factor_all_regions=self.region_params.xA_0,
-            current_balance_all_regions=jnp.zeros(self.num_regions), 
-            abatement_cost_all_regions=jnp.zeros(self.num_regions), 
-            mitigation_cost_all_regions=jnp.zeros(self.num_regions), 
-            damages_all_regions=jnp.zeros(self.num_regions), 
-            utility_all_regions=jnp.zeros(self.num_regions), 
-            # social_welfare_all_regions=jnp.zeros(self.num_regions), 
-            utility_times_welfloss_all_regions=jnp.zeros(self.num_regions), # this is basically what used to be "rewards_all_regions"
-
+            current_balance_all_regions=jnp.zeros(self.num_regions),
+            abatement_cost_all_regions=jnp.zeros(self.num_regions),
+            mitigation_cost_all_regions=jnp.zeros(self.num_regions),
+            damages_all_regions=jnp.zeros(self.num_regions),
+            utility_all_regions=jnp.zeros(self.num_regions),
+            # social_welfare_all_regions=jnp.zeros(self.num_regions),
+            utility_times_welfloss_all_regions=jnp.zeros(
+                self.num_regions
+            ),  # this is basically what used to be "rewards_all_regions"
             # trade states
-            import_tariffs=jnp.zeros((self.num_regions, self.num_regions)), 
-            normalized_import_bids_all_regions=jnp.zeros((self.num_regions, self.num_regions)), 
+            import_tariffs=jnp.zeros((self.num_regions, self.num_regions)),
+            normalized_import_bids_all_regions=jnp.zeros(
+                (self.num_regions, self.num_regions)
+            ),
             import_bids_all_regions=self.region_params.ximport,
-            imports_minus_tariffs=jnp.zeros((self.num_regions, self.num_regions)), 
+            imports_minus_tariffs=jnp.zeros((self.num_regions, self.num_regions)),
             export_limit_all_regions=self.region_params.xexport,
-
             savings_all_regions=self.region_params.xsaving_0,
         )
 
         obs_dict = self.generate_observation_and_action_mask(state)
         return obs_dict, state
-    
+
     def step_env(
         self,
         key: chex.PRNGKey,
         prev_state: EnvState,
         actions: Actions,
     ) -> Tuple[chex.PyTreeDef, EnvState, float, bool, dict]:
-        
+
         actions = self.process_actions(actions)
 
         state = replace(
-            prev_state, 
+            prev_state,
             activity_timestep=prev_state.activity_timestep + 1,
             current_timestep=prev_state.current_timestep + 1,
         )
-        
+
         if self.negotiation_on:
             raise NotImplementedError("Negotiation not implemented yet")
             state = self.step_propose()
@@ -287,7 +308,9 @@ class Rice(JaxBaseEnv):
         state = self.step_climate_and_economy(state, actions)
 
         obs_dict = self.generate_observation_and_action_mask(state)
-        reward = self.generate_rewards(state, prev_state) # rewards is zero for proposel steps
+        reward = self.generate_rewards(
+            state, prev_state
+        )  # rewards is zero for proposel steps
         done, discount = self.generate_terminated_truncated_discount(state)
         info = self.generate_info(state, actions)
 
@@ -297,7 +320,7 @@ class Rice(JaxBaseEnv):
         observations = self.generate_observation(state)
         action_masks = self.generate_action_masks(state)
         return {OBSERVATIONS: observations, ACTION_MASK: action_masks}
-    
+
     def generate_observation(self, state: EnvState) -> chex.Array:
         """
         Format observations for each agent by concatenating global, public
@@ -313,7 +336,9 @@ class Rice(JaxBaseEnv):
             "global_temperature_boxes": state.global_temperature_boxes,
             "global_carbon_reservoirs": state.global_carbon_reservoirs,
             "global_cumulative_emissions": state.global_cumulative_emissions,
-            "global_cumulative_land_emissions": jnp.array([state.global_cumulative_land_emissions]),
+            "global_cumulative_land_emissions": jnp.array(
+                [state.global_cumulative_land_emissions]
+            ),
             "global_alpha": jnp.array([state.global_alpha]),
             "global_emissions": jnp.array([state.global_emissions]),
             "global_acc_pert_carb_stock": jnp.array([state.global_acc_pert_carb_stock]),
@@ -346,7 +371,7 @@ class Rice(JaxBaseEnv):
         # Features concerning two regions
         # bilateral_features = []
 
-        if self.negotiation_on: # TODO
+        if self.negotiation_on:  # TODO
             raise NotImplementedError("Negotiation not implemented yet")
             global_features += ["negotiation_stage"]
             public_features += []
@@ -361,21 +386,24 @@ class Rice(JaxBaseEnv):
 
         # Normalization:
         # assert that all keys in the dictionaries are present in normalization_factors
-        assert set(NORMALIZATION_FACTORS.keys()) == set(global_features.keys()) | set(public_features.keys()) | set(private_features.keys())
+        assert set(NORMALIZATION_FACTORS.keys()) == set(global_features.keys()) | set(
+            public_features.keys()
+        ) | set(private_features.keys())
 
         normalized_features = jax.tree.map(
-            lambda x, y: x / y, 
+            lambda x, y: x / y,
             {**global_features, **public_features, **private_features},
-            NORMALIZATION_FACTORS
+            NORMALIZATION_FACTORS,
         )
 
         global_public_features = {
-            k: v for k, v in normalized_features.items() if k in {**global_features, **public_features}.keys()
+            k: v
+            for k, v in normalized_features.items()
+            if k in {**global_features, **public_features}.keys()
         }
         global_public_features = jnp.concat(jax.tree.leaves(global_public_features))
         global_public_features_per_agent = jnp.broadcast_to(
-            global_public_features, 
-            (self.num_regions, global_public_features.shape[0])
+            global_public_features, (self.num_regions, global_public_features.shape[0])
         )
 
         private_features = {
@@ -383,28 +411,36 @@ class Rice(JaxBaseEnv):
         }
         private_features_per_agent = jnp.stack(jax.tree.leaves(private_features)).T
 
-        observations = jnp.concatenate([
-            global_public_features_per_agent,
-            private_features_per_agent
-        ], axis=1)
+        observations = jnp.concatenate(
+            [global_public_features_per_agent, private_features_per_agent], axis=1
+        )
         return observations
-    
+
     def generate_action_masks(self, state: EnvState) -> chex.Array:
-        """ This function is typically overwritten by a scenario """
-        default_action_mask = jnp.ones( # allow everything
-            (self.num_regions, self.action_nvec.shape[0], self.num_discrete_action_levels),
-            dtype=jnp.bool
+        """This function is typically overwritten by a scenario"""
+        default_action_mask = jnp.ones(  # allow everything
+            (
+                self.num_regions,
+                self.action_nvec.shape[0],
+                self.num_discrete_action_levels,
+            ),
+            dtype=jnp.bool,
         )
         if self.negotiation_on:
             raise NotImplementedError("Negotiation not implemented yet")
         return default_action_mask
-    
+
     def generate_rewards(self, new_state: EnvState, old_state: EnvState) -> chex.Array:
-        return new_state.utility_times_welfloss_all_regions - old_state.utility_times_welfloss_all_regions
-    
-    def generate_terminated_truncated_discount(self, state: EnvState) -> Tuple[bool, bool]:
-        """ Generate a done flag """
-        terminated = False # termination only happens due to timesteps
+        return (
+            new_state.utility_times_welfloss_all_regions
+            - old_state.utility_times_welfloss_all_regions
+        )
+
+    def generate_terminated_truncated_discount(
+        self, state: EnvState
+    ) -> Tuple[bool, bool]:
+        """Generate a done flag"""
+        terminated = False  # termination only happens due to timesteps
         truncated = state.current_timestep >= self.episode_length
         done = terminated or truncated
 
@@ -414,24 +450,29 @@ class Rice(JaxBaseEnv):
 
     def generate_info(self, state: EnvState, actions: Actions) -> dict:
         if self.train_env:
-            return {} # Saving some computation during training
+            return {}  # Saving some computation during training
         else:
             info = asdict(state)
             keys = [key for key in info.keys()]
             per_region_keys = [key for key in keys if key.endswith("_all_regions")]
             per_region_keys += ["aggregate_consumption"]
-            trade_states = ["import_tariffs", "normalized_import_bids_all_regions", "import_bids_all_regions", "imports_minus_tariffs"]
+            trade_states = [
+                "import_tariffs",
+                "normalized_import_bids_all_regions",
+                "import_bids_all_regions",
+                "imports_minus_tariffs",
+            ]
             per_region_keys = set(per_region_keys) - set(trade_states)
             for key in per_region_keys:
                 this_key_region_dict = {
-                    region_id: info[key][region_id] 
+                    region_id: info[key][region_id]
                     for region_id in range(info[key].shape[0])
                 }
                 info[key] = this_key_region_dict
             for key in trade_states:
                 this_key_region_dict = {
                     f"from-{region_id}": {
-                        f"to-{region_id_2}": info[key][region_id, region_id_2] 
+                        f"to-{region_id_2}": info[key][region_id, region_id_2]
                         for region_id_2 in range(info[key].shape[1])
                     }
                     for region_id in range(info[key].shape[0])
@@ -448,57 +489,63 @@ class Rice(JaxBaseEnv):
             }
 
             # actions
-            info["actions"] = {
-                key: {} for key in actions.__annotations__.keys()
-            }
+            info["actions"] = {key: {} for key in actions.__annotations__.keys()}
             for action_key in info["actions"].keys():
                 for region_id in range(self.num_regions):
-                    info["actions"][action_key][region_id] = actions.__getattribute__(action_key)[region_id]
+                    info["actions"][action_key][region_id] = actions.__getattribute__(
+                        action_key
+                    )[region_id]
 
             return info
 
     def process_actions(self, actions: chex.Array) -> Actions:
         # actions is currently structured as (num_regions, num_actions)
-        actions = actions.T # (num_actions, num_regions)
+        actions = actions.T  # (num_actions, num_regions)
 
         @jax.jit
         def add_diagonal_of_zeros(x: chex.Array):
             """
-                Takes an ((n, n-1)) matrix and adds a 0s diagonal to it
-                Output shape is ((n, n))
-                This is helpful because it allows us to insert a 0 for an agent interacting with itself
-                @example:
-                    [[2, 3],
-                    [1, 3],
-                    [1, 2]]
-                    ->
-                    [[0, 2, 3],
-                    [1, 0, 3],
-                    [1, 2, 0]]
+            Takes an ((n, n-1)) matrix and adds a 0s diagonal to it
+            Output shape is ((n, n))
+            This is helpful because it allows us to insert a 0 for an agent interacting with itself
+            @example:
+                [[2, 3],
+                [1, 3],
+                [1, 2]]
+                ->
+                [[0, 2, 3],
+                [1, 0, 3],
+                [1, 2, 0]]
             """
-            # NOTE: see warning in the "Actions" class. 
-            n, m = x.shape 
+            # NOTE: see warning in the "Actions" class.
+            n, m = x.shape
             assert n == m + 1, f"Expected x to have shape ((n, n-1)), but got {x.shape}"
 
             output = jnp.zeros(n * n, dtype=x.dtype)
-            indices = np.eye(n, dtype=np.bool_).__invert__().flatten() # this is fixed, so use Numpy
+            indices = (
+                np.eye(n, dtype=np.bool_).__invert__().flatten()
+            )  # this is fixed, so use Numpy
             output = output.at[indices].set(x.flatten())
 
             return output.reshape((n, n))
 
         if not self.negotiation_on:
-            
+
             if self.reduce_action_space_size:
-                import_bid_actions = actions[3:3+(self.num_regions-1)].T
-                import_tariff_actions = actions[3+(self.num_regions-1):].T
+                import_bid_actions = actions[3 : 3 + (self.num_regions - 1)].T
+                import_tariff_actions = actions[3 + (self.num_regions - 1) :].T
                 import_bid_actions = add_diagonal_of_zeros(import_bid_actions)
                 import_tariff_actions = add_diagonal_of_zeros(import_tariff_actions)
             else:
-                import_bid_actions = actions[3:3+self.num_regions].T
-                import_tariff_actions = actions[3+self.num_regions:].T
+                import_bid_actions = actions[3 : 3 + self.num_regions].T
+                import_tariff_actions = actions[3 + self.num_regions :].T
                 # set the diagonal to 0:
-                import_bid_actions = import_bid_actions.at[np.eye(self.num_regions).astype(jnp.bool)].set(0)
-                import_tariff_actions = import_tariff_actions.at[np.eye(self.num_regions).astype(jnp.bool)].set(0)
+                import_bid_actions = import_bid_actions.at[
+                    np.eye(self.num_regions).astype(jnp.bool)
+                ].set(0)
+                import_tariff_actions = import_tariff_actions.at[
+                    np.eye(self.num_regions).astype(jnp.bool)
+                ].set(0)
             return Actions(
                 savings_rate=actions[0] / self.num_discrete_action_levels,
                 mitigation_rate=actions[1] / self.num_discrete_action_levels,
@@ -509,16 +556,20 @@ class Rice(JaxBaseEnv):
         else:
             raise NotImplementedError("Negotiation not implemented yet")
 
-    def step_climate_and_economy(self, state: EnvState, actions: Actions) -> Tuple[chex.Array, EnvState]:
+    def step_climate_and_economy(
+        self, state: EnvState, actions: Actions
+    ) -> Tuple[chex.Array, EnvState]:
 
         damages = self.calc_damages(state)
-        abatement_costs = self.calc_abatement_costs(state, actions) # 
+        abatement_costs = self.calc_abatement_costs(state, actions)  #
         productions = self.calc_productions(state)
-        gross_outputs = self.calc_gross_outputs(damages, abatement_costs, productions) #
-        investments = self.calc_investments(gross_outputs, actions) #
+        gross_outputs = self.calc_gross_outputs(
+            damages, abatement_costs, productions
+        )  #
+        investments = self.calc_investments(gross_outputs, actions)  #
         gov_balances_post_interest = self.calc_gov_balances_post_interest(state)
         debt_ratios = self.calc_debt_ratios(gov_balances_post_interest)
-        gross_imports = self.calc_gross_imports( 
+        gross_imports = self.calc_gross_imports(
             state,
             actions,
             gross_outputs,
@@ -526,38 +577,44 @@ class Rice(JaxBaseEnv):
             debt_ratios,
         )
 
-        tariff_revenues, net_imports = self.calc_trade_sanctions(state, gross_imports, actions) 
+        tariff_revenues, net_imports = self.calc_trade_sanctions(
+            state, gross_imports, actions
+        )
         welfloss_multipliers = self.calc_welfloss_multiplier(
             state, gross_outputs, gross_imports, net_imports
         )
         consumptions = self.calc_consumptions(
             gross_outputs, investments, gross_imports, net_imports
         )
-        utilities = self.calc_utilities(state, consumptions) # 
+        utilities = self.calc_utilities(state, consumptions)  #
         # social_welfare = self.calc_social_welfares(state, utilities) #
         labors = self.calc_labors(state)
         capitals = self.calc_capitals(state, investments)
         production_factors = self.calc_production_factors(state)
-        gov_balances_post_trade = self.calc_gov_balances_post_trade(gov_balances_post_interest, gross_imports)
+        gov_balances_post_trade = self.calc_gov_balances_post_trade(
+            gov_balances_post_interest, gross_imports
+        )
         carbon_intensities = self.calc_carbon_intensities(state)
 
-        global_carbon_mass = self.calc_global_carbon_mass(state, productions, actions.mitigation_rate)
-        global_temperature, global_exogenous_emissions = self.calc_global_temperature(state)
-        
+        global_carbon_mass = self.calc_global_carbon_mass(
+            state, productions, actions.mitigation_rate
+        )
+        global_temperature, global_exogenous_emissions = self.calc_global_temperature(
+            state
+        )
+
         current_simulation_year = self.calc_current_simulation_year(state)
 
         utility_times_welfloss = utilities * welfloss_multipliers
 
         state: EnvState = replace(
             state,
-
             # actions
             savings_all_regions=actions.savings_rate,
             import_tariffs=actions.import_tariff,
             export_limit_all_regions=actions.export_limit,
             import_bids_all_regions=actions.import_bids,
             mitigation_rates_all_regions=actions.mitigation_rate,
-
             # others
             damages_all_regions=damages,
             abatement_cost_all_regions=abatement_costs,
@@ -580,12 +637,16 @@ class Rice(JaxBaseEnv):
         )
         return state
 
-    def step_propose(self, state: EnvState, actions: Actions) -> Tuple[chex.Array, EnvState]:
+    def step_propose(
+        self, state: EnvState, actions: Actions
+    ) -> Tuple[chex.Array, EnvState]:
         raise NotImplementedError("Negotiation not implemented yet")
-    
-    def step_evaluate_proposals(self, state: EnvState, actions: Actions) -> Tuple[chex.Array, EnvState]:
+
+    def step_evaluate_proposals(
+        self, state: EnvState, actions: Actions
+    ) -> Tuple[chex.Array, EnvState]:
         raise NotImplementedError("Negotiation not implemented yet")
-    
+
     ### Rice specific functions
     ## Part of step_climate_and_economy()
     ###
@@ -593,26 +654,25 @@ class Rice(JaxBaseEnv):
         prev_atmospheric_temperature = state.global_temperature[0]
 
         # NOTE: this function returns the (1 - damages) as a percentage of production?
-        
+
         if self.dmg_function == "base":
             # Isnt this supposedly like in the original one of nordhaus?
             damages = 1 / (
                 1
                 + self.region_params.xa_1 * prev_atmospheric_temperature
-                + self.region_params.xa_2 * jnp.power(
-                    prev_atmospheric_temperature, self.region_params.xa_3
-                )
+                + self.region_params.xa_2
+                * jnp.power(prev_atmospheric_temperature, self.region_params.xa_3)
             )
         elif self.dmg_function == "updated":
-            damages = (
-                1 - (0.7438 * (prev_atmospheric_temperature**2)) / 100
-            )
+            damages = 1 - (0.7438 * (prev_atmospheric_temperature**2)) / 100
             damages = jnp.broadcast_to(damages, (self.num_regions,))
         else:
-            raise ValueError(f"Unknown damage function: {self.dmg_function.dmg_function}")
-        
+            raise ValueError(
+                f"Unknown damage function: {self.dmg_function.dmg_function}"
+            )
+
         return damages
-    
+
     def calc_abatement_costs(self, state: EnvState, actions: Actions) -> chex.Array:
 
         def calc_mitigation_costs():
@@ -625,7 +685,7 @@ class Rice(JaxBaseEnv):
                 * state.intensity_all_regions
             )
             return mitigation_costs
-        
+
         mitigations_rates_all_agents = actions.mitigation_rate
         mitigation_costs = calc_mitigation_costs()
         abatement_costs = mitigation_costs * jnp.pow(
@@ -638,47 +698,52 @@ class Rice(JaxBaseEnv):
     def calc_productions(self, state: EnvState) -> chex.Array:
         productions = (
             state.production_factor_all_regions
-            * jnp.power(
-                state.capital_all_regions, self.region_params.xgamma
-            )
-            * jnp.power(
-                state.labor_all_regions / 1000,
-                1 - self.region_params.xgamma
-            )
+            * jnp.power(state.capital_all_regions, self.region_params.xgamma)
+            * jnp.power(state.labor_all_regions / 1000, 1 - self.region_params.xgamma)
         )
         return productions
 
-    def calc_gross_outputs(self, damages: chex.Array, abatement_costs: chex.Array, productions: chex.Array) -> chex.Array:       
+    def calc_gross_outputs(
+        self, damages: chex.Array, abatement_costs: chex.Array, productions: chex.Array
+    ) -> chex.Array:
         gross_outputs = damages * (1 - abatement_costs) * productions
         return gross_outputs
-    
-    def calc_investments(self, gross_outputs: chex.Array, actions: Actions) -> chex.Array:
+
+    def calc_investments(
+        self, gross_outputs: chex.Array, actions: Actions
+    ) -> chex.Array:
         investments = actions.savings_rate * gross_outputs
         return investments
 
     def calc_gov_balances_post_interest(self, state: EnvState) -> chex.Array:
-        gov_balances_post_interest = (
-            state.current_balance_all_regions
-            * (1 + self.balance_interest_rate)
+        gov_balances_post_interest = state.current_balance_all_regions * (
+            1 + self.balance_interest_rate
         )
         return gov_balances_post_interest
-    
+
     def calc_debt_ratios(self, gov_balances_post_interest: chex.Array) -> chex.Array:
         gov_balances = gov_balances_post_interest
         debt_ratios = (
-            gov_balances 
-            * self.init_capital_multiplier 
-            / self.region_params.xK_0
+            gov_balances * self.init_capital_multiplier / self.region_params.xK_0
         )
         # We scale the debt ratios by factor 10 and then clip it?
 
-        debt_ratios = jnp.clip(debt_ratios, -1.0, 0.0) #NOTE does this make sense?
+        debt_ratios = jnp.clip(debt_ratios, -1.0, 0.0)  # NOTE does this make sense?
         return debt_ratios
-    
-    def calc_gross_imports(self, state: EnvState, actions: Actions, gross_outputs: chex.Array, investments: chex.Array, debt_ratios: chex.Array) -> chex.Array:
+
+    def calc_gross_imports(
+        self,
+        state: EnvState,
+        actions: Actions,
+        gross_outputs: chex.Array,
+        investments: chex.Array,
+        debt_ratios: chex.Array,
+    ) -> chex.Array:
 
         def calc_normalized_import_bids(potential_import_bids):
-            normalized_import_bids_all_regions = jnp.zeros((self.num_regions, self.num_regions))
+            normalized_import_bids_all_regions = jnp.zeros(
+                (self.num_regions, self.num_regions)
+            )
 
             max_export_rate = actions.export_limit
 
@@ -688,11 +753,9 @@ class Rice(JaxBaseEnv):
                     max_export_rate * gross_outputs,
                     gross_outputs - investments,
                 )
-            
+
             max_export_all_regions = calc_max_exports()
-            desired_exports_from_each_region = jnp.sum(
-                potential_import_bids, axis=0 
-            )
+            desired_exports_from_each_region = jnp.sum(potential_import_bids, axis=0)
             # NOTE: this is the original. But it seems like region export is set to 0
             # if max_export > desired_export.
             # return jnp.where(
@@ -704,14 +767,16 @@ class Rice(JaxBaseEnv):
             # FIX?
             return jnp.where(
                 desired_exports_from_each_region > max_export_all_regions,
-                potential_import_bids / desired_exports_from_each_region * max_export_all_regions,
+                potential_import_bids
+                / desired_exports_from_each_region
+                * max_export_all_regions,
                 potential_import_bids,
             )
 
         import_bids_all_regions = actions.import_bids
 
         potential_import_bids = jnp.zeros((self.num_regions, self.num_regions))
-        
+
         # NOTE: original contains some writeable bugfix and empties the bid to itself
         ## We instead deal with this in the process_actions() function
         total_import_bids = jnp.sum(import_bids_all_regions, axis=1)
@@ -720,65 +785,85 @@ class Rice(JaxBaseEnv):
             import_bids_all_regions / total_import_bids * gross_outputs,
             import_bids_all_regions * gross_outputs,
         )
-        potential_import_bids *= (1 + debt_ratios)
-        
-        normalized_import_bids_all_regions = calc_normalized_import_bids(potential_import_bids)
+        potential_import_bids *= 1 + debt_ratios
+
+        normalized_import_bids_all_regions = calc_normalized_import_bids(
+            potential_import_bids
+        )
         return normalized_import_bids_all_regions
 
-    def calc_trade_sanctions(self, state: EnvState, gross_imports: chex.Array, actions: Actions) -> Tuple[chex.Array, chex.Array]:
+    def calc_trade_sanctions(
+        self, state: EnvState, gross_imports: chex.Array, actions: Actions
+    ) -> Tuple[chex.Array, chex.Array]:
         # NOTE: Original used: self.get_prev_state("import_tariffs_all_regions")
         # this delays the action one step? here, this is changed to current action
-        net_imports = gross_imports * (1 - actions.import_tariff) # NOTE: replaced from prev_state to curr_state
-        tariff_revenues = gross_imports * actions.import_tariff # NOTE: replaced from prev_state to curr_state
+        net_imports = gross_imports * (
+            1 - actions.import_tariff
+        )  # NOTE: replaced from prev_state to curr_state
+        tariff_revenues = (
+            gross_imports * actions.import_tariff
+        )  # NOTE: replaced from prev_state to curr_state
         return tariff_revenues, net_imports
-    
-    def calc_welfloss_multiplier(self, state: EnvState, gross_outputs: chex.Array, gross_imports: chex.Array, net_imports: chex.Array, welfare_loss_per_unit_tariff: float = None, welfare_gain_per_unit_exported = None) -> chex.Array:
+
+    def calc_welfloss_multiplier(
+        self,
+        state: EnvState,
+        gross_outputs: chex.Array,
+        gross_imports: chex.Array,
+        net_imports: chex.Array,
+        welfare_loss_per_unit_tariff: float = None,
+        welfare_gain_per_unit_exported=None,
+    ) -> chex.Array:
         if not self.apply_welfloss:
             return np.ones((self.num_regions))
 
         if welfare_loss_per_unit_tariff is None:
-            welfare_loss_per_unit_tariff = 0.4 # From Nordhaus 2015
+            welfare_loss_per_unit_tariff = 0.4  # From Nordhaus 2015
         if welfare_gain_per_unit_exported is None:
             welfare_gain_per_unit_exported = 0.4
 
         welfloss = jnp.ones((self.num_regions)) - (
             (gross_imports.sum(axis=0) / gross_outputs)
-            * state.import_tariffs.sum(axis=0) # TODO: again, original used prev_state
+            * state.import_tariffs.sum(axis=0)  # TODO: again, original used prev_state
             * welfare_loss_per_unit_tariff
         )
         if self.apply_welfgain:
             welfloss += (
-                net_imports.sum(axis=0)
-                / gross_outputs
-                * welfare_gain_per_unit_exported
+                net_imports.sum(axis=0) / gross_outputs * welfare_gain_per_unit_exported
             )
         return welfloss
-    
-    def calc_consumptions(self, gross_outputs: chex.Array, investments: chex.Array, gross_imports: chex.Array, net_imports: chex.Array) -> chex.Array:
+
+    def calc_consumptions(
+        self,
+        gross_outputs: chex.Array,
+        investments: chex.Array,
+        gross_imports: chex.Array,
+        net_imports: chex.Array,
+    ) -> chex.Array:
         total_exports = gross_imports.sum(axis=0)
-        
-        domestic_consumption = jnp.maximum( # Consumption cannot be negative
+
+        domestic_consumption = jnp.maximum(  # Consumption cannot be negative
             gross_outputs - investments - total_exports, 0
         )
 
         c_dom_pref = self.preference_for_domestic * (
             domestic_consumption**self.consumption_substitution_rate
         )
-        preference_for_imported = np.array([ # Remains fixed throughout the run; so np. 
-            (1 - self.preference_for_domestic) / (self.num_regions - 1)
-        ] * self.num_regions)
+        preference_for_imported = np.array(
+            [  # Remains fixed throughout the run; so np.
+                (1 - self.preference_for_domestic) / (self.num_regions - 1)
+            ]
+            * self.num_regions
+        )
 
         c_for_pref = jnp.sum(
-            preference_for_imported 
-            * jnp.pow(
-                net_imports.sum(axis=1), 
-                self.consumption_substitution_rate
-            )
+            preference_for_imported
+            * jnp.pow(net_imports.sum(axis=1), self.consumption_substitution_rate)
         )
 
         consumptions = (c_dom_pref + c_for_pref) ** (
             1 / self.consumption_substitution_rate
-        ) # CES function
+        )  # CES function
 
         return consumptions
 
@@ -789,7 +874,7 @@ class Rice(JaxBaseEnv):
             * (
                 jnp.power(
                     consumptions / scaled_labor_all_regions + 1e-0,
-                    1 - self.region_params.xalpha
+                    1 - self.region_params.xalpha,
                 )
                 - 1
             )
@@ -797,74 +882,68 @@ class Rice(JaxBaseEnv):
         )
         return utilities
 
-    def calc_social_welfares(self, state: EnvState, utilities: chex.Array) -> chex.Array:
+    def calc_social_welfares(
+        self, state: EnvState, utilities: chex.Array
+    ) -> chex.Array:
         social_welfares = utilities / (
             jnp.power(
-                1 + self.region_params.xrho, 
-                self.region_params.xDelta * state.activity_timestep
+                1 + self.region_params.xrho,
+                self.region_params.xDelta * state.activity_timestep,
             )
         )
         return social_welfares
-    
+
     def calc_capitals(self, state: EnvState, investments: chex.Array) -> chex.Array:
         capital_depreciation = jnp.power(
             1 - self.region_params.xdelta_K, self.region_params.xDelta
         )
-        capitals = (
-            capital_depreciation
-            * state.capital_all_regions
-            + (self.region_params.xDelta * investments)
+        capitals = capital_depreciation * state.capital_all_regions + (
+            self.region_params.xDelta * investments
         )
         return capitals
 
     def calc_labors(self, state: EnvState) -> chex.Array:
         labors = state.labor_all_regions * jnp.power(
-            (1 + self.region_params.xL_a)
-            / (1 + state.labor_all_regions),
-            self.region_params.xl_g
+            (1 + self.region_params.xL_a) / (1 + state.labor_all_regions),
+            self.region_params.xl_g,
         )
         return labors
-    
+
     def calc_production_factors(self, state: EnvState) -> chex.Array:
-        production_factors = (
-            state.production_factor_all_regions
-            * (
-                jnp.exp(0.0033)
-                + self.region_params.xg_A
-                * jnp.exp(
-                    -self.region_params.xdelta_A
-                    * self.region_params.xDelta
-                    * (state.activity_timestep - 1)
-                )
+        production_factors = state.production_factor_all_regions * (
+            jnp.exp(0.0033)
+            + self.region_params.xg_A
+            * jnp.exp(
+                -self.region_params.xdelta_A
+                * self.region_params.xDelta
+                * (state.activity_timestep - 1)
             )
         )
         return production_factors
 
-    def calc_gov_balances_post_trade(self, gov_balances_post_interest: chex.Array, gross_imports: chex.Array) -> chex.Array:
-        trade_balance = (
-            self.region_params.xDelta * ( 
-                jnp.sum(gross_imports, axis=0)
-                - jnp.sum(gross_imports, axis=1) 
-            )
+    def calc_gov_balances_post_trade(
+        self, gov_balances_post_interest: chex.Array, gross_imports: chex.Array
+    ) -> chex.Array:
+        trade_balance = self.region_params.xDelta * (
+            jnp.sum(gross_imports, axis=0) - jnp.sum(gross_imports, axis=1)
         )
         gov_balances_post_trade = gov_balances_post_interest + trade_balance
         return gov_balances_post_trade
 
     def calc_carbon_intensities(self, state: EnvState) -> chex.Array:
-        carbon_intensity = (
-            state.intensity_all_regions
-            * jnp.exp(
-                -self.region_params.xg_sigma
-                * jnp.power(
-                    1 - self.region_params.xdelta_sigma,
-                    self.region_params.xDelta * (state.activity_timestep - 1),
-                )
-                * self.region_params.xDelta
+        carbon_intensity = state.intensity_all_regions * jnp.exp(
+            -self.region_params.xg_sigma
+            * jnp.power(
+                1 - self.region_params.xdelta_sigma,
+                self.region_params.xDelta * (state.activity_timestep - 1),
             )
+            * self.region_params.xDelta
         )
         return carbon_intensity
 
-    def calc_global_carbon_mass(self, state: EnvState, productions: chex.Array, mitigation_rates: chex.Array) -> chex.Array:
+    def calc_global_carbon_mass(
+        self, state: EnvState, productions: chex.Array, mitigation_rates: chex.Array
+    ) -> chex.Array:
 
         def calc_land_emissions():
             """Obtain the amount of land emissions."""
@@ -872,7 +951,9 @@ class Rice(JaxBaseEnv):
             delta_el = self.region_params.xdelta_EL
 
             global_land_emissions = (
-                e_l0 * jnp.power(1 - delta_el, state.activity_timestep - 1) / self.num_regions
+                e_l0
+                * jnp.power(1 - delta_el, state.activity_timestep - 1)
+                / self.num_regions
             )
             return global_land_emissions
 
@@ -880,22 +961,16 @@ class Rice(JaxBaseEnv):
             global_land_emissions = calc_land_emissions()
             # (original) TODO: fix aux_m treatment
             aux_m_all_regions = (
-                state.intensity_all_regions
-                * (1 - mitigation_rates)
-                * productions
+                state.intensity_all_regions * (1 - mitigation_rates) * productions
                 + global_land_emissions
             )
-                
+
             """Get the carbon mass level."""
             sum_aux_m = np.sum(aux_m_all_regions)
             prev_global_carbon_mass = state.global_carbon_mass
             global_carbon_mass = jnp.dot(
-                jnp.asarray(self.region_params.xPhi_M),
-                prev_global_carbon_mass
-            ) + jnp.dot(
-                jnp.asarray(self.region_params.xB_M),
-                sum_aux_m
-            )
+                jnp.asarray(self.region_params.xPhi_M), prev_global_carbon_mass
+            ) + jnp.dot(jnp.asarray(self.region_params.xB_M), sum_aux_m)
 
         elif self.carbon_model in ["FaIR", "AR5", "DFaIR"]:
             raise NotImplementedError(
@@ -905,25 +980,41 @@ class Rice(JaxBaseEnv):
             prev_global_emissions = state.global_emissions
             prev_global_carbon_reservoirs = state.global_carbon_reservoirs
             prev_global_cumulative_emissions = state.global_cumulative_emissions
-            prev_global_cumulative_land_emissions = state.global_cumulative_land_emissions
+            prev_global_cumulative_land_emissions = (
+                state.global_cumulative_land_emissions
+            )
             prev_global_temperature = state.global_temperature
             prev_global_acc_pert_carb_stock = state.global_acc_pert_carb_stock
 
-            a = np.array([
-                self.region_params.xM_a0, self.region_params.xM_a1, 
-                self.region_params.xM_a2, self.region_params.xM_a3
-            ])
-            tau = np.array([
-                self.region_params.xM_t0, self.region_params.xM_t1,
-                self.region_params.xM_t2, self.region_params.xM_t3
-            ])
+            a = np.array(
+                [
+                    self.region_params.xM_a0,
+                    self.region_params.xM_a1,
+                    self.region_params.xM_a2,
+                    self.region_params.xM_a3,
+                ]
+            )
+            tau = np.array(
+                [
+                    self.region_params.xM_t0,
+                    self.region_params.xM_t1,
+                    self.region_params.xM_t2,
+                    self.region_params.xM_t3,
+                ]
+            )
             C0 = self.region_params.xM_AT_1750
 
-            irf0, irC, irT = self.all_regions_params[0]["irf0"], self.all_regions_params[0]["irC"], self.all_regions_params[0]["irT"]
+            irf0, irC, irT = (
+                self.all_regions_params[0]["irf0"],
+                self.all_regions_params[0]["irC"],
+                self.all_regions_params[0]["irT"],
+            )
 
             # DAE determines given concentrations and temperature how much the reservoirs can absorb
             if self.carbon_model in ["FaIR", "DFaIR"]:
-                raise NotImplementedError("The newton function is not implemented yet. (in jax); hence FaIR carbon model is not implemented yet.")
+                raise NotImplementedError(
+                    "The newton function is not implemented yet. (in jax); hence FaIR carbon model is not implemented yet."
+                )
                 prev_global_alpha = state.global_alpha
 
                 def DAE_(oneoveralpha):
@@ -933,7 +1024,7 @@ class Rice(JaxBaseEnv):
                         + irC * prev_global_acc_pert_carb_stock
                         + irT * prev_global_temperature[0]
                     )
-                
+
                 global_alpha = 1 / newton(DAE_, x0=1 / prev_global_alpha)
                 assert np.isclose(
                     0, DAE_(1 / global_alpha), rtol=1e-2
@@ -953,11 +1044,9 @@ class Rice(JaxBaseEnv):
             global_land_emissions = calc_land_emissions()
             # TODO: fix aux_m treatment
             aux_m_all_regions = (
-                state.intensity_all_regions
-                * (1 - mitigation_rates)
-                * productions
+                state.intensity_all_regions * (1 - mitigation_rates) * productions
                 + global_land_emissions
-            ) # NOTE: aux_m_all_regions was saved to state, but never used outside this function # Maybe logging?
+            )  # NOTE: aux_m_all_regions was saved to state, but never used outside this function # Maybe logging?
 
             """Get the carbon mass level."""
             sum_aux_m = jnp.sum(aux_m_all_regions)
@@ -987,11 +1076,12 @@ class Rice(JaxBaseEnv):
                     "global_cumulative_land_emissions", global_cumulative_land_emissions
                 )
 
-            if self.carbon_model in ["AR5","FaIR"]:
+            if self.carbon_model in ["AR5", "FaIR"]:
                 global_carbon_reservoirs = prev_global_carbon_reservoirs ** np.exp(
                     -5 / (global_alpha * tau)
                 ) + a * sum_aux_m / 5 * conv * (
-                    np.exp(-1 / (global_alpha * tau)) - np.exp(-6 / (global_alpha * tau))
+                    np.exp(-1 / (global_alpha * tau))
+                    - np.exp(-6 / (global_alpha * tau))
                 ) / (
                     1 - np.exp(-1 / (global_alpha * tau))
                 )
@@ -1015,7 +1105,7 @@ class Rice(JaxBaseEnv):
             raise NotImplementedError(
                 f"Carbon model {self.carbon_model} not implemented."
             )
-        
+
         return global_carbon_mass
 
     def calc_global_temperature(self, state: EnvState) -> chex.Array:
@@ -1032,7 +1122,9 @@ class Rice(JaxBaseEnv):
             return exogenous_emissions
 
         if self.temperature_calibration == "base":
-            global_exogenous_emissions = calc_exogenous_emissions() # also exogenous forcings
+            global_exogenous_emissions = (
+                calc_exogenous_emissions()
+            )  # also exogenous forcings
             prev_carbon_mass = state.global_carbon_mass
             prev_global_temperature = state.global_temperature
             # (original) TODO: why the zero index?
@@ -1043,9 +1135,7 @@ class Rice(JaxBaseEnv):
             f_2x = jnp.asarray(self.region_params.xF_2x)
             atmospheric_carbon_mass = jnp.asarray(self.region_params.xM_AT_1750)
 
-            global_temperature = jnp.dot(
-                phi_t, prev_global_temperature
-            ) + jnp.dot(
+            global_temperature = jnp.dot(phi_t, prev_global_temperature) + jnp.dot(
                 b_t,
                 f_2x
                 * jnp.log(prev_atmospheric_carbon_mass / atmospheric_carbon_mass)
@@ -1064,13 +1154,13 @@ class Rice(JaxBaseEnv):
             prev_atmospheric_carbon_mass = prev_carbon_mass[0]
             atmospheric_carbon_mass = np.array(self.region_params.xM_AT_1750)
 
-            t_2x = self.region_params.xT_2x 
-            f_2x = self.region_params.xF_2x 
+            t_2x = self.region_params.xT_2x
+            f_2x = self.region_params.xF_2x
 
-            xT_1 = self.region_params.xT_1 
+            xT_1 = self.region_params.xT_1
             xT_2 = f_2x / t_2x
-            xT_3 = self.region_params.xT_3 
-            xT_4 = self.region_params.xT_4 
+            xT_3 = self.region_params.xT_3
+            xT_4 = self.region_params.xT_4
 
             forcings = (
                 f_2x
@@ -1081,20 +1171,24 @@ class Rice(JaxBaseEnv):
 
             # update global atmospheric temperature in 4 smaller steps
             global_temperature_short = prev_global_temperature[0]
-            for _ in range(4): # TODO: this might be doable in one go?
+            for _ in range(4):  # TODO: this might be doable in one go?
                 global_temperature_short = global_temperature_short + 1 / xT_1 * (
                     (forcings - xT_2 * global_temperature_short)
                     - xT_3 * (global_temperature_short - prev_global_temperature[1])
                 )
-            global_temperature = jnp.array([
-                global_temperature_short,
-                prev_global_temperature[1] + 5 * xT_3 / xT_4 * (
-                    prev_global_temperature[0] - prev_global_temperature[1]
-                )
-            ])
+            global_temperature = jnp.array(
+                [
+                    global_temperature_short,
+                    prev_global_temperature[1]
+                    + 5
+                    * xT_3
+                    / xT_4
+                    * (prev_global_temperature[0] - prev_global_temperature[1]),
+                ]
+            )
 
             return global_temperature, global_exogenous_emissions
-        
+
         elif self.temperature_calibration == "DFaIR":
             raise NotImplementedError(
                 f"Temperature calibration {self.temperature_calibration} not implemented for jax yet."
@@ -1102,16 +1196,30 @@ class Rice(JaxBaseEnv):
             global_exogenous_emissions = self.calc_exogenous_emissions()
             prev_carbon_mass = self.get_prev_state("global_carbon_mass")
             prev_global_temperature = self.get_prev_state("global_temperature")
-            prev_global_temperature_boxes = self.get_prev_state("global_temperature_boxes")            
-            
+            prev_global_temperature_boxes = self.get_prev_state(
+                "global_temperature_boxes"
+            )
+
             # TODO: why the zero index?
             # global_exogenous_emissions = global_exogenous_emissions[0]
             prev_atmospheric_carbon_mass = prev_carbon_mass[0]
-            atmospheric_carbon_mass = np.array(self.all_regions_params[0]["xM_AT_1750"])  # Equilibrium atmospheric carbon mass
+            atmospheric_carbon_mass = np.array(
+                self.all_regions_params[0]["xM_AT_1750"]
+            )  # Equilibrium atmospheric carbon mass
             f_2x = np.array(self.all_regions_params[0]["xF_2x"])
 
-            d = np.array([self.all_regions_params[0]["xT_LO_rt"], self.all_regions_params[0]["xT_UO_rt"]])
-            teq = np.array([self.all_regions_params[0]["xT_LO_tq"], self.all_regions_params[0]["xT_UO_tq"]])
+            d = np.array(
+                [
+                    self.all_regions_params[0]["xT_LO_rt"],
+                    self.all_regions_params[0]["xT_UO_rt"],
+                ]
+            )
+            teq = np.array(
+                [
+                    self.all_regions_params[0]["xT_LO_tq"],
+                    self.all_regions_params[0]["xT_UO_tq"],
+                ]
+            )
 
             forcings = (
                 f_2x
@@ -1120,7 +1228,9 @@ class Rice(JaxBaseEnv):
                 + global_exogenous_emissions
             )
 
-            global_temperature_boxes = prev_global_temperature_boxes * np.exp(-5/d) + teq * forcings * (1 - np.exp(-5/d))
+            global_temperature_boxes = prev_global_temperature_boxes * np.exp(
+                -5 / d
+            ) + teq * forcings * (1 - np.exp(-5 / d))
 
             if save_state:
                 self.set_state("global_temperature_boxes", global_temperature_boxes)
@@ -1131,7 +1241,7 @@ class Rice(JaxBaseEnv):
                 self.set_state("global_temperature", global_temperature)
 
             return global_temperature
-        
+
         else:
             raise ValueError(
                 f"Unknown temperature calibration: {self.temperature_calibration}"
@@ -1139,8 +1249,8 @@ class Rice(JaxBaseEnv):
 
     def calc_current_simulation_year(self, state: EnvState) -> chex.Array:
         return state.current_simulation_year + self.region_params.xDelta
-    
-    ### 
+
+    ###
     ## Helper and environment functions
     ###
     @property
@@ -1148,15 +1258,21 @@ class Rice(JaxBaseEnv):
         if not self.negotiation_on:
             num_actions = len(Actions.__annotations__)
             num_regions = self.num_regions
-            import_bids_nvec = [self.num_discrete_action_levels] * (num_regions - self.reduce_action_space_size)
-            import_tariff_nvec = [self.num_discrete_action_levels] * (num_regions - self.reduce_action_space_size)
-            actions_nvec = np.concatenate([
-                [self.num_discrete_action_levels], # savings_rate
-                [self.num_discrete_action_levels], # mitigation_rate
-                [self.num_discrete_action_levels], # export_limit
-                import_bids_nvec,
-                import_tariff_nvec,
-            ])
+            import_bids_nvec = [self.num_discrete_action_levels] * (
+                num_regions - self.reduce_action_space_size
+            )
+            import_tariff_nvec = [self.num_discrete_action_levels] * (
+                num_regions - self.reduce_action_space_size
+            )
+            actions_nvec = np.concatenate(
+                [
+                    [self.num_discrete_action_levels],  # savings_rate
+                    [self.num_discrete_action_levels],  # mitigation_rate
+                    [self.num_discrete_action_levels],  # export_limit
+                    import_bids_nvec,
+                    import_tariff_nvec,
+                ]
+            )
             return actions_nvec
         else:
             raise NotImplementedError("Negotiation not implemented yet")
@@ -1164,7 +1280,7 @@ class Rice(JaxBaseEnv):
     @property
     def action_space(self) -> MultiDiscrete:
         return MultiDiscrete(self.action_nvec)
-        
+
     def observation_space(self) -> Box:
         obs_dict, _ = self.reset(jax.random.PRNGKey(0))
         obs = obs_dict[OBSERVATIONS]

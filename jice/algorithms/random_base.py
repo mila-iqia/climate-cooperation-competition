@@ -10,8 +10,11 @@ from jice.environment.base_and_wrappers import LogWrapper
 from jice.util import logwrapper_callback
 
 BIG_NUMBER_NEG = -1e7
+
+
 class RandomAgent(eqx.Module):
     action_space: any
+
     def __init__(self, action_space, **kwargs):
         self.action_space = action_space
 
@@ -19,7 +22,9 @@ class RandomAgent(eqx.Module):
         if isinstance(x, dict):
             action_mask = x[ACTION_MASK]
             x = x[OBSERVATIONS]
-            logits = jax.random.uniform(key, (len(self.action_space.nvec), self.action_space.nvec[0]))
+            logits = jax.random.uniform(
+                key, (len(self.action_space.nvec), self.action_space.nvec[0])
+            )
             logit_mask = jnp.ones_like(logits) * BIG_NUMBER_NEG
             logit_mask = logit_mask * (1 - action_mask)
             logits = logits + logit_mask
@@ -27,24 +32,25 @@ class RandomAgent(eqx.Module):
         else:
             return self.action_space.sample(key)
 
+
 @chex.dataclass(frozen=True)
 class BaseTrainerParams:
     num_envs: int = 20
     total_timesteps: int = 1e6
     trainer_seed: int = 0
-    backend: str = "cpu" # or "gpu"
+    backend: str = "cpu"  # or "gpu"
     num_log_episodes_after_training: int = 10
 
+
 def build_random_trainer(
-        env: Rice,
-        trainer_params: BaseTrainerParams = BaseTrainerParams(),
-    ):
+    env: Rice,
+    trainer_params: BaseTrainerParams = BaseTrainerParams(),
+):
     config = trainer_params
 
     config = trainer_params
     eval_env = eqx.tree_at(lambda x: x.train_env, env, False)
     env = LogWrapper(env)
-
 
     rng = jax.random.PRNGKey(trainer_params.trainer_seed)
 
@@ -52,9 +58,7 @@ def build_random_trainer(
     rng, reset_key = jax.random.split(rng)
 
     reset_keys = jax.random.split(reset_key, trainer_params.num_envs)
-    obs_v, env_state_v = jax.vmap(
-        env.reset, in_axes=(0)
-    )(reset_keys)
+    obs_v, env_state_v = jax.vmap(env.reset, in_axes=(0))(reset_keys)
 
     agent = RandomAgent(env.action_space)
 
@@ -72,21 +76,21 @@ def build_random_trainer(
             episode_reward += reward
 
             return (rng, obs, env_state, done, episode_reward), info
-        
+
         rng, reset_key = jax.random.split(key)
         obs_v, env_state_v = eval_env.reset(reset_key)
         done = False
         episode_reward = jnp.zeros(num_agents)
 
-        carry, episode_stats = jax.lax.scan( # episode_length is fixed, so we can scan
+        carry, episode_stats = jax.lax.scan(  # episode_length is fixed, so we can scan
             step_env,
             (rng, obs_v, env_state_v, done, episode_reward),
             None,
-            eval_env.episode_length
+            eval_env.episode_length,
         )
 
         return carry[-1], episode_stats
-    
+
     @partial(jax.jit, backend=trainer_params.backend)
     def train_function(rng: chex.PRNGKey = rng):
 
@@ -95,9 +99,9 @@ def build_random_trainer(
             rng, key = jax.random.split(rng)
 
             # split key into a 2d array of num_envs x num_agents
-            action_keys = jax.random.split(key, num_agents * trainer_params.num_envs).reshape(
-                (trainer_params.num_envs, num_agents, 2)
-            )
+            action_keys = jax.random.split(
+                key, num_agents * trainer_params.num_envs
+            ).reshape((trainer_params.num_envs, num_agents, 2))
             action = jax.vmap(jax.vmap(agent))(action_keys, obs)
 
             step_key = jax.random.split(key, trainer_params.num_envs)
@@ -105,7 +109,9 @@ def build_random_trainer(
                 env.step, in_axes=(0, 0, 0)
             )(step_key, env_state, action)
 
-            jax.debug.callback(logwrapper_callback, info, trainer_params.num_envs, counter)
+            jax.debug.callback(
+                logwrapper_callback, info, trainer_params.num_envs, counter
+            )
 
             return (rng, obs_v, env_state, counter + 1), reward_v
 
@@ -115,14 +121,16 @@ def build_random_trainer(
             env_step,
             initial_train_runner_state,
             None,
-            length=trainer_params.total_timesteps
+            length=trainer_params.total_timesteps,
         )
 
         if trainer_params.num_log_episodes_after_training > 0:
             rng, eval_key = jax.random.split(rng)
-            eval_keys = jax.random.split(eval_key, trainer_params.num_log_episodes_after_training)
+            eval_keys = jax.random.split(
+                eval_key, trainer_params.num_log_episodes_after_training
+            )
             eval_rewards, eval_logs = jax.vmap(eval_func)(eval_keys)
-        else: 
+        else:
             eval_rewards = None
             eval_logs = None
 

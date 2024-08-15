@@ -4,9 +4,11 @@ import chex
 from typing import Tuple, Union, NamedTuple
 import equinox as eqx
 
+
 @chex.dataclass(frozen=True)
 class EnvState:
     time: int
+
 
 class TimeStep(NamedTuple):
     observation: chex.Array
@@ -15,28 +17,33 @@ class TimeStep(NamedTuple):
     discount: Union[float, chex.Array]
     info: dict
 
+
 class JaxBaseEnv(eqx.Module):
     """
-        Base class for a JAX environment.
-        This class inherits from eqx.Module, meaning it is a PyTree node and a dataclass.
-        set params by setting the properties of the class.
-        Much of the modules are inspired by the Gymnax base class.
+    Base class for a JAX environment.
+    This class inherits from eqx.Module, meaning it is a PyTree node and a dataclass.
+    set params by setting the properties of the class.
+    Much of the modules are inspired by the Gymnax base class.
     """
 
     # example_property: int = 0
 
     def __check_init__(self):
         """
-            An equinox module that always runs on initialization.
-            Can be used to check if parameters are set correctly, without overwriting __init__.
+        An equinox module that always runs on initialization.
+        Can be used to check if parameters are set correctly, without overwriting __init__.
         """
         pass
 
-    def step(self, key: chex.PRNGKey, state: EnvState, action: Union[int, float, chex.Array]) -> Tuple[TimeStep, EnvState]:
+    def step(
+        self, key: chex.PRNGKey, state: EnvState, action: Union[int, float, chex.Array]
+    ) -> Tuple[TimeStep, EnvState]:
         """Performs step transitions in the environment."""
 
-        (obs_step, reward, done, discount, info), state_step = self.step_env(key, state, action)
-        obs_reset, state_reset = self.reset_env(key) 
+        (obs_step, reward, done, discount, info), state_step = self.step_env(
+            key, state, action
+        )
+        obs_reset, state_reset = self.reset_env(key)
 
         # Auto-reset environment based on termination
         state = jax.tree_map(
@@ -50,22 +57,28 @@ class JaxBaseEnv(eqx.Module):
         """Performs resetting of environment."""
         obs, state = self.reset_env(key)
         return obs, state
-    
+
     def reset_env(self, key: chex.PRNGKey) -> Tuple[chex.Array, EnvState]:
         """Environment-specific reset transition."""
         raise NotImplementedError
 
-    def step_env(self, key: chex.PRNGKey, state: EnvState, action: Union[int, float, chex.Array]) -> Tuple[TimeStep, EnvState]:
+    def step_env(
+        self, key: chex.PRNGKey, state: EnvState, action: Union[int, float, chex.Array]
+    ) -> Tuple[TimeStep, EnvState]:
         """Environment-specific step transition."""
         raise NotImplementedError
-    
+
+
 class MultiDiscrete(object):
     """
-        Minimal implementation of a MultiDiscrete space.
-        input nvec: array of integers representing the number of discrete values in each dimension
+    Minimal implementation of a MultiDiscrete space.
+    input nvec: array of integers representing the number of discrete values in each dimension
     """
+
     def __init__(self, nvec: chex.Array, dtype: jnp.dtype = jnp.int8, start: int = 0):
-        assert len(nvec.shape) == 1 and nvec.shape[0] > 0, "nvec must be a 1D array with at least one element"
+        assert (
+            len(nvec.shape) == 1 and nvec.shape[0] > 0
+        ), "nvec must be a 1D array with at least one element"
         assert jnp.all(nvec > 0), "All elements in nvec must be greater than 0"
         self.nvec = nvec
         self.shape = nvec.shape
@@ -80,13 +93,19 @@ class MultiDiscrete(object):
             self.uniform = True
         else:
             self.uniform = False
-            raise NotImplementedError("Non-uniform MultiDiscrete spaces are not supported")
+            raise NotImplementedError(
+                "Non-uniform MultiDiscrete spaces are not supported"
+            )
 
     def sample(self, key: chex.PRNGKey) -> chex.Array:
         return jax.random.randint(key, self.shape, self.start, self.nvec)
-        
+
     def contains(self, x: chex.Array) -> bool:
-        return x.shape == self.shape and jnp.all(x >= self.start) and jnp.all(x < self.nvec)
+        return (
+            x.shape == self.shape
+            and jnp.all(x >= self.start)
+            and jnp.all(x < self.nvec)
+        )
 
 
 class JaxEnvWrapper(object):
@@ -96,6 +115,7 @@ class JaxEnvWrapper(object):
     def __getattr__(self, name):
         return getattr(self._env, name)
 
+
 @chex.dataclass(frozen=True)
 class LogEnvState:
     env_state: EnvState
@@ -103,14 +123,15 @@ class LogEnvState:
     returned_episode_returns: float
     timestep: int
 
+
 class LogWrapper(JaxEnvWrapper):
     def reset(self, key: chex.PRNGKey) -> Tuple[chex.Array, LogEnvState]:
         obs, env_state = self._env.reset(key)
         state = LogEnvState(
-            env_state=env_state, 
-            episode_returns=jnp.zeros(self._env.num_regions), 
-            returned_episode_returns=jnp.zeros(self._env.num_regions), 
-            timestep=0
+            env_state=env_state,
+            episode_returns=jnp.zeros(self._env.num_regions),
+            returned_episode_returns=jnp.zeros(self._env.num_regions),
+            timestep=0,
         )
         return obs, state
 
