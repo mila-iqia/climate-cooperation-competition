@@ -12,13 +12,6 @@ import numpy as np
 import equinox as eqx
 
 
-#TODO:
-# - input action masks
-# - random todos
-# - black formatting
-# - keep up with the active branche
-# - allow scenarios
-# - negotiation (this requires in-place action masking)
 
 
 OBSERVATIONS = "observations"
@@ -137,7 +130,7 @@ class Rice(JaxBaseEnv):
     region_params: SimpleNamespace = eqx.field(static=True)
 
     num_regions: int = 3
-    # scenario: str = "default" # NOTE: not implemented
+    scenario: str = "default"
     # action_type: str = "discrete" # NOTE: continuous not implemented
     num_discrete_action_levels: int = 10
     train_env: bool = False # if True, the environment will not create extensive "info" dicts on each step

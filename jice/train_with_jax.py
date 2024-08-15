@@ -1,43 +1,71 @@
 import jax
 from typing import Dict, Callable, Tuple, Any
 from jice.util import load_region_yamls, log_episode_stats_to_wandb
-from jice.algorithms import build_random_trainer, build_sac_trainer, build_ppo_trainer, BaseTrainerParams, PpoTrainerParams
+from jice.algorithms import build_random_trainer, build_ppo_trainer, BaseTrainerParams, PpoTrainerParams
+from jice.environment import Rice, OptimalMitigation, BasicClub
 import wandb
 import argparse
 import equinox as eqx
 import time
 
+# import traceback
+# import warnings
+# import sys
+
+# def warn_with_traceback(message, category, filename, lineno, file=None, line=None):
+
+#     log = file if hasattr(file,'write') else sys.stderr
+#     traceback.print_stack(file=log)
+#     log.write(warnings.formatwarning(message, category, filename, lineno, line))
+
+# warnings.showwarning = warn_with_traceback
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-a", "--algorithm", help="Algorithm to train with", default="ppo")
 parser.add_argument("-nw", "--no_wandb", help="Log to wandb", action="store_true")
 parser.add_argument("-s", "--seed", help="Random seed", default=42, type=int)
-args = parser.parse_args()	
+parser.add_argument("-sc", "--scenario", help="Scenario to train on", default="default", choices=["default", "optimal_mitigation", "basic_club"])
+args = parser.parse_args()
 
-def build_trainer(yaml_file: Dict[str, Any]) -> Tuple[Callable, dict]:
+def build_env_scenario(yaml_file: Dict[str, Any], init_gamma: float = 0.99) -> Rice:
     region_params = load_region_yamls(yaml_file["env_settings"]["num_regions"])
-
     env_settings = {
         "region_params": region_params,
-        **yaml_file["env_settings"]
+        "init_gamma": init_gamma,
+        **yaml_file["env_settings"],
     }
 
+    if env_settings["scenario"] == "default":
+        env = Rice(**env_settings)
+    elif env_settings["scenario"] == "optimal_mitigation":
+        env = OptimalMitigation(**env_settings)
+    elif env_settings["scenario"] == "basic_club":
+        env = BasicClub(**env_settings)
+    else:
+        raise ValueError(f"Scenario {env_settings['scenario']} not recognized")
+
+    return env
+
+def build_trainer(yaml_file: Dict[str, Any]) -> Tuple[Callable, dict]:
     if args.algorithm == "random":
         print("Using random agent...")
         trainer_params = BaseTrainerParams(**yaml_file["trainer_settings"])
-        trainer, env = build_random_trainer(
-            env_params=env_settings, 
+        env = build_env_scenario(yaml_file)
+        trainer = build_random_trainer(
+            env=env, 
             trainer_params=trainer_params
         )
     elif args.algorithm == "ppo":
         print("Using PPO agent...")
         trainer_params = PpoTrainerParams(**yaml_file["trainer_settings"])
-        trainer, env = build_ppo_trainer(
-            env_params=env_settings, 
+        env = build_env_scenario(yaml_file, trainer_params.gamma)
+        trainer = build_ppo_trainer(
+            env=env, 
             trainer_params=trainer_params
         )
     merged_settings = {
         **args.__dict__,
-        **env._env.__dict__, 
+        **env.__dict__, 
         **trainer_params.__dict__
     }
     return trainer, merged_settings
@@ -46,12 +74,13 @@ yaml_file = {
     "wandb": not args.no_wandb,
     "env_settings": {
         "num_regions": 7, # [3, 7, 20]
-        "train_env": True
+        "train_env": True,
+        "scenario": args.scenario,
     },
     "trainer_settings": {
         "num_log_episodes_after_training": 2, 
         "num_envs": 4,
-        "total_timesteps": 2e6,
+        "total_timesteps": 2e5,
         "trainer_seed": args.seed,
         "backend": "gpu"
     }

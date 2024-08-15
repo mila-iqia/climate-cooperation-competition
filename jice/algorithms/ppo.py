@@ -72,20 +72,12 @@ class TrainState(NamedTuple):
 
 # Jit the returned function, not this function
 def build_ppo_trainer(
-        env_params: dict,
+        env: Rice,
         trainer_params: PpoTrainerParams = PpoTrainerParams(),
     ):
     config = trainer_params
-    env_params["init_gamma"] = config.gamma
-
-    env = Rice(**env_params)
+    eval_env = eqx.tree_at(lambda x: x.train_env, env, False)
     env = LogWrapper(env)
-
-    # Below should be doable with eqx.tree_at, but runs into a bug
-    eval_env_params = env_params.copy()
-    eval_env_params["train_env"] = False
-    eval_env = Rice(**eval_env_params)
-    eval_env = LogWrapper(eval_env)
 
     observation_space = env.observation_space()
     action_space = env.action_space
@@ -363,4 +355,4 @@ def build_ppo_trainer(
             "eval_logs": eval_logs,
         }
 
-    return train_func, env
+    return train_func
