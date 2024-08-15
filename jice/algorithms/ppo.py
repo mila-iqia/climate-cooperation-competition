@@ -3,6 +3,7 @@ import jax.numpy as jnp
 import optax
 import equinox as eqx
 import chex
+import os
 from typing import List
 from functools import partial
 from typing import NamedTuple
@@ -90,6 +91,7 @@ class TrainState(NamedTuple):
 def build_ppo_trainer(
     env: Rice,
     trainer_params: PpoTrainerParams = PpoTrainerParams(),
+    load_model: str = None
 ):
     config = trainer_params
     eval_env = eqx.tree_at(lambda x: x.train_env, env, False)
@@ -142,6 +144,10 @@ def build_ppo_trainer(
         critic=critic,
         optimizer_state=optimizer_state,
     )
+    if load_model:
+        if not os.path.exists(load_model):
+            raise FileNotFoundError(f"Model file not found: {load_model}")
+        train_state = eqx.tree_deserialise_leaves(load_model, train_state)
 
     reset_key = jax.random.split(reset_key, config.num_envs)
     obs_v, env_state_v = jax.vmap(env.reset, in_axes=(0))(reset_key)
@@ -350,12 +356,16 @@ def build_ppo_trainer(
             return runner_state, metric
 
         rng, key = jax.random.split(rng)
-        runner_state = (train_state, env_state_v, obs_v, key)
-        runner_state, metrics = jax.lax.scan(
-            train_step, runner_state, None, config.num_iterations
-        )
-        trained_train_state = runner_state[0]
-        rng = runner_state[-1]
+        if not trainer_params.skip_training:
+            runner_state = (train_state, env_state_v, obs_v, key)
+            runner_state, metrics = jax.lax.scan(
+                train_step, runner_state, None, config.num_iterations
+            )
+            trained_train_state = runner_state[0]
+            rng = runner_state[-1]
+        else:
+            trained_train_state = train_state
+            metrics = None
 
         if trainer_params.num_log_episodes_after_training > 0:
             rng, eval_key = jax.random.split(rng)

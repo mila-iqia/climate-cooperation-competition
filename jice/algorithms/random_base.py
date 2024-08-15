@@ -40,6 +40,8 @@ class BaseTrainerParams:
     trainer_seed: int = 0
     backend: str = "cpu"  # or "gpu"
     num_log_episodes_after_training: int = 10
+    skip_training: bool = False 
+    """skip training and only run "num_log_episodes_after_training" eval episodes."""
 
 
 def build_random_trainer(
@@ -117,12 +119,16 @@ def build_random_trainer(
 
         rng, train_key = jax.random.split(rng)
         initial_train_runner_state = (train_key, obs_v, env_state_v, 0)
-        train_runner_state, train_rewards = jax.lax.scan(
-            env_step,
-            initial_train_runner_state,
-            None,
-            length=trainer_params.total_timesteps,
-        )
+        if not trainer_params.skip_training:
+            train_runner_state, train_rewards = jax.lax.scan(
+                env_step,
+                initial_train_runner_state,
+                None,
+                length=trainer_params.total_timesteps,
+            )
+        else:
+            train_runner_state = initial_train_runner_state
+            train_rewards = None
 
         if trainer_params.num_log_episodes_after_training > 0:
             rng, eval_key = jax.random.split(rng)
