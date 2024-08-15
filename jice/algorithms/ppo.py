@@ -5,10 +5,10 @@ import equinox as eqx
 import chex
 from typing import List
 from functools import partial
-from dataclasses import replace
 from typing import NamedTuple
+
 from jice.environment import LogWrapper
-from util import logwrapper_callback
+from jice.util import logwrapper_callback
 from jice.algorithms import BaseTrainerParams
 from jice.algorithms.networks import ActorNetworkMultiDiscrete, CriticNetwork
 from jice.environment import Rice

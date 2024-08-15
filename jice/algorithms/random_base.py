@@ -3,25 +3,11 @@ import jax.numpy as jnp
 import equinox as eqx
 import chex
 from functools import partial
-from dataclasses import replace
-from jice.environment import Rice, OBSERVATIONS, ACTION_MASK
-from jice.environment.base_and_wrappers import LogWrapper
-from util import logwrapper_callback
 import distrax
 
-        # def forward(head, x):
-        #     return head(x)
-        
-        # for layer in self.layers:
-        #     x = jax.nn.tanh(layer(x))
-        # logits = jax.vmap(forward, in_axes=(0, None))(self.output_heads, x)
-        
-        # if action_mask is not None: # mask the logits
-        #     logit_mask = jnp.ones_like(logits) * BIG_NUMBER_NEG
-        #     logit_mask = logit_mask * (1 - action_mask)
-        #     logits = logits + logit_mask
-
-        # return distrax.Categorical(logits=logits)
+from jice.environment import Rice, OBSERVATIONS, ACTION_MASK
+from jice.environment.base_and_wrappers import LogWrapper
+from jice.util import logwrapper_callback
 
 BIG_NUMBER_NEG = -1e7
 class RandomAgent(eqx.Module):

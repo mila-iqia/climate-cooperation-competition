@@ -3,6 +3,7 @@ import equinox as eqx
 from typing import List
 import distrax
 import jax.numpy as jnp
+
 from jice.environment import OBSERVATIONS, ACTION_MASK
 
 BIG_NUMBER_NEG = -1e7
