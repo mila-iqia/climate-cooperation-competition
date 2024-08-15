@@ -9,14 +9,19 @@ from jice.environment.rice import EnvState
 
 MITIGATION_RATE_ACTION_INDEX = 1
 class OptimalMitigation(Rice):
-
-    maximum_mitigation_rate: int = 3 # 
+    
+    # Both are inclusive:
+    minimum_mitigation_rate: int = 9
+    maximum_mitigation_rate: int = 9 
 
     def generate_action_masks(self, state: EnvState) -> chex.Array:
         action_mask = super().generate_action_masks(state) # get default
 
         action_mask = action_mask.at[
             :, MITIGATION_RATE_ACTION_INDEX, self.maximum_mitigation_rate+1:
+        ].set(False)
+        action_mask = action_mask.at[
+            :, MITIGATION_RATE_ACTION_INDEX, :self.minimum_mitigation_rate
         ].set(False)
 
         return action_mask
