@@ -46,6 +46,8 @@ class Rice(gym.Env):
         temperature_calibration="base",
         prescribed_emissions=None,
         pct_reward=False,
+        clubs_enabled = False,
+        club_members = []
     ):
         self.action_space_type = action_space_type
         self.num_discrete_action_levels = num_discrete_action_levels
@@ -66,6 +68,11 @@ class Rice(gym.Env):
         self.prescribed_emissions = prescribed_emissions
         self.pct_reward = pct_reward
         self.global_state = {}
+
+        #clubs
+        self.clubs_enabled = clubs_enabled
+        if self.clubs_enabled:
+            self.club_members = club_members
 
         self.set_dtypes()
 

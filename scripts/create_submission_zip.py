@@ -79,8 +79,11 @@ def prepare_submission(results_dir=None):
         if file.endswith(".state_dict")
     ]
     sorted_policy_models = sorted(policy_models, key=os.path.getmtime)
-    # Delete all but the last policy model file
-    for policy_model in sorted_policy_models[:-1]:
+
+    #in the case of multi-model, there will be multiple state dictionaries per model.
+    policy_prefixes = set([model_name.split("/")[-1].split("_")[0]for model_name in sorted_policy_models])
+    # Delete all but the last policy model file of each unique prefix
+    for policy_model in sorted_policy_models[:-len(policy_prefixes)]:
         os.remove(os.path.join(results_dir_copy, policy_model.split("/")[-1]))
 
     shutil.make_archive(submission_file, "zip", results_dir_copy)
