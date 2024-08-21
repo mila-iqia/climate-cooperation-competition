@@ -51,6 +51,16 @@ class JaxBaseEnv(eqx.Module):
         )
         obs = jax.lax.cond(done, lambda: obs_reset, lambda: obs_step)
 
+        # NOTE: Not a huge fan of this approach, but it is what gymnasium uses.
+        if isinstance(info, dict):
+            info.update({
+                "terminal_observation": obs_step["observations"],
+            })
+        else:
+            info.update({
+                "terminal_observation": obs_step,
+            })
+
         return TimeStep(obs, reward, done, discount, info), state
 
     def reset(self, key: chex.PRNGKey) -> Tuple[chex.Array, EnvState]:

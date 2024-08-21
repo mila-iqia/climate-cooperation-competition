@@ -8,8 +8,7 @@ import time
 import wandb
 import numpy as np
 
-
-def logwrapper_callback(metric, num_envs: int, counter: int | None = None):
+def logwrapper_callback(metric, num_envs: int, debug: bool,  counter: int | None = None):
     if (
         counter is not None and np.random.rand() < 0.9
     ):  # prevent too much logging in random agent
@@ -18,8 +17,9 @@ def logwrapper_callback(metric, num_envs: int, counter: int | None = None):
     timesteps = metric["timestep"][metric["returned_episode"]] * num_envs
     if not np.any(metric["returned_episode"]):
         return
-    for t in range(len(timesteps[-5:])):  # only show the last 5, to avoid printing
-        print(f"global step={timesteps[t]}, episodic return={return_values[t]}")
+    if debug:
+        for t in range(len(timesteps[-5:])):  # only show the last 5, to avoid printing
+            print(f"global step={timesteps[t]}, episodic return={return_values[t]}")
     if wandb.run:
         try:
             losses = metric["loss_info"]

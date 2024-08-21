@@ -6,6 +6,8 @@ import equinox as eqx
 import time
 import os
 
+wandb.require("core")
+
 from jice.util import load_region_yamls, log_episode_stats_to_wandb
 from jice.algorithms import (
     build_random_trainer,
@@ -25,6 +27,7 @@ parser.add_argument("-nw", "--no_wandb", help="Log to wandb", action="store_true
 parser.add_argument("-s", "--seed", help="Random seed", default=42, type=int)
 parser.add_argument("-sk", "--skip_training", help="Skip training", action="store_true")
 parser.add_argument("-l", "--load_model", help="Path to model file", default=None)
+parser.add_argument("-d", "--debug", help="Print rollout rewards during training", action="store_true")
 parser.add_argument(
     "-sc",
     "--scenario",
@@ -89,10 +92,11 @@ yaml_file = {
     },
     "trainer_settings": {
         "num_log_episodes_after_training": 2,
-        "num_envs": 4,
+        "num_envs": 6,
         "total_timesteps": 1e6,
         "trainer_seed": args.seed,
         "backend": "gpu",
+        "debug": args.debug, # Print rollout rewards during training
         "skip_training": args.skip_training,
     },
 }

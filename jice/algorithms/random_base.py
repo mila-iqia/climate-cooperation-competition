@@ -40,6 +40,7 @@ class BaseTrainerParams:
     trainer_seed: int = 0
     backend: str = "cpu"  # or "gpu"
     num_log_episodes_after_training: int = 10
+    debug: bool = False # Print rollout rewards during training
     skip_training: bool = False 
     """skip training and only run "num_log_episodes_after_training" eval episodes."""
 

@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+import numpy as np
 import optax
 import equinox as eqx
 import chex
@@ -7,6 +8,7 @@ import os
 from typing import List
 from functools import partial
 from typing import NamedTuple
+from jax_tqdm import scan_tqdm
 
 from jice.environment import LogWrapper
 from jice.util import logwrapper_callback
@@ -75,6 +77,7 @@ class Transition:
     observation: chex.Array
     action: chex.Array
     reward: chex.Array
+    done: chex.Array
     discount: chex.Array
     value: chex.Array
     log_prob: chex.Array
@@ -199,13 +202,19 @@ def build_ppo_trainer(
                 env.step, in_axes=(0, 0, 0)
             )(step_keys, env_state, action)
 
-            # broadcast discount such that it has a dimension per agent
-            discount = jnp.broadcast_to(discount, (num_agents, discount.shape[0])).T
+            # next value "hack" used in SB3, would like a different solution
+            # but this works for now
+            # https://github.com/DLR-RM/stable-baselines3/issues/633
+            terminal_obs = info["terminal_observation"]
+            next_value = jax.vmap(jax.vmap(train_state.critic))(terminal_obs)
+            broadcasted_done = jnp.broadcast_to(done, (next_value.shape[1], next_value.shape[0])).T
+            reward += ((1 - broadcasted_done) * discount * next_value)
 
             transition = Transition(
                 observation=last_obs,
                 action=action,
                 reward=reward,
+                done=broadcasted_done,
                 discount=discount,
                 value=value,
                 log_prob=log_prob,
@@ -217,13 +226,14 @@ def build_ppo_trainer(
 
         def _calculate_gae(gae_and_next_values, transition):
             gae, next_value = gae_and_next_values
-            value, reward, gamma = (
+            value, reward, gamma, done = (
                 transition.value,
-                transition.reward,
+                transition.reward, # if truncated, this is already raised
                 transition.discount,
+                transition.done,
             )
-            delta = reward + gamma * next_value - value
-            gae = delta + gamma * config.gae_lambda * gae
+            advantage = reward + gamma * next_value * (1 - done) - value
+            gae = advantage + gamma * config.gae_lambda * (1 - done) * gae
             return (gae, value), (gae, gae + value)
 
         def _update_epoch(update_state, _):
@@ -350,7 +360,7 @@ def build_ppo_trainer(
             metric["loss_info"] = loss_info
             rng = update_state[-1]
 
-            jax.debug.callback(logwrapper_callback, metric, config.num_envs)
+            jax.debug.callback(logwrapper_callback, metric, config.num_envs, config.debug)
 
             runner_state = (train_state, env_state, last_obs, rng)
             return runner_state, metric
@@ -358,8 +368,10 @@ def build_ppo_trainer(
         rng, key = jax.random.split(rng)
         if not trainer_params.skip_training:
             runner_state = (train_state, env_state_v, obs_v, key)
+            if not config.debug:
+                train_step = scan_tqdm(config.num_iterations)(train_step)
             runner_state, metrics = jax.lax.scan(
-                train_step, runner_state, None, config.num_iterations
+                train_step, runner_state, np.arange(config.num_iterations)
             )
             trained_train_state = runner_state[0]
             rng = runner_state[-1]

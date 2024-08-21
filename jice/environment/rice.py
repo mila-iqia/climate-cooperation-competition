@@ -13,9 +13,7 @@ from jice.environment.base_and_wrappers import JaxBaseEnv, EnvState, MultiDiscre
 
 # TODO:
 # - BUG export-limit 0 is always learned
-# - keep up with the active branche
 # - negotiation
-# - eval only mode, load and save models
 
 
 OBSERVATIONS = "observations"
@@ -51,8 +49,8 @@ NORMALIZATION_FACTORS = {
     "abatement_cost_all_regions": 1,
     "production_all_regions": 1e3,
     "utility_all_regions": 1,
-    # "social_welfare_all_regions": 1,
-    # "utility_times_welfloss_all_regions": 1,
+    "social_welfare_all_regions": 1,
+    "utility_times_welfloss_all_regions": 1,
 }
 
 
@@ -384,16 +382,22 @@ class Rice(JaxBaseEnv):
                 "proposal_decisions",
             ]
 
+        # # Normalization:
+        # # assert that all keys in the dictionaries are present in normalization_factors
+        # assert set(NORMALIZATION_FACTORS.keys()) == set(global_features.keys()) | set(
+        #     public_features.keys()
+        # ) | set(private_features.keys())
+
         # Normalization:
-        # assert that all keys in the dictionaries are present in normalization_factors
-        assert set(NORMALIZATION_FACTORS.keys()) == set(global_features.keys()) | set(
-            public_features.keys()
-        ) | set(private_features.keys())
+        # assert all norm factors are present
+        feature_keys = set(global_features.keys()) | set(public_features.keys()) | set(private_features.keys())
+        assert feature_keys.issubset(set(NORMALIZATION_FACTORS.keys()))
+        norm_factors = {k: v for k, v in NORMALIZATION_FACTORS.items() if k in feature_keys}
 
         normalized_features = jax.tree.map(
             lambda x, y: x / y,
             {**global_features, **public_features, **private_features},
-            NORMALIZATION_FACTORS,
+            norm_factors,
         )
 
         global_public_features = {
@@ -444,8 +448,8 @@ class Rice(JaxBaseEnv):
         truncated = state.current_timestep >= self.episode_length
         done = terminated or truncated
 
-        # TODO: variable gamma based on state
-        discount = self.init_gamma
+        # TODO: variable gamma based on state (per agent)
+        discount = jnp.ones((self.num_regions,)) * self.init_gamma
         return done, discount
 
     def generate_info(self, state: EnvState, actions: Actions) -> dict:
