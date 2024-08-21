@@ -4,6 +4,90 @@ from math import ceil
 _FEATURES = "features"
 _ACTION_MASK = "action_mask"
 
+class CarbonLeakageFixed(Rice):
+
+    """
+    Scenario to test whether carbon leakage occurs.
+
+    Carbon leakage is an increase of emissions in one region as a 
+    result of a policy to decrease emissions in another region
+
+    We can check for carbon leakage at the policy level (do they change their mitigation rate)
+    and at the emissions level (do their absolute emissions increase)
+
+    Followup experiment
+    - create a random club of a given minimum mitigation rate
+    - run the rollout with the club and measure emissions of non-club members and measure mitigation rates of non-club members
+    - reset the env and re-run the env without the club (self.control = True) and measure the same
+    - compare the emissions / mitigation rates of the non-club members in the presence and absence of the club
+    - NOTE: it may be that emissions need to be normalized w.r.t. emissions as carbon
+    """
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="CarbonLeakage",
+                 action_space_type="discrete",  # or "continuous"
+                 dmg_function="base",
+                 carbon_model="base",
+                 temperature_calibration="base",
+                 prescribed_emissions=None,
+                 pct_reward=False,
+                 clubs_enabled = False,
+                 club_members = [],
+                 action_window = True
+            ):
+        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels, 
+                action_space_type=action_space_type,  # or "continuous"
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions,
+                pct_reward=pct_reward,
+                clubs_enabled = clubs_enabled,
+                club_members = club_members,
+                action_window = action_window)        
+
+        self.minimum_mitigation_rate = 8
+
+    def calc_action_mask(self):
+        """
+        Generate action masks.
+        """
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+
+            if self.action_window:
+                mask = self.calc_action_window(region_id)
+            else:
+                mask = self.default_agent_action_mask.copy()
+
+            if region_id in self.club_members:
+                mitigation_mask = np.array(
+                        [0 for _ in range(self.minimum_mitigation_rate)]
+                        + [
+                            1
+                            for _ in range(
+                                self.num_discrete_action_levels
+                                - self.minimum_mitigation_rate
+                            )
+                        ]
+                    )
+
+                mask_start = sum(self.savings_possible_actions)
+                mask_end = mask_start + sum(
+                        self.mitigation_rate_possible_actions
+                    )
+                mask[mask_start:mask_end] = mitigation_mask
+            else:
+                pass
+                
+            mask_dict[region_id] = mask
+
+        return mask_dict
+
 class CarbonLeakage(Rice):
 
     """
