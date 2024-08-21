@@ -342,13 +342,13 @@ class Rice(JaxBaseEnv):
             "global_acc_pert_carb_stock": jnp.array([state.global_acc_pert_carb_stock]),
         }
         public_features = {
-            "capital_all_regions": state.capital_all_regions,
-            "capital_depreciation_all_regions": state.capital_depreciation_all_regions,
-            "labor_all_regions": state.labor_all_regions,
-            "gross_output_all_regions": state.gross_output_all_regions,
-            "investment_all_regions": state.investment_all_regions,
-            "aggregate_consumption": state.aggregate_consumption,
-            "savings_all_regions": state.savings_all_regions,
+            # "capital_all_regions": state.capital_all_regions,
+            # "capital_depreciation_all_regions": state.capital_depreciation_all_regions,
+            # "labor_all_regions": state.labor_all_regions,
+            # "gross_output_all_regions": state.gross_output_all_regions,
+            # "investment_all_regions": state.investment_all_regions,
+            # "aggregate_consumption": state.aggregate_consumption,
+            # "savings_all_regions": state.savings_all_regions,
             "mitigation_rates_all_regions": state.mitigation_rates_all_regions,
             "export_limit_all_regions": state.export_limit_all_regions,
             "current_balance_all_regions": state.current_balance_all_regions,
@@ -364,6 +364,13 @@ class Rice(JaxBaseEnv):
             "utility_all_regions": state.utility_all_regions,
             # "social_welfare_all_regions": state.social_welfare_all_regions,
             # "utility_times_welfloss_all_regions": state.utility_times_welfloss_all_regions,
+
+            "capital_all_regions": state.capital_all_regions,
+            "capital_depreciation_all_regions": state.capital_depreciation_all_regions,
+            "labor_all_regions": state.labor_all_regions,
+            "gross_output_all_regions": state.gross_output_all_regions,
+            "investment_all_regions": state.investment_all_regions,
+            "aggregate_consumption": state.aggregate_consumption,
         }
 
         # Features concerning two regions

@@ -33,19 +33,19 @@ def create_ppo_networks(
 
 @chex.dataclass(frozen=True)
 class PpoTrainerParams(BaseTrainerParams):
-    learning_rate: float = 2.5e-3
+    learning_rate: float = 2.5e-4
     anneal_lr: bool = True
     gamma: float = 0.99
     gae_lambda: float = 0.95
     max_grad_norm: float = 1.0
     clip_coef: float = 0.2
-    clip_coef_vf: float = 10.0  # Depends on the reward scaling !
-    ent_coef_start: float = 1.0
+    clip_coef_vf: float = 0.5  # Depends on the reward scaling !
+    ent_coef_start: float = 2.0
     ent_coef_end: float = 0.01
     # ent_coef: float = 0.1
-    vf_coef: float = 0.25
+    vf_coef: float = 0.5
 
-    num_steps: int = 250  # steps per environment
+    num_steps: int = 100  # steps per environment
     num_minibatches: int = 4  # Number of mini-batches
     update_epochs: int = 4  # K epochs to update the policy
 
@@ -202,13 +202,14 @@ def build_ppo_trainer(
                 env.step, in_axes=(0, 0, 0)
             )(step_keys, env_state, action)
 
-            # next value "hack" used in SB3, would like a different solution
-            # but this works for now
-            # https://github.com/DLR-RM/stable-baselines3/issues/633
-            terminal_obs = info["terminal_observation"]
-            next_value = jax.vmap(jax.vmap(train_state.critic))(terminal_obs)
-            broadcasted_done = jnp.broadcast_to(done, (next_value.shape[1], next_value.shape[0])).T
-            reward += ((1 - broadcasted_done) * discount * next_value)
+            # # next value "hack" used in SB3, would like a different solution
+            # # but this works for now
+            # # https://github.com/DLR-RM/stable-baselines3/issues/633
+            # terminal_obs = info["terminal_observation"]
+            # next_value = jax.vmap(jax.vmap(train_state.critic))(terminal_obs)
+            broadcasted_done = jnp.broadcast_to(done, (reward.shape[1], reward.shape[0])).T
+            # eqx.debug.breakpoint_if(jnp.any(broadcasted_done))
+            # reward = reward + (broadcasted_done * discount * next_value)
 
             transition = Transition(
                 observation=last_obs,
@@ -232,8 +233,8 @@ def build_ppo_trainer(
                 transition.discount,
                 transition.done,
             )
-            advantage = reward + gamma * next_value * (1 - done) - value
-            gae = advantage + gamma * config.gae_lambda * (1 - done) * gae
+            delta = reward + config.gamma * next_value * (1 - done) - value
+            gae = delta + config.gamma * config.gae_lambda * (1 - done) * gae
             return (gae, value), (gae, gae + value)
 
         def _update_epoch(update_state, _):
