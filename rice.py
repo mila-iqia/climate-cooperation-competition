@@ -1320,7 +1320,7 @@ class Rice(gym.Env):
         single_actions = ["savings_all_regions", "mitigation_rates_all_regions", "export_limit_all_regions"]
         one_to_many_actions = ["import_bids_all_regions", "import_tariffs"]
         for action in single_actions:
-            previous_action = self.global_state[action]["value"][max(0,self.current_timestep-1), region_id]
+            previous_action = self.global_state[action]["value"][max(0,self.current_timestep), region_id]
             previous_action_scaled = int(previous_action*self.num_discrete_action_levels)
             mask_start, mask_end = self.get_mask_index(action.replace("_all_regions", ""))
             current_mask = base_mask[mask_start:mask_end]
@@ -1329,7 +1329,7 @@ class Rice(gym.Env):
             base_mask[mask_start:mask_end] = current_mask
 
         for action in one_to_many_actions:
-            previous_action = self.global_state[action]["value"][max(0,self.current_timestep-1), region_id]
+            previous_action = self.global_state[action]["value"][max(0,self.current_timestep), region_id]
             previous_action_scaled = previous_action*self.num_discrete_action_levels
 
             mask_start, mask_end = self.get_mask_index(action.replace("_all_regions", ""))
