@@ -135,6 +135,17 @@ def eco2Eeq(t, sigma, YGROSS, eland, CO2E_GHGabateB, MIU):
     # MIU: Emission control rate
     return (sigma[t] * YGROSS[t] + eland[t] + CO2E_GHGabateB[t]) * (1 - MIU[t])
 
+def CO2E_GHGabateB(t):
+    # Abateable non-CO2 GHG emissions base
+    # ECO2eGHGB2100: 15.5
+    # ECO2eGHGB2020: 9.96
+    ECO2eGHGB2100 = 15.5
+    ECO2eGHGB2020 = 9.96
+    if t <= 16:
+        return ECO2eGHGB2020 + ((ECO2eGHGB2100 - ECO2eGHGB2020) / 16) * (t - 1)
+    else:
+        return ECO2eGHGB2020 + (ECO2eGHGB2100 - ECO2eGHGB2020)
+    
 def F_GHGabateEQ(t, F_GHGabate, CO2E_GHGabateB, MIU, Fcoef1, Fcoef2):
     # Calculate GHG abatement factor.
     # F_GHGabate: GHG abatement

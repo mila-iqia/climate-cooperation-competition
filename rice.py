@@ -48,8 +48,10 @@ class Rice(gym.Env):
         pct_reward=False,
         clubs_enabled = False,
         club_members = [],
-        action_window = True
+        action_window = True,
+        relative_reward=True,
     ):
+        self.relative_reward = relative_reward
         self.action_space_type = action_space_type
         self.num_discrete_action_levels = num_discrete_action_levels
         if self.action_space_type == "discrete":
@@ -69,7 +71,7 @@ class Rice(gym.Env):
         self.prescribed_emissions = prescribed_emissions
         self.pct_reward = pct_reward
         self.global_state = {}
-
+        
         #mask all actions except a window around previous actions
         self.action_window = action_window
 
@@ -105,6 +107,34 @@ class Rice(gym.Env):
         )
         self.action_space = self.get_action_space()
         self.set_default_agent_action_mask()
+        if relative_reward:
+            self.baseline_rice = Rice(
+                negotiation_on=negotiation_on,
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels,
+                action_space_type=action_space_type,
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions,
+                pct_reward=pct_reward,
+                relative_reward=False,
+            )
+            self.baseline_rice.reset()
+            total_actions = self.baseline_rice.total_possible_actions
+            default_actions = {"savings": 2.5, "mitigation_rate": 0.0}
+            ind_actions = np.zeros(len(total_actions))
+            regions = list(range(self.baseline_rice.num_regions))
+            for k, v in default_actions.items():
+                start_idx = self.baseline_rice.get_actions_index(k)
+                end_idx = start_idx + self.baseline_rice.get_actions_len(k)
+                ind_actions[start_idx:end_idx] = v
+            actions = {region_id: ind_actions for region_id in regions}
+            while True:
+                obs, rew, done, truncated, info = self.baseline_rice.step(actions)
+                if done["__all__"]:
+                    break
+            self.baseline_rewards = self.baseline_rice.get_rewards()
 
     def set_discrete_action_levels(self, num_discrete_action_levels):
         self.num_discrete_action_levels = num_discrete_action_levels
@@ -134,7 +164,14 @@ class Rice(gym.Env):
             for region_id in range(self.num_regions)
         }
         return action_space
-
+    
+    def get_actions_len(self, action_type):
+        action_mappings = {
+            "savings": self.savings_possible_actions,
+            "mitigation_rate": self.mitigation_rate_possible_actions,
+        }
+        return len(action_mappings[action_type])
+    
     def softthreshold(self, x, threshold, bias=0):
         return np.sign(x) * np.maximum(np.abs(x) - threshold, 0) + bias
 
@@ -291,20 +328,38 @@ class Rice(gym.Env):
         info = {}
         return observations, rewards, terminateds, truncateds, info
 
-    def step_climate_and_economy(self, actions=None):
+    def default_actions_dict(self):
+        return {
+            "savings_all_regions": [0.25] * self.num_regions,
+            "mitigation_rates_all_regions": [0.0] * self.num_regions,
+            "export_limit_all_regions": [0.0] * self.num_regions,
+            "import_bids_all_regions": [
+                np.array([0.0] * self.num_regions),
+                np.array([0.0] * self.num_regions),
+                np.array([0.0] * self.num_regions),
+            ],
+            "import_tariffs_all_regions": [
+                np.array([0.0] * self.num_regions),
+                np.array([0.0] * self.num_regions),
+                np.array([0.0] * self.num_regions),
+            ],
+        }
+
+    def step_climate_and_economy(self, actions=None, actions_dict=None):
         self.calc_activity_timestep()
         self.is_valid_negotiation_stage(negotiation_stage=0)
         self.is_valid_actions_dict(actions)
+        if actions_dict is None:
+            actions_dict = {
+                "savings_all_regions": self.get_actions("savings", actions),
+                "mitigation_rates_all_regions": self.get_actions(
+                    "mitigation_rate", actions
+                ),
+                "export_limit_all_regions": self.get_actions("export_limit", actions),
+                "import_bids_all_regions": self.get_actions("import_bids", actions),
+                "import_tariffs_all_regions": self.get_actions("import_tariffs", actions),
+            }
 
-        actions_dict = {
-            "savings_all_regions": self.get_actions("savings", actions),
-            "mitigation_rates_all_regions": self.get_actions(
-                "mitigation_rate", actions
-            ),
-            "export_limit_all_regions": self.get_actions("export_limit", actions),
-            "import_bids_all_regions": self.get_actions("import_bids", actions),
-            "import_tariffs_all_regions": self.get_actions("import_tariffs", actions),
-        }
         if self.action_space_type == "continuous":
             actions_dict = self.cont_implement_bounds(actions_dict)
         self.set_actions_in_global_state(actions_dict)
@@ -445,7 +500,7 @@ class Rice(gym.Env):
 
             if save_state:
                 self.set_state(
-                    "capital_all_regions", capitals[region_id], region_id=region_id
+                    "capital_all6_regions", capitals[region_id], region_id=region_id
                 )
 
         return capitals
@@ -453,28 +508,53 @@ class Rice(gym.Env):
     def calc_rewards(self, utilities, welfloss_multipliers, save_state=True):
         rewards = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
-            if self.pct_reward:
-                if self.current_timestep == 1:
-                    # For the first timestep, there's no previous accumulated reward
-                    rewards[region_id] = 0  # Or some other initialization value
+            if not self.relative_reward:
+                if self.pct_reward:
+                    if self.current_timestep == 1:
+                        # For the first timestep, there's no previous accumulated reward
+                        rewards[region_id] = 0  # Or some other initialization value
+                    else:
+                        previous_acc_reward = self.get_state(
+                            "utility_all_regions",
+                            region_id=region_id,
+                            timestep=self.current_timestep - 1,
+                        ) * self.get_state(
+                            "welfloss",
+                            region_id=region_id,
+                            timestep=self.current_timestep - 1,
+                        )
+                        acc_reward = utilities[region_id] * welfloss_multipliers[region_id]
+                        rewards[region_id] = (
+                            self.percentage_adjustment(acc_reward, previous_acc_reward) - 1
+                        )
                 else:
-                    previous_acc_reward = self.get_state(
-                        "utility_all_regions",
-                        region_id=region_id,
-                        timestep=self.current_timestep - 1,
-                    ) * self.get_state(
-                        "welfloss",
-                        region_id=region_id,
-                        timestep=self.current_timestep - 1,
-                    )
-                    acc_reward = utilities[region_id] * welfloss_multipliers[region_id]
                     rewards[region_id] = (
-                        self.percentage_adjustment(acc_reward, previous_acc_reward) - 1
+                        utilities[region_id] * welfloss_multipliers[region_id]
                     )
             else:
-                rewards[region_id] = (
-                    utilities[region_id] * welfloss_multipliers[region_id]
-                )
+                if self.pct_reward:
+                    if self.current_timestep == 1:
+                        # For the first timestep, there's no previous accumulated reward
+                        rewards[region_id] = 0  # Or some other initialization value
+                    else:
+                        previous_acc_reward = self.get_state(
+                            "utility_all_regions",
+                            region_id=region_id,
+                            timestep=self.current_timestep - 1,
+                        ) * self.get_state(
+                            "welfloss",
+                            region_id=region_id,
+                            timestep=self.current_timestep - 1,
+                        )
+                        acc_reward = utilities[region_id] * welfloss_multipliers[region_id]
+                        rewards[region_id] = (
+                            self.percentage_adjustment(acc_reward, previous_acc_reward) - 1
+                        )
+                        rewards[region_id] -= self.baseline_rice.global_state["reward_all_regions"]["value"][self.current_timestep, region_id]
+                else:
+                    rewards[region_id] = (
+                        utilities[region_id] * welfloss_multipliers[region_id]
+                    ) - self.baseline_rice.global_state["reward_all_regions"]["value"][self.current_timestep, region_id]
             self.set_state(
                 "reward_all_regions", rewards[region_id], region_id=region_id
             )
@@ -769,7 +849,9 @@ class Rice(gym.Env):
         return normalized_import_bids_all_regions
 
     def calc_trade_sanctions(self, gross_imports, save_state=True):
-        import_tariffs = self.get_prev_state("import_tariffs_all_regions")
+        import_tariffs = self.get_prev_state(
+            "import_tariffs_all_regions"
+        )  # TODO: make them consistent?
         net_imports = np.zeros(
             (self.num_regions, self.num_regions), dtype=self.float_dtype
         )
@@ -1307,9 +1389,7 @@ class Rice(gym.Env):
                     + self.export_limit_possible_actions
                     + self.import_bids_possible_actions
                     + self.import_tariff_possible_actions)
-                
-           
-    
+
     def calc_action_window(self, region_id):
         """
         create mask around all actions not adjacent to the previous action.
@@ -1358,7 +1438,6 @@ class Rice(gym.Env):
         """
         mask_dict = {region_id: None for region_id in range(self.num_regions)}
         for region_id in range(self.num_regions):
-
             if self.action_window:
                 mask = self.calc_action_window(region_id)
             else:
