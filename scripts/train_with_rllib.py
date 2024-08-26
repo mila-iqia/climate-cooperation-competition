@@ -42,7 +42,8 @@ SCENARIO_MAPPING = {
     "MinimalMitigation":MinimalMitigation,
     "BasicClub":BasicClub,
     "ExportAction":ExportAction,
-    "CarbonLeakage":CarbonLeakage
+    "CarbonLeakage":CarbonLeakage,
+    "CarbonLeakageFixed":CarbonLeakageFixed
 }
 
 def get_config_yaml(yaml_path):
@@ -248,24 +249,52 @@ def get_multiagent_policies_config(config_yaml=None, env_object=None):
 
     # Define all the policies here
     regions_policy_config = config_yaml["policy"]["regions"]
-
-
+    multi_model = config_yaml["policy"]["multi_model"]
+    env_config = config_yaml["env"]
     # Map of type MultiAgentPolicyConfigDict from policy ids to tuples
     # of (policy_cls, obs_space, act_space, config). This defines the
     # observation and action spaces of the policies and any extra config.
-    policies = {
-        "regions": (
-            None,  # uses default policy
-            env_object.observation_space[0],
-            env_object.action_space["0"],
-            regions_policy_config,
-        ),
-    }
+    if multi_model and env_config["clubs_enabled"]:
+        policies = {
+            "regionsclub": (
+                None,  # uses default policy
+                env_object.observation_space[0],
+                env_object.action_space["0"],
+                regions_policy_config,
+            ),
+            "regionsnonclub": (
+                None,  # uses default policy
+                env_object.observation_space[0],
+                env_object.action_space["0"],
+                regions_policy_config,
+            ),
+        }
 
-    # Function mapping agent ids to policy ids.
-    def policy_mapping_fn(agent_id=None, episode=None, worker=None, **kwargs ):
-        assert agent_id is not None
-        return "regions"
+        
+        club_members = env_config["club_members"]
+        # Function mapping agent ids to policy ids.
+        def policy_mapping_fn(agent_id=None, episode=None, worker=None, **kwargs ):
+            assert agent_id is not None
+            if agent_id in club_members:
+                return "regionsclub"
+            else:
+                return "regionsnonclub"
+
+    else:
+        policies = {
+            "regions": (
+                None,  # uses default policy
+                env_object.observation_space[0],
+                env_object.action_space["0"],
+                regions_policy_config,
+            ),
+        }
+
+        # Function mapping agent ids to policy ids.
+        def policy_mapping_fn(agent_id=None, episode=None, worker=None, **kwargs ):
+            assert agent_id is not None
+            return "regions"
+
 
     # Optional list of policies to train, or None for all policies.
     policies_to_train = None
@@ -618,7 +647,7 @@ if __name__ == "__main__":
     
     
     episode_length = env_obj.episode_length
-    num_iters = (num_episodes * episode_length) // train_batch_size
+    num_iters = 3#(num_episodes * episode_length) // train_batch_size
     for iteration in tqdm(range(num_iters)):
         print(
             f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"
@@ -634,10 +663,20 @@ if __name__ == "__main__":
                 },
                 step=result["episodes_total"],
             )
-            wandb.log(
-                result["info"]["learner"]["regions"]["learner_stats"],
-                step=result["episodes_total"],
-            )
+            if config_yaml["env"]["clubs_enabled"] and config_yaml["policy"]["multi_model"]:
+                wandb.log(
+                    result["info"]["learner"]["regionsclub"]["learner_stats"],
+                    step=result["episodes_total"],
+                )
+                wandb.log(
+                    result["info"]["learner"]["regionsnonclub"]["learner_stats"],
+                    step=result["episodes_total"],
+                )
+            else:
+                wandb.log(
+                    result["info"]["learner"]["regions"]["learner_stats"],
+                    step=result["episodes_total"],
+                )
 
         total_timesteps = result.get("timesteps_total")
         if (

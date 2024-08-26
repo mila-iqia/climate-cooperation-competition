@@ -37,8 +37,9 @@ env:
     carbon_model: "base"
     temperature_calibration: "base"
     pct_reward: False
-    clubs_enabled: True
+    clubs_enabled: False
     club_members: [1]
+    action_window: True
 
 regions:
     num_agents: 3 #can be either {3,7,20,27}
