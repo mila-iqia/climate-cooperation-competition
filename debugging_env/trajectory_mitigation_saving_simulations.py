@@ -195,7 +195,7 @@ if __name__ == "__main__":
         damage_type="updated",
         abatement_cost_type="path_dependent",
         debugging_folder=None,
-        carbon_model="FaIR",
+        carbon_model="base",
         prescribed_emissions=None,
         temperature_calibration=None,
         mitigation_type=type_,
