@@ -6,6 +6,18 @@ from copy import deepcopy
 import pickle
 from fire import Fire
 import random
+import json
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NumpyEncoder, self).default(obj)
 
 
 with open(
@@ -85,7 +97,7 @@ def run_single_experiment(
 ):
     if is_wandb:
         # Initialize a wandb run
-        run = wandb.init(project="ricen-fair-movingdiff-mitigation-pct_reward")
+        run = wandb.init(project="ricen-fair-movingdiff-mitigation-pct-relative-reward")
         wandb.config.update(locals())
     # Create the Rice environment
     if temperature_calibration is None:
@@ -103,6 +115,19 @@ def run_single_experiment(
         temperature_calibration=temperature_calibration,
     )
     env.reset()
+    if isinstance(mitigation_rate, (list, tuple, np.ndarray)):
+        mitigation_rate_str = "".join(str(num) for num in mitigation_rate)
+    elif isinstance(mitigation_rate, (int, float)):
+        mitigation_rate_str = str(mitigation_rate)
+    else:
+        raise ValueError(f"Invalid mitigation_rate type {type(mitigation_rate)}")
+
+    if isinstance(savings_rate, (list, tuple, np.ndarray)):
+        savings_rate_str = "".join(str(num) for num in savings_rate)
+    elif isinstance(savings_rate, (int, float)):
+        savings_rate_str = str(savings_rate)
+    else:
+        raise ValueError(f"Invalid savings_rate type {type(savings_rate)}")
 
     if is_wandb:
         if mitigation_rate is not None:
@@ -131,6 +156,7 @@ def run_single_experiment(
         s_r = savings_rates.pop(0)
     else:
         s_r = savings_rate
+    all_states = []
     while True:  # Or some other condition to terminate the loop
         current_timestep = env.current_timestep
         current_states = get_state_at_time_t(
@@ -156,11 +182,18 @@ def run_single_experiment(
         # Log the current states, not the empty 'result' variable
         if is_wandb:
             wandb.log(current_states)
+        all_states.append(current_states)
         ind_actions = RiceAction({"savings": s_r, "mitigation_rate": m_r}).actions
 
         actions = {region_id: ind_actions for region_id in regions}
         obs, rew, done, truncated, info = env.step(actions)
         if done["__all__"]:
+            # save a copy of current_states as json file locally
+            with open(
+                f"debugging_env/save_results/m_{mitigation_rate_str}_s_{savings_rate_str}_p_{pliability}_d_{damage_type}_a_{abatement_cost_type}_v_{env.num_regions}_c_{carbon_model}_pe_{prescribed_emissions}_tc_{temperature_calibration}.json",
+                "w",
+            ) as f:
+                json.dump(all_states, f, cls=NumpyEncoder, indent=4)
             break
     if is_wandb:
         wandb.finish()
@@ -174,22 +207,9 @@ if __name__ == "__main__":
     # run_single_experiment(is_wandb=True, mitigation_rate = [0,0,0,0,0,0,0,0,0,9,9,9,9,9,9,9,9,9,9], savings_rate=1)
     # run_single_experiment(is_wandb=False, mitigation_rate = [0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9], savings_rate=1, pliability=0.9, damage_type="updated", abatement_cost_type="path_dependent")
     # run_single_experiment(is_wandb=True, mitigation_rate = [0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9], savings_rate=1, pliability=0, damage_type="updated", abatement_cost_type="path_dependent")
-    # run_single_experiment(
-    #     is_wandb=True,
-    #     mitigation_rate=lst,
-    #     savings_rate=2.5,
-    #     pliability=0.4,
-    #     damage_type="updated",
-    #     abatement_cost_type="path_dependent",
-    #     debugging_folder=None,
-    #     carbon_model="FaIR",
-    #     prescribed_emissions=None,
-    #     temperature_calibration=None,
-    #     mitigation_type=type_,
-    # )
     run_single_experiment(
         is_wandb=True,
-        mitigation_rate=[0] * 19,
+        mitigation_rate=lst,
         savings_rate=2.5,
         pliability=0.4,
         damage_type="updated",
@@ -200,3 +220,16 @@ if __name__ == "__main__":
         temperature_calibration=None,
         mitigation_type=type_,
     )
+    # run_single_experiment(
+    #     is_wandb=True,
+    #     mitigation_rate=[0] * 19,
+    #     savings_rate=2.5,
+    #     pliability=0.4,
+    #     damage_type="updated",
+    #     abatement_cost_type="path_dependent",
+    #     debugging_folder=None,
+    #     carbon_model="base",
+    #     prescribed_emissions=None,
+    #     temperature_calibration=None,
+    #     mitigation_type=type_,
+    # )
