@@ -49,7 +49,12 @@ class Rice(gym.Env):
         temperature_calibration="base",
         prescribed_emissions=None,
         scenario="default",
+        clubs_enabled=False,
+        club_members=[],
+        action_window=True,
+        relative_reward=True,
     ):
+        self.relative_reward = relative_reward
         self.action_space_type = action_space_type
         self.num_discrete_action_levels = num_discrete_action_levels
         if self.action_space_type == "discrete":
@@ -60,22 +65,30 @@ class Rice(gym.Env):
             assert (
                 self.num_discrete_action_levels == 1
             ), "The number of discrete action levels must be 1 for continuous action space."
-
         # Potential additions for improved DICE model
         self.debugging_folder = debugging_folder
         self.pct_reward = pct_reward
         self.dmg_function = dmg_function
         self.abatement_cost_type = abatement_cost_type
         self.pliability = pliability
+        self.dmg_function = dmg_function
         self.carbon_model = carbon_model
         self.temperature_calibration = temperature_calibration
 
         # Add option to define own emissions path as a list of 21 emission values in CO2
         self.prescribed_emissions = prescribed_emissions
-
+        self.pct_reward = pct_reward
         self.global_state = {}
-
         self.set_discrete_action_levels(num_discrete_action_levels)
+
+        # mask all actions except a window around previous actions
+        self.action_window = action_window
+
+        # clubs
+        self.clubs_enabled = clubs_enabled
+        if self.clubs_enabled:
+            self.club_members = club_members
+
         self.set_dtypes()
 
         self.set_all_region_params()
@@ -90,6 +103,7 @@ class Rice(gym.Env):
         self.activity_timestep = None
         self.negotiation_on = negotiation_on
         self.apply_welfloss = True
+        self.apply_welfgain = True
         if self.negotiation_on:
             self.negotiation_stage = 0
             self.num_negotiation_stages = 2
@@ -102,6 +116,34 @@ class Rice(gym.Env):
         )
         self.action_space = self.get_action_space()
         self.set_default_agent_action_mask()
+        if relative_reward:
+            self.baseline_rice = Rice(
+                negotiation_on=negotiation_on,
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels,
+                action_space_type=action_space_type,
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions,
+                pct_reward=pct_reward,
+                relative_reward=False,
+            )
+            self.baseline_rice.reset()
+            total_actions = self.baseline_rice.total_possible_actions
+            default_actions = {"savings": 2.5, "mitigation_rate": 0.0}
+            ind_actions = np.zeros(len(total_actions))
+            regions = list(range(self.baseline_rice.num_regions))
+            for k, v in default_actions.items():
+                start_idx = self.baseline_rice.get_actions_index(k)
+                end_idx = start_idx + self.baseline_rice.get_actions_len(k)
+                ind_actions[start_idx:end_idx] = v
+            actions = {region_id: ind_actions for region_id in regions}
+            while True:
+                obs, rew, done, truncated, info = self.baseline_rice.step(actions)
+                if done["__all__"]:
+                    break
+            self.baseline_rewards = self.baseline_rice.get_rewards()
 
     def set_discrete_action_levels(self, num_discrete_action_levels):
         self.num_discrete_action_levels = num_discrete_action_levels
@@ -131,6 +173,25 @@ class Rice(gym.Env):
             for region_id in range(self.num_regions)
         }
         return action_space
+
+    def get_actions_len(self, action_type):
+        action_mappings = {
+            "savings": self.savings_possible_actions,
+            "mitigation_rate": self.mitigation_rate_possible_actions,
+        }
+        return len(action_mappings[action_type])
+
+    def softthreshold(self, x, threshold, bias=0):
+        return np.sign(x) * np.maximum(np.abs(x) - threshold, 0) + bias
+
+    def percentage_adjustment(self, numerator, denominator):
+        # This function is used to handle division by zero and small values
+        if np.abs(denominator) < 1e-2 and np.abs(numerator) < 1e-2:
+            return 0
+        elif np.abs(denominator) < 1e-2:
+            return 1e-2
+        else:
+            return self.softthreshold(numerator / denominator - 1, 1e-3)
 
     def get_action_space(self):
         if self.action_space_type == "discrete":
@@ -163,13 +224,14 @@ class Rice(gym.Env):
         self.reset_state("intensity_all_regions")
         self.reset_state("mitigation_rates_all_regions")
 
-        # additional climate states for carbon model
+        # additional climate states for carbon and temperature model
         self.reset_state("global_alpha")
         self.reset_state("global_carbon_reservoirs")
         self.reset_state("global_cumulative_emissions")
         self.reset_state("global_cumulative_land_emissions")
         self.reset_state("global_emissions")
         self.reset_state("global_acc_pert_carb_stock")
+        self.reset_state("global_temperature_boxes")
 
         # economic states
         self.reset_state("production_all_regions")
@@ -275,21 +337,42 @@ class Rice(gym.Env):
         info = {}
         return observations, rewards, terminateds, truncateds, info
 
-    def step_climate_and_economy(self, actions=None):
+    def default_actions_dict(self):
+        return {
+            "savings_all_regions": [0.25] * self.num_regions,
+            "mitigation_rates_all_regions": [0.0] * self.num_regions,
+            "export_limit_all_regions": [0.0] * self.num_regions,
+            "import_bids_all_regions": [
+                np.array([0.0] * self.num_regions),
+                np.array([0.0] * self.num_regions),
+                np.array([0.0] * self.num_regions),
+            ],
+            "import_tariffs_all_regions": [
+                np.array([0.0] * self.num_regions),
+                np.array([0.0] * self.num_regions),
+                np.array([0.0] * self.num_regions),
+            ],
+        }
+
+    def step_climate_and_economy(self, actions=None, actions_dict=None):
         self.calc_activity_timestep()
         self.is_valid_negotiation_stage(negotiation_stage=0)
         self.is_valid_actions_dict(actions)
+        if actions_dict is None:
+            actions_dict = {
+                "savings_all_regions": self.get_actions("savings", actions),
+                "mitigation_rates_all_regions": self.get_actions(
+                    "mitigation_rate", actions
+                ),
+                "export_limit_all_regions": self.get_actions("export_limit", actions),
+                "import_bids_all_regions": self.get_actions("import_bids", actions),
+                "import_tariffs_all_regions": self.get_actions(
+                    "import_tariffs", actions
+                ),
+            }
 
-        actions_dict = {
-            "savings_all_regions": self.get_actions("savings", actions),
-            "mitigation_rates_all_regions": self.get_actions(
-                "mitigation_rate", actions
-            ),
-            "export_limit_all_regions": self.get_actions("export_limit", actions),
-            "import_bids_all_regions": self.get_actions("import_bids", actions),
-            "import_tariffs_all_regions": self.get_actions("import_tariffs", actions),
-        }
-
+        if self.action_space_type == "continuous":
+            actions_dict = self.cont_implement_bounds(actions_dict)
         self.set_actions_in_global_state(actions_dict)
 
         damages = self.calc_damages()
@@ -318,7 +401,7 @@ class Rice(gym.Env):
 
         tariff_revenues, net_imports = self.calc_trade_sanctions(gross_imports)
         welfloss_multipliers = self.calc_welfloss_multiplier(
-            gross_outputs, gross_imports
+            gross_outputs, gross_imports, net_imports
         )
 
         consumptions = self.calc_consumptions(
@@ -436,22 +519,63 @@ class Rice(gym.Env):
     def calc_rewards(self, utilities, welfloss_multipliers, save_state=True):
         rewards = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
-            if self.pct_reward:
-                previous_acc_reward = self.get_state(
-                    "utility_all_regions",
-                    region_id=region_id,
-                    timestep=self.current_timestep - 1,
-                ) * self.get_state(
-                    "welfloss",
-                    region_id=region_id,
-                    timestep=self.current_timestep - 1,
-                )
-                acc_reward = utilities[region_id] * welfloss_multipliers[region_id]
-                rewards[region_id] = acc_reward / previous_acc_reward - 1
+            if not self.relative_reward:
+                if self.pct_reward:
+                    if self.current_timestep == 1:
+                        # For the first timestep, there's no previous accumulated reward
+                        rewards[region_id] = 0  # Or some other initialization value
+                    else:
+                        previous_acc_reward = self.get_state(
+                            "utility_all_regions",
+                            region_id=region_id,
+                            timestep=self.current_timestep - 1,
+                        ) * self.get_state(
+                            "welfloss",
+                            region_id=region_id,
+                            timestep=self.current_timestep - 1,
+                        )
+                        acc_reward = (
+                            utilities[region_id] * welfloss_multipliers[region_id]
+                        )
+                        rewards[region_id] = (
+                            self.percentage_adjustment(acc_reward, previous_acc_reward)
+                            - 1
+                        )
+                else:
+                    rewards[region_id] = (
+                        utilities[region_id] * welfloss_multipliers[region_id]
+                    )
             else:
-                rewards[region_id] = (
-                    utilities[region_id] * welfloss_multipliers[region_id]
-                )
+                if self.pct_reward:
+                    if self.current_timestep == 1:
+                        # For the first timestep, there's no previous accumulated reward
+                        rewards[region_id] = 0  # Or some other initialization value
+                    else:
+                        previous_acc_reward = self.get_state(
+                            "utility_all_regions",
+                            region_id=region_id,
+                            timestep=self.current_timestep - 1,
+                        ) * self.get_state(
+                            "welfloss",
+                            region_id=region_id,
+                            timestep=self.current_timestep - 1,
+                        )
+                        acc_reward = (
+                            utilities[region_id] * welfloss_multipliers[region_id]
+                        )
+                        rewards[region_id] = (
+                            self.percentage_adjustment(acc_reward, previous_acc_reward)
+                            - 1
+                        )
+                        rewards[region_id] -= self.baseline_rice.global_state[
+                            "reward_all_regions"
+                        ]["value"][self.current_timestep, region_id]
+                else:
+                    rewards[region_id] = (
+                        utilities[region_id] * welfloss_multipliers[region_id]
+                    ) - self.baseline_rice.global_state["reward_all_regions"]["value"][
+                        self.current_timestep, region_id
+                    ]
             self.set_state(
                 "reward_all_regions", rewards[region_id], region_id=region_id
             )
@@ -735,7 +859,6 @@ class Rice(gym.Env):
         return abatement_costs
 
     def calc_mitigation_costs(self, save_state=True):
-        # \theta_1,i,t is the cost of mitigation_cost
         mitigation_costs = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             regional_params = self.all_regions_params[region_id]
@@ -792,7 +915,9 @@ class Rice(gym.Env):
         return normalized_import_bids_all_regions
 
     def calc_trade_sanctions(self, gross_imports, save_state=True):
-        import_tariffs = self.get_prev_state("import_tariffs_all_regions")
+        import_tariffs = self.get_prev_state(
+            "import_tariffs_all_regions"
+        )  # TODO: make them consistent?
         net_imports = np.zeros(
             (self.num_regions, self.num_regions), dtype=self.float_dtype
         )
@@ -825,7 +950,9 @@ class Rice(gym.Env):
         self,
         gross_outputs,
         gross_imports,
+        net_imports,
         welfare_loss_per_unit_tariff=None,
+        welfare_gain_per_unit_exported=None,
         save_state=True,
     ):
         """Calculate the welfare loss multiplier of exporting region due to being tariffed."""
@@ -834,6 +961,8 @@ class Rice(gym.Env):
 
         if welfare_loss_per_unit_tariff is None:
             welfare_loss_per_unit_tariff = 0.4  # From Nordhaus 2015
+        if welfare_gain_per_unit_exported is None:
+            welfare_gain_per_unit_exported = 0.4
 
         import_tariffs = self.get_prev_state("import_tariffs_all_regions")
         welfloss = np.ones((self.num_regions), dtype=self.float_dtype)
@@ -848,6 +977,13 @@ class Rice(gym.Env):
                     * import_tariffs[destination_region, region_id]
                     * welfare_loss_per_unit_tariff
                 )
+
+                if self.apply_welfgain:
+                    welfloss[region_id] += (
+                        (net_imports[destination_region, region_id])
+                        / gross_outputs[region_id]
+                        * welfare_gain_per_unit_exported
+                    )
 
         if save_state:
             self.set_state("welfloss", welfloss)
@@ -959,6 +1095,56 @@ class Rice(gym.Env):
 
             return global_temperature
 
+        elif self.temperature_calibration == "DFaIR":
+            global_exogenous_emissions = self.calc_exogenous_emissions()
+            prev_carbon_mass = self.get_prev_state("global_carbon_mass")
+            prev_global_temperature = self.get_prev_state("global_temperature")
+            prev_global_temperature_boxes = self.get_prev_state(
+                "global_temperature_boxes"
+            )
+
+            # TODO: why the zero index?
+            # global_exogenous_emissions = global_exogenous_emissions[0]
+            prev_atmospheric_carbon_mass = prev_carbon_mass[0]
+            atmospheric_carbon_mass = np.array(
+                self.all_regions_params[0]["xM_AT_1750"]
+            )  # Equilibrium atmospheric carbon mass
+            f_2x = np.array(self.all_regions_params[0]["xF_2x"])
+
+            d = np.array(
+                [
+                    self.all_regions_params[0]["xT_LO_rt"],
+                    self.all_regions_params[0]["xT_UO_rt"],
+                ]
+            )
+            teq = np.array(
+                [
+                    self.all_regions_params[0]["xT_LO_tq"],
+                    self.all_regions_params[0]["xT_UO_tq"],
+                ]
+            )
+
+            forcings = (
+                f_2x
+                * np.log(prev_atmospheric_carbon_mass / atmospheric_carbon_mass)
+                / np.log(2)
+                + global_exogenous_emissions
+            )
+
+            global_temperature_boxes = prev_global_temperature_boxes * np.exp(
+                -5 / d
+            ) + teq * forcings * (1 - np.exp(-5 / d))
+
+            if save_state:
+                self.set_state("global_temperature_boxes", global_temperature_boxes)
+
+            global_temperature = np.array([np.sum(global_temperature_boxes), 0])
+
+            if save_state:
+                self.set_state("global_temperature", global_temperature)
+
+            return global_temperature
+
     def calc_global_carbon_mass(self, productions, save_state=True):
         if self.carbon_model == "base":
             global_land_emissions = self.calc_land_emissions()
@@ -994,7 +1180,7 @@ class Rice(gym.Env):
 
             global_carbon_mass += np.dot(self.all_regions_params[0]["xB_M"], sum_aux_m)
 
-        elif self.carbon_model in ["FaIR", "AR5"]:
+        elif self.carbon_model in ["FaIR", "AR5", "DFaIR"]:
             prev_global_land_emissions = self.get_prev_state("global_land_emissions")
             prev_global_emissions = self.get_prev_state("global_emissions")
             prev_global_carbon_reservoirs = self.get_prev_state(
@@ -1015,16 +1201,22 @@ class Rice(gym.Env):
             tau = np.array([self.all_regions_params[0][f"xM_t{i}"] for i in range(4)])
             C0 = self.all_regions_params[0]["xM_AT_1750"]
 
+            irf0, irC, irT = (
+                self.all_regions_params[0]["irf0"],
+                self.all_regions_params[0]["irC"],
+                self.all_regions_params[0]["irT"],
+            )
+
             # DAE determines given concentrations and temperature how much the reservoirs can absorb
-            if self.carbon_model == "FaIR":
+            if self.carbon_model in ["FaIR", "DFaIR"]:
                 prev_global_alpha = self.get_prev_state("global_alpha")
 
                 def DAE_(oneoveralpha):
                     b = a * tau * (1 - np.exp(-100 * oneoveralpha / tau))
                     return np.sum(b) - oneoveralpha * (
-                        35
-                        + 0.019 * prev_global_acc_pert_carb_stock
-                        + 4.165 * prev_global_temperature[0]
+                        irf0
+                        + irC * prev_global_acc_pert_carb_stock
+                        + irT * prev_global_temperature[0]
                     )
 
                 global_alpha = 1 / newton(DAE_, x0=1 / prev_global_alpha)
@@ -1093,14 +1285,21 @@ class Rice(gym.Env):
                 self.set_state(
                     "global_cumulative_land_emissions", global_cumulative_land_emissions
                 )
-
-            global_carbon_reservoirs = prev_global_carbon_reservoirs ** np.exp(
-                -5 / (global_alpha * tau)
-            ) + a * sum_aux_m / 5 * conv * (
-                np.exp(-1 / (global_alpha * tau)) - np.exp(-6 / (global_alpha * tau))
-            ) / (
-                1 - np.exp(-1 / (global_alpha * tau))
-            )
+            if self.carbon_model in ["AR5", "FaIR"]:
+                global_carbon_reservoirs = prev_global_carbon_reservoirs ** np.exp(
+                    -5 / (global_alpha * tau)
+                ) + a * sum_aux_m / 5 * conv * (
+                    np.exp(-1 / (global_alpha * tau))
+                    - np.exp(-6 / (global_alpha * tau))
+                ) / (
+                    1 - np.exp(-1 / (global_alpha * tau))
+                )
+            elif self.carbon_model == "DFaIR":
+                global_carbon_reservoirs = prev_global_carbon_reservoirs * np.exp(
+                    -5 / (tau * global_alpha)
+                ) + a * sum_aux_m / 5 * conv * tau * global_alpha * (
+                    1 - np.exp(-5 / (global_alpha * tau))
+                )
             if save_state:
                 self.set_state("global_carbon_reservoirs", global_carbon_reservoirs)
 
@@ -1227,13 +1426,121 @@ class Rice(gym.Env):
 
         return normalized_import_bids_all_regions
 
+    def get_mask_index(self, action_type):
+        """get start and end index for a particular action"""
+
+        if action_type == "savings":
+            return 0, sum(self.savings_possible_actions)
+        if action_type == "mitigation_rates":
+            return sum(self.savings_possible_actions), sum(
+                self.savings_possible_actions + self.mitigation_rate_possible_actions
+            )
+        if action_type == "export_limit":
+            return sum(
+                self.savings_possible_actions + self.mitigation_rate_possible_actions
+            ), sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+            )
+        if action_type == "import_bids":
+            return sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+            ), sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions
+            )
+        if action_type == "import_tariffs":
+            return sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions
+            ), sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions
+                + self.import_tariff_possible_actions
+            )
+
+    def calc_action_window(self, region_id):
+        """
+        create mask around all actions not adjacent to the previous action.
+        """
+
+        base_mask = self.default_agent_action_mask.copy()
+        single_actions = [
+            "savings_all_regions",
+            "mitigation_rates_all_regions",
+            "export_limit_all_regions",
+        ]
+        one_to_many_actions = ["import_bids_all_regions", "import_tariffs"]
+        for action in single_actions:
+            previous_action = self.global_state[action]["value"][
+                max(0, self.current_timestep), region_id
+            ]
+            previous_action_scaled = int(
+                previous_action * self.num_discrete_action_levels
+            )
+            mask_start, mask_end = self.get_mask_index(
+                action.replace("_all_regions", "")
+            )
+            current_mask = base_mask[mask_start:mask_end]
+            current_mask[:] = 0
+            current_mask[
+                max(0, previous_action_scaled - 1) : min(
+                    self.num_discrete_action_levels, previous_action_scaled + 2
+                )
+            ] = 1
+            base_mask[mask_start:mask_end] = current_mask
+
+        for action in one_to_many_actions:
+            previous_action = self.global_state[action]["value"][
+                max(0, self.current_timestep), region_id
+            ]
+            previous_action_scaled = previous_action * self.num_discrete_action_levels
+
+            mask_start, mask_end = self.get_mask_index(
+                action.replace("_all_regions", "")
+            )
+            extendable_mask = []
+            for other_region_id in range(self.num_agents):
+
+                if region_id == other_region_id:
+                    other_region_mask = [1] + [0] * (
+                        self.num_discrete_action_levels - 1
+                    )
+                else:
+                    other_region_mask = np.zeros(self.num_discrete_action_levels)
+                    previous_action_other_region = int(
+                        previous_action_scaled[other_region_id]
+                    )
+                    other_region_mask[
+                        max(0, previous_action_other_region - 1) : min(
+                            self.num_discrete_action_levels,
+                            previous_action_other_region + 2,
+                        )
+                    ] = 1
+                extendable_mask.extend(list(other_region_mask))
+
+            base_mask[mask_start:mask_end] = np.array(extendable_mask)
+        return base_mask.astype(int)
+
     def calc_action_mask(self):
         """
         Generate action masks.
         """
         mask_dict = {region_id: None for region_id in range(self.num_regions)}
         for region_id in range(self.num_regions):
-            mask = self.default_agent_action_mask.copy()
+            if self.action_window:
+                mask = self.calc_action_window(region_id)
+            else:
+                mask = self.default_agent_action_mask.copy()
             if self.negotiation_on:
                 mask_start = sum(self.savings_possible_actions)
                 mask_end = mask_start + sum(self.mitigation_rate_possible_actions)
@@ -1570,6 +1877,7 @@ class Rice(gym.Env):
             "global_exogenous_emissions",
             "global_land_emissions",
             "timestep",
+            "global_temperature_boxes",
             "global_carbon_reservoirs",
             "global_cumulative_emissions",
             "global_cumulative_land_emissions",
@@ -1697,6 +2005,88 @@ class Rice(gym.Env):
         #     print("flag")
         return obs_dict
 
+    def cont_bound_scheduler(self, x, t, type_="pow", k=1):
+        """
+        Calculate the function value based on the provided version.
+
+        Parameters:
+            x (float): The fixed value for x, should be in the interval [0, 1].
+            t (float): The value of t, should be greater than 0.
+            type_ (str): Specifies the version of the function to use.
+                        exp for exponential decay, pow for power decay.
+            k (float): The decay rate for the decay. The larger the faster but always slower
+
+        Returns:
+            float: The result of the function calculation.
+        """
+        x_mask = np.logical_and(x > 0, x < 1)
+        if np.all(x == 0) or np.all(x == 1):
+            return [np.zeros(x.shape), np.ones(x.shape)]
+        if type_ == "exp":
+            u = x * np.exp(t / k)
+            l = x * (1 - np.exp(t / k))
+        elif type_ == "pow":
+            u = x + (t / k) ** 2
+            l = x - (t / k) ** 2
+        else:
+            raise ValueError(f"Unknown type: {type_}")
+        l = x_mask * l  # make 0 or 1 input to have 0 as lower bound
+        u = x_mask * u + (1 - x_mask)  # make 0 or 1 input to have 1 as upper bound
+        return [l, u]
+
+    # def cont_override_action(self, action, bound):
+    #     if action > bound[1]:
+    #         action = bound[1]
+    #     elif action < bound[0]:
+    #         action = bound[0]
+    #     return action
+
+    def cont_override_action_batch(self, actions, bounds):
+        # Ensure actions and bounds are numpy arrays
+        actions = np.array(actions)
+        lower_bounds = bounds[0]
+        upper_bounds = bounds[1]
+
+        # Apply the bounds using vectorized operations
+        clipped_actions = np.clip(actions, lower_bounds, upper_bounds)
+
+        return clipped_actions
+
+    def cont_implement_bounds(self, actions_dict):
+        keys = {
+            "xsaving_0": "savings_all_regions",
+            "xmitigation_0": "mitigation_rates_all_regions",
+            "xexport": "export_limit_all_regions",
+            "ximport": "import_bids_all_regions",
+        }
+        for k, v in keys.items():
+            if k != "ximport":
+                bounds = self.cont_bound_scheduler(
+                    x=np.array([d[k] for d in self.all_regions_params]),
+                    t=self.current_timestep,
+                    type_="pow",
+                    k=8,
+                )
+                clipped_actions = self.cont_override_action_batch(
+                    actions=np.array(actions_dict[v]), bounds=bounds
+                )
+                actions_dict[v] = clipped_actions
+            else:
+                for region_id in range(1, 1 + self.num_regions):
+                    bounds = self.cont_bound_scheduler(
+                        x=np.array(
+                            [d[k][str(region_id)] for d in self.all_regions_params]
+                        ),
+                        t=self.current_timestep,
+                        type_="pow",
+                        k=8,
+                    )
+                    clipped_actions = self.cont_override_action_batch(
+                        actions=np.array(actions_dict[v][region_id - 1]), bounds=bounds
+                    )
+                    actions_dict[v][region_id - 1] = clipped_actions
+        return actions_dict
+
     def get_rewards(self):
         # regions Ids must be strings
         return {
@@ -1819,6 +2209,23 @@ class Rice(gym.Env):
                     ),
                     norm=1e1,
                 )
+            elif self.temperature_calibration == "DFaIR":
+                self.set_state(
+                    key,
+                    value=np.array(
+                        [
+                            params[0]["xT_LO_0"] + params[0]["xT_UO_0"],
+                            params[0]["xT_LO_0"],
+                        ]
+                    ),
+                    norm=1e1,
+                )
+        if key == "global_temperature_boxes":
+            self.set_state(
+                key,
+                value=np.array([params[0]["xT_LO_0"], params[0]["xT_UO_0"]]),
+                norm=1e1,
+            )
 
         if key == "global_carbon_mass":
             self.set_state(
@@ -1894,7 +2301,6 @@ class Rice(gym.Env):
             "promised_mitigation_rate",
         ]:
             self.set_state(key, value=np.zeros((self.num_regions, self.num_regions)))
-
         if key == "import_bids_all_regions":
             self.set_state(
                 key,

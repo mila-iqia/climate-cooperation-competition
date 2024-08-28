@@ -46,9 +46,9 @@ class Rice(gym.Env):
         temperature_calibration="base",
         prescribed_emissions=None,
         pct_reward=False,
-        clubs_enabled = False,
-        club_members = [],
-        action_window = True,
+        clubs_enabled=False,
+        club_members=[],
+        action_window=True,
         relative_reward=True,
     ):
         self.relative_reward = relative_reward
@@ -71,11 +71,11 @@ class Rice(gym.Env):
         self.prescribed_emissions = prescribed_emissions
         self.pct_reward = pct_reward
         self.global_state = {}
-        
-        #mask all actions except a window around previous actions
+
+        # mask all actions except a window around previous actions
         self.action_window = action_window
 
-        #clubs
+        # clubs
         self.clubs_enabled = clubs_enabled
         if self.clubs_enabled:
             self.club_members = club_members
@@ -164,14 +164,14 @@ class Rice(gym.Env):
             for region_id in range(self.num_regions)
         }
         return action_space
-    
+
     def get_actions_len(self, action_type):
         action_mappings = {
             "savings": self.savings_possible_actions,
             "mitigation_rate": self.mitigation_rate_possible_actions,
         }
         return len(action_mappings[action_type])
-    
+
     def softthreshold(self, x, threshold, bias=0):
         return np.sign(x) * np.maximum(np.abs(x) - threshold, 0) + bias
 
@@ -357,7 +357,9 @@ class Rice(gym.Env):
                 ),
                 "export_limit_all_regions": self.get_actions("export_limit", actions),
                 "import_bids_all_regions": self.get_actions("import_bids", actions),
-                "import_tariffs_all_regions": self.get_actions("import_tariffs", actions),
+                "import_tariffs_all_regions": self.get_actions(
+                    "import_tariffs", actions
+                ),
             }
 
         if self.action_space_type == "continuous":
@@ -500,7 +502,7 @@ class Rice(gym.Env):
 
             if save_state:
                 self.set_state(
-                    "capital_all6_regions", capitals[region_id], region_id=region_id
+                    "capital_all_regions", capitals[region_id], region_id=region_id
                 )
 
         return capitals
@@ -523,9 +525,12 @@ class Rice(gym.Env):
                             region_id=region_id,
                             timestep=self.current_timestep - 1,
                         )
-                        acc_reward = utilities[region_id] * welfloss_multipliers[region_id]
+                        acc_reward = (
+                            utilities[region_id] * welfloss_multipliers[region_id]
+                        )
                         rewards[region_id] = (
-                            self.percentage_adjustment(acc_reward, previous_acc_reward) - 1
+                            self.percentage_adjustment(acc_reward, previous_acc_reward)
+                            - 1
                         )
                 else:
                     rewards[region_id] = (
@@ -546,15 +551,22 @@ class Rice(gym.Env):
                             region_id=region_id,
                             timestep=self.current_timestep - 1,
                         )
-                        acc_reward = utilities[region_id] * welfloss_multipliers[region_id]
-                        rewards[region_id] = (
-                            self.percentage_adjustment(acc_reward, previous_acc_reward) - 1
+                        acc_reward = (
+                            utilities[region_id] * welfloss_multipliers[region_id]
                         )
-                        rewards[region_id] -= self.baseline_rice.global_state["reward_all_regions"]["value"][self.current_timestep, region_id]
+                        rewards[region_id] = (
+                            self.percentage_adjustment(acc_reward, previous_acc_reward)
+                            - 1
+                        )
+                        rewards[region_id] -= self.baseline_rice.global_state[
+                            "reward_all_regions"
+                        ]["value"][self.current_timestep, region_id]
                 else:
                     rewards[region_id] = (
                         utilities[region_id] * welfloss_multipliers[region_id]
-                    ) - self.baseline_rice.global_state["reward_all_regions"]["value"][self.current_timestep, region_id]
+                    ) - self.baseline_rice.global_state["reward_all_regions"]["value"][
+                        self.current_timestep, region_id
+                    ]
             self.set_state(
                 "reward_all_regions", rewards[region_id], region_id=region_id
             )
@@ -1359,78 +1371,111 @@ class Rice(gym.Env):
                     )
 
         return normalized_import_bids_all_regions
-    
+
     def get_mask_index(self, action_type):
         """get start and end index for a particular action"""
-        
+
         if action_type == "savings":
             return 0, sum(self.savings_possible_actions)
         if action_type == "mitigation_rates":
-            return sum(self.savings_possible_actions), sum(self.savings_possible_actions 
-                        + self.mitigation_rate_possible_actions)
+            return sum(self.savings_possible_actions), sum(
+                self.savings_possible_actions + self.mitigation_rate_possible_actions
+            )
         if action_type == "export_limit":
-            return sum(self.savings_possible_actions 
-                    + self.mitigation_rate_possible_actions), sum(self.savings_possible_actions 
-                    + self.mitigation_rate_possible_actions
-                    + self.export_limit_possible_actions)
+            return sum(
+                self.savings_possible_actions + self.mitigation_rate_possible_actions
+            ), sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+            )
         if action_type == "import_bids":
-            return sum(self.savings_possible_actions 
-                    + self.mitigation_rate_possible_actions
-                    + self.export_limit_possible_actions),  sum(self.savings_possible_actions 
-                    + self.mitigation_rate_possible_actions
-                    + self.export_limit_possible_actions
-                    + self.import_bids_possible_actions)
+            return sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+            ), sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions
+            )
         if action_type == "import_tariffs":
-            return sum(self.savings_possible_actions 
-                    + self.mitigation_rate_possible_actions
-                    + self.export_limit_possible_actions
-                    + self.import_bids_possible_actions),  sum(self.savings_possible_actions 
-                    + self.mitigation_rate_possible_actions
-                    + self.export_limit_possible_actions
-                    + self.import_bids_possible_actions
-                    + self.import_tariff_possible_actions)
+            return sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions
+            ), sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions
+                + self.import_tariff_possible_actions
+            )
 
     def calc_action_window(self, region_id):
         """
         create mask around all actions not adjacent to the previous action.
         """
 
-
         base_mask = self.default_agent_action_mask.copy()
-        single_actions = ["savings_all_regions", "mitigation_rates_all_regions", "export_limit_all_regions"]
+        single_actions = [
+            "savings_all_regions",
+            "mitigation_rates_all_regions",
+            "export_limit_all_regions",
+        ]
         one_to_many_actions = ["import_bids_all_regions", "import_tariffs"]
         for action in single_actions:
-            previous_action = self.global_state[action]["value"][max(0,self.current_timestep), region_id]
-            previous_action_scaled = int(previous_action*self.num_discrete_action_levels)
-            mask_start, mask_end = self.get_mask_index(action.replace("_all_regions", ""))
+            previous_action = self.global_state[action]["value"][
+                max(0, self.current_timestep), region_id
+            ]
+            previous_action_scaled = int(
+                previous_action * self.num_discrete_action_levels
+            )
+            mask_start, mask_end = self.get_mask_index(
+                action.replace("_all_regions", "")
+            )
             current_mask = base_mask[mask_start:mask_end]
             current_mask[:] = 0
-            current_mask[max(0, previous_action_scaled-1):min(self.num_discrete_action_levels, previous_action_scaled+2)] = 1
+            current_mask[
+                max(0, previous_action_scaled - 1) : min(
+                    self.num_discrete_action_levels, previous_action_scaled + 2
+                )
+            ] = 1
             base_mask[mask_start:mask_end] = current_mask
 
         for action in one_to_many_actions:
-            previous_action = self.global_state[action]["value"][max(0,self.current_timestep), region_id]
-            previous_action_scaled = previous_action*self.num_discrete_action_levels
+            previous_action = self.global_state[action]["value"][
+                max(0, self.current_timestep), region_id
+            ]
+            previous_action_scaled = previous_action * self.num_discrete_action_levels
 
-            mask_start, mask_end = self.get_mask_index(action.replace("_all_regions", ""))
+            mask_start, mask_end = self.get_mask_index(
+                action.replace("_all_regions", "")
+            )
             extendable_mask = []
             for other_region_id in range(self.num_agents):
 
                 if region_id == other_region_id:
-                    other_region_mask = [1] + [0]*(self.num_discrete_action_levels-1)
+                    other_region_mask = [1] + [0] * (
+                        self.num_discrete_action_levels - 1
+                    )
                 else:
                     other_region_mask = np.zeros(self.num_discrete_action_levels)
-                    previous_action_other_region = int(previous_action_scaled[other_region_id])
-                    other_region_mask[max(0,
-                                           previous_action_other_region-1)\
-                                            :min(self.num_discrete_action_levels,
-                                                 previous_action_other_region+2)] = 1
+                    previous_action_other_region = int(
+                        previous_action_scaled[other_region_id]
+                    )
+                    other_region_mask[
+                        max(0, previous_action_other_region - 1) : min(
+                            self.num_discrete_action_levels,
+                            previous_action_other_region + 2,
+                        )
+                    ] = 1
                 extendable_mask.extend(list(other_region_mask))
 
             base_mask[mask_start:mask_end] = np.array(extendable_mask)
         return base_mask.astype(int)
-
-
 
     def calc_action_mask(self):
         """
