@@ -87,8 +87,10 @@ class CarbonLeakageFixedControl(Rice):
                         self.mitigation_rate_possible_actions
                     )
             export_mask_start = mitigation_mask_end
-            export_mask_end = sum(self.export_limit_possible_actions)
-            mask[export_mask_start:export_mask_end] = np.array([1]+[0]*(self.num_discrete_action_levels - 1))
+            export_mask_end = sum(self.export_limit_possible_actions) + export_mask_start
+            export_mask = np.array([1]+[0]*(self.num_discrete_action_levels - 1))
+
+            mask[export_mask_start:export_mask_end] = export_mask
             mask_dict[region_id] = mask
 
         return mask_dict
