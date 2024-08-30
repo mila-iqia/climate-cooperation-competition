@@ -40,6 +40,8 @@ env:
     clubs_enabled: False
     club_members: [1]
     action_window: True
+    abatement_coefficient: 1
+    damage_coefficient: 1
 
 regions:
     num_agents: 3 #can be either {3,7,20,27}

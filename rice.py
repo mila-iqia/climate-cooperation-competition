@@ -50,6 +50,8 @@ class Rice(gym.Env):
         club_members=[],
         action_window=True,
         relative_reward=True,
+        abatement_coefficient=1,
+        damage_coefficient=1
     ):
         self.relative_reward = relative_reward
         self.action_space_type = action_space_type
@@ -66,6 +68,9 @@ class Rice(gym.Env):
         self.dmg_function = dmg_function
         self.carbon_model = carbon_model
         self.temperature_calibration = temperature_calibration
+
+        self.damage_coefficient = damage_coefficient
+        self.abatement_coefficient = abatement_coefficient
 
         # Add option to define own emissions path as a list of 21 emission values in CO2
         self.prescribed_emissions = prescribed_emissions
@@ -119,6 +124,7 @@ class Rice(gym.Env):
                 prescribed_emissions=prescribed_emissions,
                 pct_reward=pct_reward,
                 relative_reward=False,
+                damage_coefficient=damage_coefficient
             )
             self.baseline_rice.reset()
             total_actions = self.baseline_rice.total_possible_actions
@@ -766,17 +772,17 @@ class Rice(gym.Env):
                 # Isnt this supposedly like in the original one of nordhaus?
                 damages[region_id] = 1 / (
                     1
-                    + self.all_regions_params[region_id]["xa_1"]
+                    + self.damage_coefficient*(self.all_regions_params[region_id]["xa_1"]
                     * prev_atmospheric_temperature
                     + self.all_regions_params[region_id]["xa_2"]
                     * pow(
                         prev_atmospheric_temperature,
                         self.all_regions_params[region_id]["xa_3"],
-                    )
+                    ))
                 )
             elif self.dmg_function == "updated":
                 damages[region_id] = (
-                    1 - (0.7438 * (prev_atmospheric_temperature**2)) / 100
+                    1 - self.damage_coefficient*(0.7438 * (prev_atmospheric_temperature**2)) / 100
                 )
             else:
                 raise ValueError(f"Unknown damage function: {self.dmg_function}")
@@ -795,7 +801,7 @@ class Rice(gym.Env):
             abatement_costs[region_id] = mitigation_costs[region_id] * pow(
                 mitigation_rates_all_regions[region_id],
                 self.all_regions_params[region_id]["xtheta_2"],
-            )
+            ) * self.abatement_coefficient
             if save_state:
                 self.set_state(
                     "abatement_cost_all_regions",
@@ -1487,6 +1493,8 @@ class Rice(gym.Env):
                 mask = self.calc_action_window(region_id)
             else:
                 mask = self.default_agent_action_mask.copy()
+
+            
             if self.negotiation_on:
                 mask_start = sum(self.savings_possible_actions)
                 mask_end = mask_start + sum(self.mitigation_rate_possible_actions)
