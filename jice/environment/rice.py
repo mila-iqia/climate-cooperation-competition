@@ -19,6 +19,7 @@ from jice.environment.base_and_wrappers import JaxBaseEnv, EnvState, MultiDiscre
 OBSERVATIONS = "observations"
 ACTION_MASK = "action_mask"
 NORMALIZATION_FACTORS = {
+    "agent_ids": 1,
     "activity_timestep": 1e2,
     "global_temperature": 1e1,
     "global_carbon_mass": 1e4,
@@ -362,19 +363,22 @@ class Rice(JaxBaseEnv):
             "global_acc_pert_carb_stock": jnp.array([state.global_acc_pert_carb_stock]),
         }
         public_features = {
-            # "capital_all_regions": state.capital_all_regions,
-            # "capital_depreciation_all_regions": state.capital_depreciation_all_regions,
-            # "labor_all_regions": state.labor_all_regions,
-            # "gross_output_all_regions": state.gross_output_all_regions,
-            # "investment_all_regions": state.investment_all_regions,
-            # "aggregate_consumption": state.aggregate_consumption,
-            # "savings_all_regions": state.savings_all_regions,
+            "capital_all_regions": state.capital_all_regions,
+            "capital_depreciation_all_regions": state.capital_depreciation_all_regions,
+            "labor_all_regions": state.labor_all_regions,
+            "gross_output_all_regions": state.gross_output_all_regions,
+            "investment_all_regions": state.investment_all_regions,
+            "aggregate_consumption": state.aggregate_consumption,
+            "savings_all_regions": state.savings_all_regions,
             "mitigation_rates_all_regions": state.mitigation_rates_all_regions,
             "export_limit_all_regions": state.export_limit_all_regions,
             "current_balance_all_regions": state.current_balance_all_regions,
             "import_tariffs": state.import_tariffs.flatten(),
         }
+        agent_ids = np.arange(self.num_regions)
+        binary_agent_ids = ((agent_ids[:, None] & (1 << np.arange(self.num_regions.bit_length()))) > 0).astype(int)[:, ::-1]
         private_features = {
+            "agent_ids": binary_agent_ids,
             "production_factor_all_regions": state.production_factor_all_regions,
             "intensity_all_regions": state.intensity_all_regions,
             "mitigation_cost_all_regions": state.mitigation_cost_all_regions,
@@ -385,12 +389,12 @@ class Rice(JaxBaseEnv):
             # "social_welfare_all_regions": state.social_welfare_all_regions,
             # "utility_times_welfloss_all_regions": state.utility_times_welfloss_all_regions,
 
-            "capital_all_regions": state.capital_all_regions,
-            "capital_depreciation_all_regions": state.capital_depreciation_all_regions,
-            "labor_all_regions": state.labor_all_regions,
-            "gross_output_all_regions": state.gross_output_all_regions,
-            "investment_all_regions": state.investment_all_regions,
-            "aggregate_consumption": state.aggregate_consumption,
+            # "capital_all_regions": state.capital_all_regions,
+            # "capital_depreciation_all_regions": state.capital_depreciation_all_regions,
+            # "labor_all_regions": state.labor_all_regions,
+            # "gross_output_all_regions": state.gross_output_all_regions,
+            # "investment_all_regions": state.investment_all_regions,
+            # "aggregate_consumption": state.aggregate_consumption,
         }
 
         # Features concerning two regions
@@ -440,7 +444,7 @@ class Rice(JaxBaseEnv):
         private_features = {
             k: v for k, v in normalized_features.items() if k in private_features.keys()
         }
-        private_features_per_agent = jnp.stack(jax.tree.leaves(private_features)).T
+        private_features_per_agent = jnp.column_stack(jax.tree.leaves(private_features))
 
         observations = jnp.concatenate(
             [global_public_features_per_agent, private_features_per_agent], axis=1
