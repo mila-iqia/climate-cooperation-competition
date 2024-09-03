@@ -138,6 +138,8 @@ class Rice(JaxBaseEnv):
 
     num_regions: int = 3
     scenario: str = "default"
+    diff_reward_mode: bool = False
+    relative_reward_mode: bool = True
     # action_type: str = "discrete" # NOTE: continuous not implemented
     num_discrete_action_levels: int = 10
     train_env: bool = (
@@ -159,6 +161,7 @@ class Rice(JaxBaseEnv):
     balance_interest_rate: float = 0.1
     consumption_substitution_rate: float = 0.5
     preference_for_domestic: float = 0.5
+    baseline_rewards: chex.Array = None
 
     # default discount factor, variable gamma can be returned from
     # "generate_terminated_truncated_discount" function
@@ -183,6 +186,23 @@ class Rice(JaxBaseEnv):
     def __check_init__(self):
         # eqx module function, may use to assert some things
         pass
+
+    def __post_init__(self):
+        
+        # Baseline rewards:
+        key = jax.random.PRNGKey(0)
+        default_actions = jnp.zeros((self.num_regions, self.action_nvec.shape[0]))
+        default_actions = default_actions.at[:, 0].set(2.5) # savings
+        default_actions = default_actions.at[:, 1].set(0.0) # mitigation
+        _, state = self.reset_env(key)
+        rewards = []
+        while True:
+            (_, reward, done, _, _), state = self.step_env(key, state, default_actions)
+            rewards.append(reward)
+            if done:
+                break
+
+        object.__setattr__(self, 'baseline_rewards', jnp.array(rewards))
 
     def reset_env(self, key: chex.PRNGKey) -> Tuple[chex.Array, EnvState]:
 
@@ -287,7 +307,7 @@ class Rice(JaxBaseEnv):
         self,
         key: chex.PRNGKey,
         prev_state: EnvState,
-        actions: Actions,
+        actions: chex.Array,
     ) -> Tuple[chex.PyTreeDef, EnvState, float, bool, dict]:
 
         actions = self.process_actions(actions)
@@ -308,7 +328,7 @@ class Rice(JaxBaseEnv):
         obs_dict = self.generate_observation_and_action_mask(state)
         reward = self.generate_rewards(
             state, prev_state
-        )  # rewards is zero for proposel steps
+        ) # NOTE: rewards is zero for proposel steps
         done, discount = self.generate_terminated_truncated_discount(state)
         info = self.generate_info(state, actions)
 
@@ -442,10 +462,18 @@ class Rice(JaxBaseEnv):
         return default_action_mask
 
     def generate_rewards(self, new_state: EnvState, old_state: EnvState) -> chex.Array:
-        return (
-            new_state.utility_times_welfloss_all_regions
-            - old_state.utility_times_welfloss_all_regions
-        )
+        
+        reward = new_state.utility_times_welfloss_all_regions
+
+        if self.diff_reward_mode:
+            reward = reward - old_state.utility_times_welfloss_all_regions
+
+        # if relative_reward, but no baseline_rewards, then we are building the baseline
+        if self.relative_reward_mode and self.baseline_rewards is not None: 
+            reward = reward - self.baseline_rewards[old_state.current_timestep]
+        
+        return reward
+        
 
     def generate_terminated_truncated_discount(
         self, state: EnvState
@@ -768,7 +796,7 @@ class Rice(JaxBaseEnv):
             max_export_all_regions = calc_max_exports()
             desired_exports_from_each_region = jnp.sum(potential_import_bids, axis=0)
             # NOTE: this is the original. But it seems like region export is set to 0
-            # if max_export > desired_export.
+            # if max_export > desired_export. https://github.com/mila-iqia/climate-cooperation-competition/issues/46
             # return jnp.where(
             #     desired_exports_from_each_region > max_export_all_regions,
             #     potential_import_bids / desired_exports_from_each_region * max_export_all_regions,

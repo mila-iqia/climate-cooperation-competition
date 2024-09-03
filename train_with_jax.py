@@ -82,17 +82,18 @@ def build_trainer(yaml_file: Dict[str, Any]) -> Tuple[Callable, dict]:
     merged_settings = {**args.__dict__, **env.__dict__, **trainer_params.__dict__}
     return trainer, merged_settings
 
-
 yaml_file = {
     "wandb": not args.no_wandb,
     "env_settings": {
         "num_regions": args.num_regions,  # [3, 7, 20]
         "train_env": True,
         "scenario": args.scenario,
+        "diff_reward_mode": True,
+        "relative_reward_mode": True,
     },
     "trainer_settings": {
         "num_log_episodes_after_training": 2,
-        "num_envs": 6,
+        "num_envs": 4,
         "total_timesteps": 1e6,
         "trainer_seed": args.seed,
         "backend": "gpu",
