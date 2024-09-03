@@ -99,6 +99,7 @@ yaml_file = {
         "backend": "gpu",
         "debug": args.debug, # Print rollout rewards during training
         "skip_training": args.skip_training,
+        "a2c_mode": False
     },
 }
 

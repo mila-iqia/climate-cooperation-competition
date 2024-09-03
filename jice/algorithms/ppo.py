@@ -49,6 +49,8 @@ class PpoTrainerParams(BaseTrainerParams):
     num_minibatches: int = 4  # Number of mini-batches
     update_epochs: int = 4  # K epochs to update the policy
 
+    a2c_mode: bool = False
+
     # to be filled in runtime in at init:
     batch_size: int = 0  # batch size (num_envs * num_steps)
     minibatch_size: int = 0  # mini-batch size (batch_size / num_minibatches)
@@ -252,27 +254,36 @@ def build_ppo_trainer(
                 entropy = action_dist.entropy().mean()
                 log_prob = log_prob.sum(axis=-1)
 
-                # actor loss
-                ratio = jnp.exp(log_prob - init_log_prob)
-                _advantages = (advantages - advantages.mean()) / (
-                    advantages.std() + 1e-8
-                )
-                actor_loss1 = _advantages * ratio
-                actor_loss2 = (
-                    jnp.clip(ratio, 1.0 - config.clip_coef, 1.0 + config.clip_coef)
-                    * _advantages
-                )
-                actor_loss = -jnp.minimum(actor_loss1, actor_loss2).mean()
+                if config.a2c_mode:
+                    # Technically, only the actor loss changes
+                    # However, we also omit value clipping here as it is usually not used in A2C
+                    # for a "vanilla" A2C style, set: 
+                    # num_minibatches=1, update_epochs=1, gae_lambda=1.0 and ent_coef=0.0 
+                    actor_loss = -jnp.mean(log_prob * advantages)
+                    value_loss = jnp.mean(jnp.square(value - returns))
 
-                # critic loss
-                value_pred_clipped = init_value + (
-                    jnp.clip(
-                        value - init_value, -config.clip_coef_vf, config.clip_coef_vf
+                else:
+                    # actor loss
+                    ratio = jnp.exp(log_prob - init_log_prob)
+                    _advantages = (advantages - advantages.mean()) / (
+                        advantages.std() + 1e-8
                     )
-                )
-                value_losses = jnp.square(value - returns)
-                value_losses_clipped = jnp.square(value_pred_clipped - returns)
-                value_loss = jnp.maximum(value_losses, value_losses_clipped).mean()
+                    actor_loss1 = _advantages * ratio
+                    actor_loss2 = (
+                        jnp.clip(ratio, 1.0 - config.clip_coef, 1.0 + config.clip_coef)
+                        * _advantages
+                    )
+                    actor_loss = -jnp.minimum(actor_loss1, actor_loss2).mean()
+
+                    # critic loss
+                    value_pred_clipped = init_value + (
+                        jnp.clip(
+                            value - init_value, -config.clip_coef_vf, config.clip_coef_vf
+                        )
+                    )
+                    value_losses = jnp.square(value - returns)
+                    value_losses_clipped = jnp.square(value_pred_clipped - returns)
+                    value_loss = jnp.maximum(value_losses, value_losses_clipped).mean()
 
                 ent_coef = ent_coef_schedule(optimizer_state[1][1].count)
 
