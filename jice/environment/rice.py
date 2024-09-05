@@ -733,9 +733,10 @@ class Rice(JaxBaseEnv):
 
         mitigations_rates_all_agents = actions.mitigation_rate
         mitigation_costs = calc_mitigation_costs()
-        abatement_costs = mitigation_costs * jnp.pow(
-            mitigations_rates_all_agents, self.region_params.xtheta_2
-        )
+        # abatement_costs = mitigation_costs * jnp.pow(
+        #     mitigations_rates_all_agents, self.region_params.xtheta_2
+        # )
+        abatement_costs = mitigation_costs * mitigations_rates_all_agents
         # NOTE: the whitepaper multiplies this by production and the savings rate
 
         return abatement_costs
