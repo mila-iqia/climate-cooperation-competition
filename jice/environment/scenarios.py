@@ -33,7 +33,7 @@ class BasicClub(Rice):
     club_mitigation_rate: int = 8
     promote_free_trade_among_club_members: bool = True
     # NOTE: this will be updated later with more targeted region_ids
-    club_members_ = [1, 2, 3, 4, 15, 8, 12]
+    club_members_ = [0, 1, 2, 4, 5, 6, 7, 15, 8, 12]
 
     @property
     def club_members(self) -> np.ndarray:
@@ -104,3 +104,11 @@ class BasicClub(Rice):
         ].set(mask_per_region[self.non_club_members])
 
         return action_mask
+
+    def generate_observation(self, state: EnvState) -> chex.Array:
+        """Add a club membership indicator to the observation"""
+        obs = super().generate_observation(state)
+        club_member_indicator = jnp.isin(
+            np.arange(self.num_regions), self.club_members
+        )[:, None]
+        return jnp.concatenate([obs, club_member_indicator], axis=-1)

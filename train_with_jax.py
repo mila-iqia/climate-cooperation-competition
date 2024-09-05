@@ -12,8 +12,10 @@ from jice.util import load_region_yamls, log_episode_stats_to_wandb
 from jice.algorithms import (
     build_random_trainer,
     build_ppo_trainer,
+    build_sac_trainer,
     BaseTrainerParams,
     PpoTrainerParams,
+    SacTrainerParams,
 )
 from jice.environment import Rice, OptimalMitigation, BasicClub
 
@@ -22,7 +24,7 @@ if not os.path.exists(SAVE_MODEL_PATH):
     os.makedirs(SAVE_MODEL_PATH)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-a", "--algorithm", help="Algorithm to train with", default="ppo")
+parser.add_argument("-a", "--algorithm", help="Algorithm to train with", default="ppo", choices=["ppo", "a2c", "sac", "random"])
 parser.add_argument("-nw", "--no_wandb", help="Log to wandb", action="store_true")
 parser.add_argument("-s", "--seed", help="Random seed", default=42, type=int)
 parser.add_argument("-sk", "--skip_training", help="Skip training", action="store_true")
@@ -79,6 +81,21 @@ def build_trainer(yaml_file: Dict[str, Any]) -> Tuple[Callable, dict]:
         trainer = build_ppo_trainer(
             env=env, trainer_params=trainer_params, load_model=args.load_model
         )
+    elif args.algorithm == "a2c":
+        print("Using A2C agent...")
+        trainer_params = PpoTrainerParams(**yaml_file["trainer_settings"])
+        trainer_params.a2c_mode = True
+        env = build_env_scenario(yaml_file, trainer_params.gamma)
+        trainer = build_ppo_trainer(
+            env=env, trainer_params=trainer_params, load_model=args.load_model
+        )
+    elif args.algorithm == "sac":
+        print("Using SAC agent...")
+        trainer_params = SacTrainerParams(**yaml_file["trainer_settings"])
+        env = build_env_scenario(yaml_file, trainer_params.gamma)
+        trainer = build_sac_trainer(
+            env=env, trainer_params=trainer_params, load_model=args.load_model
+        )
     merged_settings = {**args.__dict__, **env.__dict__, **trainer_params.__dict__}
     return trainer, merged_settings
 
@@ -89,17 +106,17 @@ yaml_file = {
         "train_env": True,
         "scenario": args.scenario,
         "diff_reward_mode": True,
-        "relative_reward_mode": True,
+        "relative_reward_mode": False,
+        "disable_trading": True
     },
     "trainer_settings": {
         "num_log_episodes_after_training": 2,
         "num_envs": 4,
-        "total_timesteps": 1e6,
+        "total_timesteps": 3e6,
         "trainer_seed": args.seed,
         "backend": "gpu",
         "debug": args.debug, # Print rollout rewards during training
         "skip_training": args.skip_training,
-        "a2c_mode": False
     },
 }
 
