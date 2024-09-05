@@ -150,6 +150,7 @@ class Rice(JaxBaseEnv):
         False  # removes irrelevant actions from the action space (i.e. tarriff on itself). #NOTE: not sure if this confuses learning, so made this optional
     )
 
+    disable_trading: bool = False # trade actions always 0, actions are not removed from the action space
     negotiation_on: bool = False
     dmg_function: str = "base"
     temperature_calibration: str = "base"
@@ -573,6 +574,9 @@ class Rice(JaxBaseEnv):
             return output.reshape((n, n))
 
         if not self.negotiation_on:
+            savings_rate_actions = actions[0]
+            mitigation_rate_actions = actions[1]
+            export_limit_actions = actions[2]
 
             if self.reduce_action_space_size:
                 import_bid_actions = actions[3 : 3 + (self.num_regions - 1)].T
@@ -589,10 +593,14 @@ class Rice(JaxBaseEnv):
                 import_tariff_actions = import_tariff_actions.at[
                     np.eye(self.num_regions).astype(jnp.bool)
                 ].set(0)
+            if self.disable_trading:
+                export_limit_actions = jnp.zeros_like(export_limit_actions)
+                import_bid_actions = jnp.zeros_like(import_bid_actions)
+                import_tariff_actions = jnp.zeros_like(import_tariff_actions)
             return Actions(
-                savings_rate=actions[0] / self.num_discrete_action_levels,
-                mitigation_rate=actions[1] / self.num_discrete_action_levels,
-                export_limit=actions[2] / self.num_discrete_action_levels,
+                savings_rate=savings_rate_actions / self.num_discrete_action_levels,
+                mitigation_rate=mitigation_rate_actions / self.num_discrete_action_levels,
+                export_limit=export_limit_actions / self.num_discrete_action_levels,
                 import_bids=import_bid_actions / self.num_discrete_action_levels,
                 import_tariff=import_tariff_actions / self.num_discrete_action_levels,
             )
