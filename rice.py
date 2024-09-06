@@ -77,8 +77,7 @@ class Rice(gym.Env):
 
         # clubs
         self.clubs_enabled = clubs_enabled
-        if self.clubs_enabled:
-            self.club_members = club_members
+        self.club_members = club_members
 
         self.set_dtypes()
 

@@ -4,6 +4,262 @@ from math import ceil
 _FEATURES = "features"
 _ACTION_MASK = "action_mask"
 
+class CarbonLeakageFixedMinimalObservations(Rice):
+
+    """
+    Scenario to test whether carbon leakage occurs.
+
+    Carbon leakage is an increase of emissions in one region as a 
+    result of a policy to decrease emissions in another region
+
+    We can check for carbon leakage at the policy level (do they change their mitigation rate)
+    and at the emissions level (do their absolute emissions increase)
+
+    Followup experiment
+    - create a random club of a given minimum mitigation rate
+    - run the rollout with the club and measure emissions of non-club members and measure mitigation rates of non-club members
+    - reset the env and re-run the env without the club (self.control = True) and measure the same
+    - compare the emissions / mitigation rates of the non-club members in the presence and absence of the club
+    - NOTE: it may be that emissions need to be normalized w.r.t. emissions as carbon
+    """
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=False, # If True then negotiation is on, else off
+                 scenario="CarbonLeakage",
+                 action_space_type="discrete",  # or "continuous"
+                 dmg_function="base",
+                 carbon_model="base",
+                 temperature_calibration="base",
+                 prescribed_emissions=None,
+                 pct_reward=False,
+                 clubs_enabled = False,
+                 club_members = [],
+                 action_window = True,
+                 relative_reward = True
+            ):
+        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels, 
+                action_space_type=action_space_type,  # or "continuous"
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions,
+                pct_reward=pct_reward,
+                clubs_enabled = clubs_enabled,
+                club_members = club_members,
+                action_window = action_window,
+                relative_reward=relative_reward)        
+
+        self.minimum_mitigation_rate = 9
+        self.fixed_savings_rate = 2
+    
+    def get_observations(self):
+        """
+        Format observations for each agent by concatenating global, public
+        and private features.
+        The observations are returned as a dictionary keyed by region index.
+        Each dictionary contains the features as well as the action mask.
+        """
+        # Observation array features
+
+        # Global features that are observable by all regions
+        # global_features = [
+        #     "global_temperature",
+        #     "global_carbon_mass",
+        #     "global_exogenous_emissions",
+        #     "global_land_emissions",
+        #     "timestep",
+        #     "global_temperature_boxes",
+        #     "global_carbon_reservoirs",
+        #     "global_cumulative_emissions",
+        #     "global_cumulative_land_emissions",
+        #     "global_alpha",
+        #     "global_emissions",
+        #     "global_acc_pert_carb_stock",
+        # ]
+        global_features = []
+
+        # Public features that are observable by all regions
+        public_features = [
+            # "capital_all_regions",
+            # "capital_depreciation_all_regions",
+            # "labor_all_regions",
+            "gross_output_all_regions",
+            # "investment_all_regions",
+            # "aggregate_consumption",
+            "savings_all_regions",
+            "mitigation_rates_all_regions",
+            # "export_limit_all_regions",
+            # "current_balance_all_regions",
+            # "tariffs",
+        ]
+
+        # Private features that are private to each region.
+        private_features = [
+            # "production_factor_all_regions",
+            # "intensity_all_regions",
+            # "mitigation_cost_all_regions",
+            # "damages_all_regions",
+            # "abatement_cost_all_regions",
+            # "production_all_regions",
+            "utility_all_regions",
+            # "social_welfare_all_regions",
+            # "reward_all_regions",
+        ]
+
+        # Features concerning two regions
+        bilateral_features = []
+
+        if self.negotiation_on:
+            global_features += ["negotiation_stage"]
+
+            public_features += []
+
+            private_features += [
+                "minimum_mitigation_rate_all_regions",
+            ]
+
+            bilateral_features += [
+                "promised_mitigation_rate",
+                "requested_mitigation_rate",
+                "proposal_decisions",
+            ]
+
+        shared_features = np.array([])
+        for feature in global_features + public_features:
+            shared_features = np.append(
+                shared_features,
+                self.flatten_array(
+                    self.global_state[feature]["value"][self.current_timestep]
+                    / self.global_state[feature]["norm"]
+                ),
+            )
+
+        # Form the feature dictionary, keyed by region_id.
+        features_dict = {}
+        for region_id in range(self.num_regions):
+
+            # Add a region indicator array to the observation
+            region_indicator = np.zeros(self.num_regions, dtype=self.float_dtype)
+            region_indicator[region_id] = 1
+
+            all_features = np.append(region_indicator, shared_features)
+
+            for feature in private_features:
+                assert self.global_state[feature]["value"].shape[1] == self.num_regions
+                assert (
+                    np.isnan(all_features).sum() == 0
+                ), f"NaN in the features: {feature}"
+                all_features = np.append(
+                    all_features,
+                    self.flatten_array(
+                        self.global_state[feature]["value"][
+                            self.current_timestep, region_id
+                        ]
+                        / self.global_state[feature]["norm"]
+                    ),
+                )
+
+            for feature in bilateral_features:
+                assert self.global_state[feature]["value"].shape[1] == self.num_regions
+                assert self.global_state[feature]["value"].shape[2] == self.num_regions
+                all_features = np.append(
+                    all_features,
+                    self.flatten_array(
+                        self.global_state[feature]["value"][
+                            self.current_timestep, region_id
+                        ]
+                        / self.global_state[feature]["norm"]
+                    ),
+                )
+                all_features = np.append(
+                    all_features,
+                    self.flatten_array(
+                        self.global_state[feature]["value"][
+                            self.current_timestep, :, region_id
+                        ]
+                        / self.global_state[feature]["norm"]
+                    ),
+                )
+
+            features_dict[region_id] = all_features
+
+        # Fetch the action mask dictionary, keyed by region_id.
+        action_mask_dict = self.calc_action_mask()
+
+        # Form the observation dictionary keyed by region id.
+        obs_dict = {}
+        for region_id in range(self.num_regions):
+            obs_dict[region_id] = {
+                _FEATURES: features_dict[region_id],
+                _ACTION_MASK: action_mask_dict[region_id],
+            }
+        # if self.current_timestep == 2 and region_id == 26:
+        #     print("flag")
+        return obs_dict
+
+    def calc_action_mask(self):
+        """
+        Generate action masks.
+        """
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+
+            if self.action_window:
+                mask = self.calc_action_window(region_id)
+            else:
+                mask = self.default_agent_action_mask.copy()
+
+            if region_id in self.club_members:
+                mitigation_mask = np.array(
+                        [0 for _ in range(self.minimum_mitigation_rate)]
+                        + [
+                            1
+                            for _ in range(
+                                self.num_discrete_action_levels
+                                - self.minimum_mitigation_rate
+                            )
+                        ]
+                    )
+
+                mask_start = sum(self.savings_possible_actions)
+                mask_end = mask_start + sum(
+                        self.mitigation_rate_possible_actions
+                    )
+                mask[mask_start:mask_end] = mitigation_mask
+            else:
+                pass
+
+            #fix savings
+            savings_mask = np.array(
+                [0 for _ in range(self.fixed_savings_rate)]
+                        + [1] 
+                        + [0 for _ in range(self.num_discrete_action_levels - self.fixed_savings_rate - 1)]
+                            
+            )
+            savings_mask_end = sum(self.savings_possible_actions)
+            mask[0:savings_mask_end] = savings_mask
+
+            #turn off trade
+            mitigation_mask_start = sum(self.savings_possible_actions)
+            mitigation_mask_end = mitigation_mask_start + sum(
+                        self.mitigation_rate_possible_actions
+                    )
+            export_mask_start = mitigation_mask_end
+            export_mask_end = sum(self.export_limit_possible_actions) + export_mask_start
+            export_mask = np.array([1]+[0]*(self.num_discrete_action_levels - 1))
+
+            mask[export_mask_start:export_mask_end] = export_mask
+            mask_dict[region_id] = mask
+                
+            mask_dict[region_id] = mask
+
+        return mask_dict
+    
+
+
 class CarbonLeakageFixed(Rice):
 
     """
