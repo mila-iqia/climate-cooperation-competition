@@ -1415,7 +1415,8 @@ class Rice(gym.Env):
 
     def calc_action_window(self, region_id):
         """
-        create mask around all actions not adjacent to the previous action.
+        Create mask around all actions not adjacent to the previous action.
+        Action window is now size 2.
         """
 
         base_mask = self.default_agent_action_mask.copy()
@@ -1425,21 +1426,18 @@ class Rice(gym.Env):
             "export_limit_all_regions",
         ]
         one_to_many_actions = ["import_bids_all_regions", "import_tariffs"]
+
         for action in single_actions:
             previous_action = self.global_state[action]["value"][
                 max(0, self.current_timestep), region_id
             ]
-            previous_action_scaled = int(
-                previous_action * self.num_discrete_action_levels
-            )
-            mask_start, mask_end = self.get_mask_index(
-                action.replace("_all_regions", "")
-            )
+            previous_action_scaled = int(previous_action * self.num_discrete_action_levels)
+            mask_start, mask_end = self.get_mask_index(action.replace("_all_regions", ""))
             current_mask = base_mask[mask_start:mask_end]
             current_mask[:] = 0
             current_mask[
-                max(0, previous_action_scaled - 1) : min(
-                    self.num_discrete_action_levels, previous_action_scaled + 2
+                max(0, previous_action_scaled - 2): min(
+                    self.num_discrete_action_levels, previous_action_scaled + 3
                 )
             ] = 1
             base_mask[mask_start:mask_end] = current_mask
@@ -1450,31 +1448,26 @@ class Rice(gym.Env):
             ]
             previous_action_scaled = previous_action * self.num_discrete_action_levels
 
-            mask_start, mask_end = self.get_mask_index(
-                action.replace("_all_regions", "")
-            )
+            mask_start, mask_end = self.get_mask_index(action.replace("_all_regions", ""))
             extendable_mask = []
             for other_region_id in range(self.num_agents):
 
                 if region_id == other_region_id:
-                    other_region_mask = [1] + [0] * (
-                        self.num_discrete_action_levels - 1
-                    )
+                    other_region_mask = [1] + [0] * (self.num_discrete_action_levels - 1)
                 else:
                     other_region_mask = np.zeros(self.num_discrete_action_levels)
-                    previous_action_other_region = int(
-                        previous_action_scaled[other_region_id]
-                    )
+                    previous_action_other_region = int(previous_action_scaled[other_region_id])
                     other_region_mask[
-                        max(0, previous_action_other_region - 1) : min(
-                            self.num_discrete_action_levels,
-                            previous_action_other_region + 2,
+                        max(0, previous_action_other_region - 2): min(
+                            self.num_discrete_action_levels, previous_action_other_region + 3
                         )
                     ] = 1
                 extendable_mask.extend(list(other_region_mask))
 
             base_mask[mask_start:mask_end] = np.array(extendable_mask)
+
         return base_mask.astype(int)
+
 
     def calc_action_mask(self):
         """
