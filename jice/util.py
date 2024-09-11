@@ -43,18 +43,17 @@ def logwrapper_callback(metric, num_envs: int, debug: bool,  counter: int | None
         )
 
 
-def log_episode_stats_to_wandb(episode_stats, config):
+def log_episode_stats_to_wandb(episode_stats, config, wandb_group=None):
     dummy_key = "current_timestep"  # any key that exists and contains scalars per timestep (not per region arrays)
     num_envs = len(episode_stats[dummy_key])
     num_steps = len(episode_stats[dummy_key][0])
-    group_name = f"run_{time.time()}"
     for env in range(num_envs):
         run = wandb.init(
             project="jice",
             config=config,
             entity="ai4gcc-gaia",
             reinit=True,
-            group=group_name,
+            group=wandb_group,
             tags=["eval_run"],
         )
         for step in range(num_steps):

@@ -18,7 +18,8 @@ if not os.path.exists(SAVE_MODEL_PATH):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-a", "--algorithm", help="Algorithm to train with", default="ppo", choices=["ppo", "a2c", "random"])
-parser.add_argument("-nw", "--no_wandb", help="Log to wandb", action="store_true")
+parser.add_argument("-w", "--wandb", help="Log to wandb", action="store_true")
+parser.add_argument("-wg", "--wandb_group", help="Group of wandb init calls", default=None)
 parser.add_argument("-s", "--seed", help="Random seed", default=42, type=int)
 parser.add_argument("-sk", "--skip_training", help="Skip training", action="store_true")
 parser.add_argument("-l", "--load_model", help="Path to model file", default=None)
@@ -93,19 +94,19 @@ def build_trainer(yaml_file: Dict[str, Any]) -> Tuple[Callable, dict]:
     return trainer, merged_settings
 
 yaml_file = {
-    "wandb": not args.no_wandb,
+    "wandb": args.wandb,
     "env_settings": {
         "num_regions": args.num_regions,  # [3, 7, 20]
         "train_env": True,
         "scenario": args.scenario,
         "diff_reward_mode": True,
         "relative_reward_mode": False,
-        "disable_trading": True
+        "disable_trading": False
     },
     "trainer_settings": {
         "num_log_episodes_after_training": 2,
         "num_envs": 4,
-        "total_timesteps": 3e6,
+        "total_timesteps": 15e6,
         "trainer_seed": args.seed,
         "backend": "gpu",
         "debug": args.debug, # Print rollout rewards during training
@@ -119,7 +120,7 @@ if yaml_file["wandb"] and not args.skip_training:
     # removing arrays, as they cause issues with wandb
     merged_settings = eqx.filter(merged_settings, eqx.is_array, inverse=True)
     wandb.init(
-        project="jice", config=merged_settings, tags=["train_run"], entity="ai4gcc-gaia"
+        project="jice", config=merged_settings, tags=["train_run"], group=args.wandb_group, entity="ai4gcc-gaia"
     )
 
 seed = jax.random.PRNGKey(args.seed)
@@ -147,4 +148,4 @@ if not args.skip_training:
     eqx.tree_serialise_leaves(f"{SAVE_MODEL_PATH}{model_name}.eqx", train_state)
 
 if yaml_file["wandb"]:
-    log_episode_stats_to_wandb(eval_logs, merged_settings)
+    log_episode_stats_to_wandb(eval_logs, merged_settings, args.wandb_group)

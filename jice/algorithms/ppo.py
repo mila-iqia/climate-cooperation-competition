@@ -374,6 +374,9 @@ def build_ppo_trainer(
 
             jax.debug.callback(logwrapper_callback, metric, config.num_envs, config.debug)
 
+            if not config.debug:
+                metric = None # save memory
+
             runner_state = (train_state, env_state, last_obs, rng)
             return runner_state, metric
 
