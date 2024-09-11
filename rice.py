@@ -1757,7 +1757,7 @@ class Rice(gym.Env):
         self.episode_length = self.all_regions_params[00]["xN"]
 
         if negotiation_on:
-            self.episode_length += self.common_params["xN"] * (
+            self.episode_length = self.common_params["xN"] * (
                 self.num_negotiation_stages + 1
             )
 
