@@ -226,7 +226,7 @@ class BasicClubTariffAmbition(Rice):
                             region_id=region_id,
                                 timestep=self.current_timestep)*self.num_discrete_action_levels)
             
-            current_mitigation_rate = int(self.get_state("minimum_mitigation_rates_all_regions",
+            current_mitigation_rate = int(self.get_state("mitigation_rates_all_regions",
                             region_id=region_id,
                                 timestep=self.current_timestep)*self.num_discrete_action_levels)
             
