@@ -165,72 +165,6 @@ class BasicClubTariffAmbition(Rice):
         self.reset_state("proposed_mitigation_rate")
 
         return obs, info
-
-    # def reset(self, *, seed=None, options=None):
-
-
-    #     self.current_timestep = 0
-    #     self.activity_timestep = 0
-    #     self.current_simulation_year = self.start_year
-    #     self.reset_state("timestep")
-    #     self.reset_state("activity_timestep")
-
-    #     # climate states
-    #     self.reset_state("global_temperature")
-    #     self.reset_state("global_carbon_mass")
-    #     self.reset_state("global_exogenous_emissions")
-    #     self.reset_state("global_land_emissions")
-    #     self.reset_state("intensity_all_regions")
-    #     self.reset_state("mitigation_rates_all_regions")
-
-    #     # additional climate states for carbon and temperature model
-    #     self.reset_state("global_alpha")
-    #     self.reset_state("global_carbon_reservoirs")
-    #     self.reset_state("global_cumulative_emissions")
-    #     self.reset_state("global_cumulative_land_emissions")
-    #     self.reset_state("global_emissions")
-    #     self.reset_state("global_acc_pert_carb_stock")
-    #     self.reset_state('global_temperature_boxes')
-
-    #     # economic states
-    #     self.reset_state("production_all_regions")
-    #     self.reset_state("gross_output_all_regions")
-    #     self.reset_state("aggregate_consumption")
-    #     self.reset_state("investment_all_regions")
-    #     self.reset_state("capital_all_regions")
-    #     self.reset_state("capital_depreciation_all_regions")
-    #     self.reset_state("labor_all_regions")
-    #     self.reset_state("production_factor_all_regions")
-    #     self.reset_state("current_balance_all_regions")
-    #     self.reset_state("abatement_cost_all_regions")
-    #     self.reset_state("mitigation_cost_all_regions")
-    #     self.reset_state("damages_all_regions")
-    #     self.reset_state("utility_all_regions")
-    #     self.reset_state("social_welfare_all_regions")
-    #     self.reset_state("reward_all_regions")
-
-    #     # trade states
-    #     self.reset_state("tariffs")
-    #     self.reset_state("import_tariffs")
-    #     self.reset_state("normalized_import_bids_all_regions")
-    #     self.reset_state("import_bids_all_regions")
-    #     self.reset_state("imports_minus_tariffs")
-    #     self.reset_state("export_limit_all_regions")
-    #     self.reset_state('export_regions_all_regions')
-
-    #     # negotiation states
-    #     self.reset_state("negotiation_stage")
-    #     self.reset_state("savings_all_regions")
-    #     self.reset_state("minimum_mitigation_rate_all_regions")
-    #     self.reset_state("proposed_mitigation_rate")
-    #     self.reset_state("promised_mitigation_rate")
-    #     self.reset_state("requested_mitigation_rate")
-    #     self.reset_state("proposal_decisions")
-
-    #     info = {
-    #         region: {} for region in range(self.num_regions)
-    #     }  # for the new ray rllib env format
-    #     return self.get_observations(), info
     
     def calc_mitigation_rate_lower_bound(self, region_id):
 
@@ -282,25 +216,29 @@ class BasicClubTariffAmbition(Rice):
         mask_dict = {region_id: None for region_id in range(self.num_regions)}
         for region_id in range(self.num_regions):
 
-            mask = self.default_agent_action_mask.copy()
-
+            if self.action_window:
+                mask = self.calc_action_window(region_id)
+            else:
+                mask = self.default_agent_action_mask.copy()
 
             #minimum commitment
             min_mitigation_rate = int(self.get_state("minimum_mitigation_rate_all_regions",
                             region_id=region_id,
                                 timestep=self.current_timestep)*self.num_discrete_action_levels)
             
-            #mask mitigation
-            mitigation_mask = np.array(
-                    [0 for _ in range(min_mitigation_rate)]
-                    + [
-                        1
-                        for _ in range(
-                            self.num_discrete_action_levels
-                            - min_mitigation_rate
-                        )
-                    ]
-                )
+            current_mitigation_rate = int(self.get_state("minimum_mitigation_rates_all_regions",
+                            region_id=region_id,
+                                timestep=self.current_timestep)*self.num_discrete_action_levels)
+            
+            #if agent has a minimum mitigation rate, it must increase mitigation until target reached
+            if current_mitigation_rate < min_mitigation_rate:
+                mitigation_mask = [0]*(current_mitigation_rate + 1) + [1] + [0]*(self.num_discrete_action_levels - current_mitigation_rate - 2)
+            #if at the club level, agent has the possibility of keeping the same mitigation level
+            elif current_mitigation_rate == min_mitigation_rate:
+                mitigation_mask = [0]*(current_mitigation_rate) + [1,1] + [0]*(self.num_discrete_action_levels - current_mitigation_rate - 2)
+            #if above club level, normal action window applies
+            elif current_mitigation_rate > min_mitigation_rate:
+                pass
 
             mitigation_mask_start = sum(self.savings_possible_actions)
             mitigation_mask_end = mitigation_mask_start + sum(
