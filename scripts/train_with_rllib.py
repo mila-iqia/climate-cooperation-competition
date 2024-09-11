@@ -43,7 +43,8 @@ SCENARIO_MAPPING = {
     "BasicClub":BasicClub,
     "ExportAction":ExportAction,
     "CarbonLeakage":CarbonLeakage,
-    "CarbonLeakageFixed":CarbonLeakageFixed
+    "CarbonLeakageFixed":CarbonLeakageFixed,
+    "BasicClubTariffAmbition":BasicClubTariffAmbition,
 }
 
 def get_config_yaml(yaml_path):
@@ -647,7 +648,7 @@ if __name__ == "__main__":
     
     
     episode_length = env_obj.episode_length
-    num_iters = 3#(num_episodes * episode_length) // train_batch_size
+    num_iters = (num_episodes * episode_length) // train_batch_size
     for iteration in tqdm(range(num_iters)):
         print(
             f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"
