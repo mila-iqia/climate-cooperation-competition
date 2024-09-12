@@ -11,11 +11,6 @@ import equinox as eqx
 
 from jice.environment.base_and_wrappers import JaxBaseEnv, EnvState, MultiDiscrete
 
-# TODO:
-# - BUG export-limit 0 is always learned
-# - negotiation
-
-
 OBSERVATIONS = "observations"
 ACTION_MASK = "action_mask"
 NORMALIZATION_FACTORS = {
@@ -662,6 +657,7 @@ class Rice(JaxBaseEnv):
             mitigation_rates_all_regions=actions.mitigation_rate,
             # others
             damages_all_regions=damages,
+            aggregate_consumption=consumptions,
             abatement_cost_all_regions=abatement_costs,
             production_all_regions=productions,
             gross_output_all_regions=gross_outputs,
