@@ -236,17 +236,18 @@ class BasicClubTariffAmbition(Rice):
             #if at the club level, agent has the possibility of keeping the same mitigation level
             elif current_mitigation_rate == min_mitigation_rate:
                 mitigation_mask = [0]*(current_mitigation_rate) + [1,1] + [0]*(self.num_discrete_action_levels - current_mitigation_rate - 2)
-            #if above club level, normal action window applies
-            elif current_mitigation_rate > min_mitigation_rate:
-                pass
-
-            mitigation_mask_start = sum(self.savings_possible_actions)
-            mitigation_mask_end = mitigation_mask_start + sum(
-                    self.mitigation_rate_possible_actions
-                )
-            mask[mitigation_mask_start:mitigation_mask_end] = mitigation_mask
             
-            #tariff non club members
+            # if above club level, normal action window applies
+            if current_mitigation_rate > min_mitigation_rate:
+                pass
+            else:
+                mitigation_mask_start = sum(self.savings_possible_actions)
+                mitigation_mask_end = mitigation_mask_start + sum(
+                        self.mitigation_rate_possible_actions
+                    )
+                mask[mitigation_mask_start:mitigation_mask_end] = mitigation_mask
+            
+            # tariff non club members
             tariff_mask = []
             for other_region_id in range(self.num_regions):
 
@@ -268,9 +269,13 @@ class BasicClubTariffAmbition(Rice):
                 tariff_mask.extend(regional_tariff_mask)
 
             #mask tariff
-            tariffs_mask_start = self.get_actions_index("import_tariffs")
-            tariff_mask_end = self.num_regions * self.num_discrete_action_levels + tariffs_mask_start
-            mask[tariffs_mask_start:tariff_mask_end] = np.array(tariff_mask)
+            tariff_mask_start = sum(self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions)
+
+            tariff_mask_end = tariff_mask_start + sum(self.calc_possible_actions("import_tariffs"))
+            mask[tariff_mask_start:tariff_mask_end] = np.array(tariff_mask)
 
 
             mask_dict[region_id] = mask
