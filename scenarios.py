@@ -221,8 +221,6 @@ class BasicClubTariffAmbition(Rice):
             else:
                 mask = self.default_agent_action_mask.copy()
 
-            
-
             #minimum commitment
             min_mitigation_rate = int(round(self.get_state("minimum_mitigation_rate_all_regions",
                             region_id=region_id,
@@ -236,8 +234,11 @@ class BasicClubTariffAmbition(Rice):
             if current_mitigation_rate < min_mitigation_rate:
                 mitigation_mask = [0]*(current_mitigation_rate + 1) + [1] + [0]*(self.num_discrete_action_levels - current_mitigation_rate - 2)
             #if at the club level, agent has the possibility of keeping the same mitigation level
-            elif current_mitigation_rate == min_mitigation_rate:
+            elif current_mitigation_rate == min_mitigation_rate and current_mitigation_rate < self.num_discrete_action_levels - 1:
                 mitigation_mask = [0]*(current_mitigation_rate) + [1,1] + [0]*(self.num_discrete_action_levels - current_mitigation_rate - 2)
+            #if at max mitigation remain there
+            elif current_mitigation_rate == self.num_discrete_action_levels - 1:
+                mitigation_mask = [0]*(current_mitigation_rate) + [1]
 
 
 
@@ -249,8 +250,9 @@ class BasicClubTariffAmbition(Rice):
                 mitigation_mask_end = mitigation_mask_start + sum(
                         self.mitigation_rate_possible_actions
                     )
-                mask[mitigation_mask_start:mitigation_mask_end] = mitigation_mask
-            
+                mask[mitigation_mask_start:mitigation_mask_end] = np.array(mitigation_mask)
+
+
             # tariff non club members
             tariff_mask = []
             for other_region_id in range(self.num_regions):
