@@ -221,22 +221,26 @@ class BasicClubTariffAmbition(Rice):
             else:
                 mask = self.default_agent_action_mask.copy()
 
+            
+
             #minimum commitment
-            min_mitigation_rate = int(self.get_state("minimum_mitigation_rate_all_regions",
+            min_mitigation_rate = int(round(self.get_state("minimum_mitigation_rate_all_regions",
                             region_id=region_id,
-                                timestep=self.current_timestep)*self.num_discrete_action_levels)
+                                timestep=self.current_timestep)*self.num_discrete_action_levels))
             
-            current_mitigation_rate = int(self.get_state("mitigation_rates_all_regions",
+            current_mitigation_rate = int(round(self.get_state("mitigation_rates_all_regions",
                             region_id=region_id,
-                                timestep=self.current_timestep)*self.num_discrete_action_levels)
-            
+                                timestep=self.current_timestep)*self.num_discrete_action_levels))
+
             #if agent has a minimum mitigation rate, it must increase mitigation until target reached
             if current_mitigation_rate < min_mitigation_rate:
                 mitigation_mask = [0]*(current_mitigation_rate + 1) + [1] + [0]*(self.num_discrete_action_levels - current_mitigation_rate - 2)
             #if at the club level, agent has the possibility of keeping the same mitigation level
             elif current_mitigation_rate == min_mitigation_rate:
                 mitigation_mask = [0]*(current_mitigation_rate) + [1,1] + [0]*(self.num_discrete_action_levels - current_mitigation_rate - 2)
-            
+
+
+
             # if above club level, normal action window applies
             if current_mitigation_rate > min_mitigation_rate:
                 pass
@@ -276,7 +280,6 @@ class BasicClubTariffAmbition(Rice):
 
             tariff_mask_end = tariff_mask_start + sum(self.calc_possible_actions("import_tariffs"))
             mask[tariff_mask_start:tariff_mask_end] = np.array(tariff_mask)
-
 
             mask_dict[region_id] = mask
             
@@ -878,7 +881,7 @@ class BasicClub(Rice):
                             region_id=region_id,
                                 timestep=self.current_timestep)*self.num_discrete_action_levels)
             
-            current_mitigation_rate = int(self.get_state("minimum_mitigation_rates_all_regions",
+            current_mitigation_rate = int(self.get_state("mitigation_rates_all_regions",
                             region_id=region_id,
                                 timestep=self.current_timestep)*self.num_discrete_action_levels)
             
