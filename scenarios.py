@@ -4,6 +4,86 @@ from math import ceil
 _FEATURES = "features"
 _ACTION_MASK = "action_mask"
 
+
+class OptimalMitigationActionWindow(Rice):
+
+    """Scenario where all agents mitigate to a given extent
+    
+        Arguments:
+        - num_discrete_action_levels (int):  the number of discrete levels for actions, > 1
+        - negotiation_on (boolean): whether negotiation actions are available to agents
+        - scenario (str): name of scenario 
+    
+        Attributes:
+        - maximum_mitigation_rate: the rate rate all agents will mitigate to.
+        """
+    
+
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=True, # If True then negotiation is on, else off
+                 scenario="OptimalMitigation",
+                 action_space_type="discrete",  # or "continuous"
+                 dmg_function="base",
+                 carbon_model="base",
+                 temperature_calibration="base",
+                 prescribed_emissions=None,
+                 pct_reward=False,
+                 clubs_enabled = False,
+                 club_members = [],
+                 action_window = True,
+                 relative_reward = True
+            ):
+        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels, 
+                action_space_type=action_space_type,  # or "continuous"
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions,
+                pct_reward=pct_reward,
+                clubs_enabled = clubs_enabled,
+                club_members = club_members,
+                action_window = action_window,
+                relative_reward=relative_reward)
+
+    def calc_action_mask(self):
+        """
+        Generate action masks.
+        """
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+
+            if self.action_window:
+                mask = self.calc_action_window(region_id)
+            else:
+                mask = self.default_agent_action_mask.copy()
+
+            current_mitigation_rate = int(round(self.get_state("mitigation_rates_all_regions",
+                            region_id=region_id,
+                                timestep=self.current_timestep)*self.num_discrete_action_levels))
+
+            #if agent has a minimum mitigation rate, it must increase mitigation until target reached
+            if current_mitigation_rate < self.num_discrete_action_levels - 1:
+                mitigation_mask = [0]*(current_mitigation_rate + 1) + [1] + [0]*(self.num_discrete_action_levels - current_mitigation_rate - 2)
+            #if at the club level, agent has the possibility of keeping the same mitigation level
+            elif current_mitigation_rate == self.num_discrete_action_levels - 1:
+                mitigation_mask = [0]*(current_mitigation_rate) + [1]
+            
+            mitigation_mask_start = sum(self.savings_possible_actions)
+            mitigation_mask_end = mitigation_mask_start + sum(
+                    self.mitigation_rate_possible_actions
+                )
+            mask[mitigation_mask_start:mitigation_mask_end] = np.array(mitigation_mask)
+
+
+
+            mask_dict[region_id] = mask
+            
+        return mask_dict
+
+
 class BasicClubTariffAmbition(Rice):
     """
     Basic Club adapted to the action window context
