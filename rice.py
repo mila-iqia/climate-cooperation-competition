@@ -1413,6 +1413,40 @@ class Rice(gym.Env):
                 + self.import_bids_possible_actions
                 + self.import_tariff_possible_actions
             )
+        
+        if action_type == "proposal":
+            return sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions
+                + self.import_tariff_possible_actions
+            ), sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions
+                + self.import_tariff_possible_actions
+                + self.proposal_possible_actions
+            )
+        
+        if action_type == "evaluation":
+            return sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions
+                + self.import_tariff_possible_actions
+                + self.proposal_possible_actions
+            ), sum(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.export_limit_possible_actions
+                + self.import_bids_possible_actions
+                + self.import_tariff_possible_actions
+                + self.proposal_possible_actions
+                + self.evaluation_possible_actions
+            )
 
     def calc_action_window(self, region_id):
         """
@@ -1744,8 +1778,8 @@ class Rice(gym.Env):
         self.possible_actions_length = sum(self.total_possible_actions)
         if self.action_space_type == "discrete":
             self.default_agent_action_mask = np.ones(
-                self.possible_actions_length, dtype=self.int_dtype
-            )
+                    self.possible_actions_length, dtype=self.int_dtype
+                )
         elif self.action_space_type == "continuous":
             self.default_agent_action_mask = np.ones(
                 self.possible_actions_length * 2, dtype=self.float_dtype
@@ -1940,8 +1974,7 @@ class Rice(gym.Env):
                 _FEATURES: features_dict[region_id],
                 _ACTION_MASK: action_mask_dict[region_id],
             }
-        # if self.current_timestep == 2 and region_id == 26:
-        #     print("flag")
+
         return obs_dict
 
     def cont_bound_scheduler(self, x, t, type_="pow", k=1):
