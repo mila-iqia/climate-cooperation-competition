@@ -41,7 +41,7 @@ class Rice(gym.Env):
         negotiation_on=False,  # If True then negotiation is on, else off
         action_space_type="discrete",  # or "continuous"
         dmg_function="base",
-        pct_reward=True,
+        pct_reward=False,
         abatement_cost_type="base_abatement",
         pliability=None,
         debugging_folder=None,
@@ -52,7 +52,7 @@ class Rice(gym.Env):
         clubs_enabled=False,
         club_members=[],
         action_window=True,
-        relative_reward=True,
+        relative_reward=False,
     ):
         self.relative_reward = relative_reward
         self.action_space_type = action_space_type

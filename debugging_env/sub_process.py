@@ -4,8 +4,8 @@ import sys
 
 max_threads = 8
 active_processes = []
-max_runtime = 30 * 60  # 30 minutes in seconds
-max_runs = 1000000  # Set your desired maximum number of runs here
+max_runtime = 60 * 60  # 30 minutes in seconds
+max_runs = 10000  # Set your desired maximum number of runs here
 total_runs = 0
 
 

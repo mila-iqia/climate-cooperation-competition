@@ -93,11 +93,15 @@ def run_single_experiment(
     carbon_model=None,
     prescribed_emissions=None,
     temperature_calibration=None,
+    relative_reward=None,
+    pct_reward=None,
     mitigation_type=None,
+    project_name="ricen-fair-movingdiff-mitigation-normal-reward",
+    save_to="save_results",
 ):
     if is_wandb:
         # Initialize a wandb run
-        run = wandb.init(project="ricen-fair-movingdiff-mitigation-pct-relative-reward")
+        run = wandb.init(project=project_name)
         wandb.config.update(locals())
     # Create the Rice environment
     if temperature_calibration is None:
@@ -113,6 +117,8 @@ def run_single_experiment(
         carbon_model=carbon_model,
         prescribed_emissions=prescribed_emissions,
         temperature_calibration=temperature_calibration,
+        relative_reward=relative_reward,
+        pct_reward=pct_reward,
     )
     env.reset()
     if isinstance(mitigation_rate, (list, tuple, np.ndarray)):
@@ -190,7 +196,7 @@ def run_single_experiment(
         if done["__all__"]:
             # save a copy of current_states as json file locally
             with open(
-                f"debugging_env/save_results/m_{mitigation_rate_str}_s_{savings_rate_str}_p_{pliability}_d_{damage_type}_a_{abatement_cost_type}_v_{env.num_regions}_c_{carbon_model}_pe_{prescribed_emissions}_tc_{temperature_calibration}.json",
+                f"debugging_env/{save_to}/m_{mitigation_rate_str}_s_{savings_rate_str}_p_{pliability}_d_{damage_type}_a_{abatement_cost_type}_v_{env.num_regions}_c_{carbon_model}_pe_{prescribed_emissions}_tc_{temperature_calibration}.json",
                 "w",
             ) as f:
                 json.dump(all_states, f, cls=NumpyEncoder, indent=4)
@@ -211,14 +217,69 @@ if __name__ == "__main__":
         is_wandb=True,
         mitigation_rate=lst,
         savings_rate=2.5,
-        pliability=0.4,
+        pliability=0.6,
         damage_type="updated",
         abatement_cost_type="path_dependent",
         debugging_folder=None,
         carbon_model="base",
         prescribed_emissions=None,
         temperature_calibration=None,
+        relative_reward=False,
+        pct_reward=False,
         mitigation_type=type_,
+        project_name="ricen-fair-movingdiff-mitigation-normal-reward",
+        save_to="save_results_not_relative_not_pct",
+    )
+    run_single_experiment(
+        is_wandb=True,
+        mitigation_rate=lst,
+        savings_rate=2.5,
+        pliability=0.6,
+        damage_type="updated",
+        abatement_cost_type="path_dependent",
+        debugging_folder=None,
+        carbon_model="base",
+        prescribed_emissions=None,
+        temperature_calibration=None,
+        relative_reward=True,
+        pct_reward=False,
+        mitigation_type=type_,
+        project_name="ricen-fair-movingdiff-mitigation-relative-normal-reward",
+        save_to="save_results_relative_not_pct",
+    )
+    run_single_experiment(
+        is_wandb=True,
+        mitigation_rate=lst,
+        savings_rate=2.5,
+        pliability=0.6,
+        damage_type="updated",
+        abatement_cost_type="path_dependent",
+        debugging_folder=None,
+        carbon_model="base",
+        prescribed_emissions=None,
+        temperature_calibration=None,
+        relative_reward=False,
+        pct_reward=True,
+        mitigation_type=type_,
+        project_name="ricen-fair-movingdiff-mitigation-pct-reward",
+        save_to="save_results_not_relative_pct",
+    )
+    run_single_experiment(
+        is_wandb=True,
+        mitigation_rate=lst,
+        savings_rate=2.5,
+        pliability=0.6,
+        damage_type="updated",
+        abatement_cost_type="path_dependent",
+        debugging_folder=None,
+        carbon_model="base",
+        prescribed_emissions=None,
+        temperature_calibration=None,
+        relative_reward=True,
+        pct_reward=True,
+        mitigation_type=type_,
+        project_name="ricen-fair-movingdiff-mitigation-pct-relative-reward",
+        save_to="save_results_relative_pct",
     )
     # run_single_experiment(
     #     is_wandb=True,

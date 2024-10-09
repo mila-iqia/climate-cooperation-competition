@@ -14,6 +14,7 @@ import logging
 import os
 import shutil
 import json
+
 # import shutil
 import subprocess
 import sys
@@ -26,7 +27,18 @@ from fixed_paths import PUBLIC_REPO_DIR
 from run_unittests import import_class_from_path
 from opt_helper import save
 from rice import Rice
-from scenarios import *
+from scenarios import (
+    OptimalMitigation,
+    MinimalMitigation,
+    BasicClub,
+    ExportAction,
+    CarbonLeakage,
+    CarbonLeakageFixed,
+    BasicClubTariffAmbition,
+    MinimalMitigationActionWindow,
+    OptimalMitigationActionWindow,
+    BasicClubFixed,
+)
 import argparse
 from collections import OrderedDict
 from tqdm import tqdm
@@ -35,20 +47,21 @@ sys.path.append(PUBLIC_REPO_DIR)
 # Set logger level e.g., DEBUG, INFO, WARNING, ERROR.
 logging.getLogger().setLevel(logging.DEBUG)
 
-#scenarios
+# scenarios
 SCENARIO_MAPPING = {
-    "default":Rice,
-    "OptimalMitigation":OptimalMitigation,
-    "MinimalMitigation":MinimalMitigation,
-    "BasicClub":BasicClub,
-    "ExportAction":ExportAction,
-    "CarbonLeakage":CarbonLeakage,
-    "CarbonLeakageFixed":CarbonLeakageFixed,
-    "BasicClubTariffAmbition":BasicClubTariffAmbition,
-    "MinimalMitigationActionWindow":MinimalMitigationActionWindow,
-    "OptimalMitigationActionWindow":OptimalMitigationActionWindow,
-    "BasicClubFixed":BasicClubFixed
+    "default": Rice,
+    "OptimalMitigation": OptimalMitigation,
+    "MinimalMitigation": MinimalMitigation,
+    "BasicClub": BasicClub,
+    "ExportAction": ExportAction,
+    "CarbonLeakage": CarbonLeakage,
+    "CarbonLeakageFixed": CarbonLeakageFixed,
+    "BasicClubTariffAmbition": BasicClubTariffAmbition,
+    "MinimalMitigationActionWindow": MinimalMitigationActionWindow,
+    "OptimalMitigationActionWindow": OptimalMitigationActionWindow,
+    "BasicClubFixed": BasicClubFixed,
 }
+
 
 def get_config_yaml(yaml_path):
     config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", yaml_path)
@@ -129,6 +142,7 @@ def recursive_obs_dict_to_spaces_dict(obs):
             raise TypeError
     return Dict(dict_of_spaces)
 
+
 def recursive_list_to_np_array(dictionary):
     """
     Numpy-ify dictionary object to be used with RLlib.
@@ -148,6 +162,7 @@ def recursive_list_to_np_array(dictionary):
                 raise AssertionError
         return new_d
     raise AssertionError
+
 
 class EnvWrapper(MultiAgentEnv):
     """
@@ -274,10 +289,10 @@ def get_multiagent_policies_config(config_yaml=None, env_object=None):
             ),
         }
 
-        
         club_members = env_config["club_members"]
+
         # Function mapping agent ids to policy ids.
-        def policy_mapping_fn(agent_id=None, episode=None, worker=None, **kwargs ):
+        def policy_mapping_fn(agent_id=None, episode=None, worker=None, **kwargs):
             assert agent_id is not None
             if agent_id in club_members:
                 return "regionsclub"
@@ -295,10 +310,9 @@ def get_multiagent_policies_config(config_yaml=None, env_object=None):
         }
 
         # Function mapping agent ids to policy ids.
-        def policy_mapping_fn(agent_id=None, episode=None, worker=None, **kwargs ):
+        def policy_mapping_fn(agent_id=None, episode=None, worker=None, **kwargs):
             assert agent_id is not None
             return "regions"
-
 
     # Optional list of policies to train, or None for all policies.
     policies_to_train = None
@@ -318,9 +332,7 @@ def get_trainer_config(config_yaml):
     return trainer_config
 
 
-def save_model_checkpoint(
-    trainer_obj=None, save_directory=None, current_timestep=0
-):
+def save_model_checkpoint(trainer_obj=None, save_directory=None, current_timestep=0):
     """
     Save trained model checkpoints.
     """
@@ -359,9 +371,7 @@ def load_model_checkpoints(trainer_obj=None, save_directory=None, ckpt_idx=-1):
     model_params = trainer_obj.get_weights()
     for policy in model_params:
         policy_models = [
-            os.path.join(save_directory, file)
-            for file in files
-            if policy in file
+            os.path.join(save_directory, file) for file in files if policy in file
         ]
         # If there are multiple files, then use the ckpt_idx to specify the checkpoint
         assert ckpt_idx < len(policy_models)
@@ -388,12 +398,20 @@ def create_trainer(config_yaml=None, source_dir=None, seed=None):
             from scripts.torch_models_cont_beta import CustomBetaPolicyModel
             from ray.rllib.models import ModelCatalog
             from beta_action_dist import BetaActionDistribution
-            ModelCatalog.register_custom_action_dist("beta_distribution", BetaActionDistribution)
+
+            ModelCatalog.register_custom_action_dist(
+                "beta_distribution", BetaActionDistribution
+            )
 
             from beta_action_dist import BetaActionDistribution
-        elif "cont" in config_yaml["policy"]["regions"]["model"]["custom_model"].lower():
+        elif (
+            "cont" in config_yaml["policy"]["regions"]["model"]["custom_model"].lower()
+        ):
             from scripts.torch_models_cont import TorchLinear
-        elif "discrete" in config_yaml["policy"]["regions"]["model"]["custom_model"].lower():
+        elif (
+            "discrete"
+            in config_yaml["policy"]["regions"]["model"]["custom_model"].lower()
+        ):
             from scripts.torch_models_discrete import TorchLinear
 
     rllib_config = get_rllib_config(
@@ -404,7 +422,7 @@ def create_trainer(config_yaml=None, source_dir=None, seed=None):
 
     config = A2CConfig()
 
-    #config.num_agents = rllib_config["num_envs_per_worker"]
+    # config.num_agents = rllib_config["num_envs_per_worker"]
 
     config = config.training(train_batch_size=rllib_config["train_batch_size"])
     config = config.environment(disable_env_checking=True)
@@ -449,6 +467,7 @@ def create_save_dir_path(exp_run_config, results_dir=None):
 
     return results_save_dir
 
+
 class NumpyArrayEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.ndarray):
@@ -456,7 +475,7 @@ class NumpyArrayEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def fetch_episode_states(trainer_obj=None, episode_states=None, file_name = None):
+def fetch_episode_states(trainer_obj=None, episode_states=None, file_name=None):
     """
     Helper function to rollout the env and fetch env states for an episode.
     """
@@ -490,9 +509,7 @@ def fetch_episode_states(trainer_obj=None, episode_states=None, file_name = None
 
     for timestep in range(env.episode_length):
         for state in episode_states:
-            outputs[state][timestep] = env.global_state[state]["value"][
-                timestep
-            ]
+            outputs[state][timestep] = env.global_state[state]["value"][timestep]
 
         actions = {}
         # TODO: Consider using the `compute_actions` (instead of `compute_action`)
@@ -501,7 +518,6 @@ def fetch_episode_states(trainer_obj=None, episode_states=None, file_name = None
             if (
                 len(agent_states[region_id]) == 0
             ):  # stateless, with a linear model, for example
-
 
                 actions[region_id] = trainer_obj.compute_single_action(
                     obs[region_id],
@@ -529,20 +545,20 @@ def fetch_episode_states(trainer_obj=None, episode_states=None, file_name = None
                 # Get the current script's directory
                 current_directory = os.path.dirname(__file__)
                 # Construct the path to the 'eval' directory
-                eval_directory = os.path.join(current_directory, '..', 'evals')
+                eval_directory = os.path.join(current_directory, "..", "evals")
                 # Ensure the path is absolute
                 eval_directory = os.path.abspath(eval_directory)
-                formatted_datetime = datetime.now()\
-                    .strftime("%Y%m%d%H%M%S")
+                formatted_datetime = datetime.now().strftime("%Y%m%d%H%M%S")
                 name = f"global_state_{file_name}_{formatted_datetime}.json"
                 # Define the file name and construct the full file path
                 file_path = os.path.join(eval_directory, name)
-                
+
                 with open(file_path, "w") as f:
                     json.dump(env.global_state, f, cls=NumpyArrayEncoder)
             break
 
     return outputs
+
 
 def set_num_agents(config_yaml):
     """
@@ -551,8 +567,8 @@ def set_num_agents(config_yaml):
     """
     num_agents = config_yaml["regions"]["num_agents"]
 
-    assert num_agents in [3,7,20,27]
-    
+    assert num_agents in [3, 7, 20, 27]
+
     # Get the directory where the script is located
     script_directory = os.path.dirname(os.path.abspath(__file__))
 
@@ -560,33 +576,41 @@ def set_num_agents(config_yaml):
     parent_directory = os.path.dirname(script_directory)
 
     # Path to the 'other_yamls' directory
-    target_directory = os.path.join(parent_directory, 'other_yamls')
+    target_directory = os.path.join(parent_directory, "other_yamls")
 
     # List everything in the 'other_yamls' directory
     entries = os.listdir(target_directory)
 
     # Filter out files, only keep directories
-    folders = [entry for entry in entries if os.path.isdir(os.path.join(target_directory, entry))]
+    folders = [
+        entry
+        for entry in entries
+        if os.path.isdir(os.path.join(target_directory, entry))
+    ]
 
     # Get target directory containing relevant .yml files
-    target_region_yamls = os.path.join(target_directory, [folder for folder in folders if folder.startswith(str(num_agents))][0])
+    target_region_yamls = os.path.join(
+        target_directory,
+        [folder for folder in folders if folder.startswith(str(num_agents))][0],
+    )
 
     # Path to the 'test_regions' directory
-    test_regions_directory = os.path.join(parent_directory, 'region_yamls')
+    test_regions_directory = os.path.join(parent_directory, "region_yamls")
 
     # Delete all files in 'test_regions' except 'default.yml'
     for file in os.listdir(test_regions_directory):
         file_path = os.path.join(test_regions_directory, file)
-        if os.path.isfile(file_path) and file != 'default.yml':
+        if os.path.isfile(file_path) and file != "default.yml":
             os.remove(file_path)
 
     # Copy all .yml files from target_region_yamls to test_regions
     for file in os.listdir(target_region_yamls):
-        if file.endswith('.yml'):
+        if file.endswith(".yml"):
             source_file_path = os.path.join(target_region_yamls, file)
             destination_file_path = os.path.join(test_regions_directory, file)
             shutil.copy2(source_file_path, destination_file_path)
     logging.info(f"region yamls updated to {num_agents} regions")
+
 
 if __name__ == "__main__":
     print("Training with RLlib...")
@@ -615,11 +639,8 @@ if __name__ == "__main__":
     trainer = create_trainer(config_yaml)
     save_dir = create_save_dir_path(config_yaml)
     os.makedirs(save_dir)
-    
 
-    for file in ["rice.py",
-                 "rice_helpers.py",
-                 "scenarios.py"]:
+    for file in ["rice.py", "rice_helpers.py", "scenarios.py"]:
         shutil.copyfile(
             os.path.join(PUBLIC_REPO_DIR, file),
             os.path.join(save_dir, file),
@@ -629,7 +650,6 @@ if __name__ == "__main__":
             os.path.join(PUBLIC_REPO_DIR, "scripts", file),
             os.path.join(save_dir, file),
         )
-    
 
     # Add an identifier file
     with open(os.path.join(save_dir, ".rllib"), "x", encoding="utf-8") as fp:
@@ -641,22 +661,19 @@ if __name__ == "__main__":
     trainer_config = config_yaml["trainer"]
     num_episodes = trainer_config["num_episodes"]
     train_batch_size = trainer_config["train_batch_size"]
-    
+
     # Fetch the env object from the trainer
     if trainer_config["num_workers"] > 0:
         # Fetch the env object from the trainer
         envs = trainer.workers.foreach_worker(lambda worker: worker.env)
-        env_obj = envs[1].env 
+        env_obj = envs[1].env
     else:
         env_obj = trainer.workers.local_worker().env.env
-    
-    
+
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
     for iteration in tqdm(range(num_iters)):
-        print(
-            f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********"
-        )
+        print(f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********")
         result = trainer.train()
 
         if config_yaml["logging"]["enabled"]:
@@ -668,7 +685,10 @@ if __name__ == "__main__":
                 },
                 step=result["episodes_total"],
             )
-            if config_yaml["env"]["clubs_enabled"] and config_yaml["policy"]["multi_model"]:
+            if (
+                config_yaml["env"]["clubs_enabled"]
+                and config_yaml["policy"]["multi_model"]
+            ):
                 wandb.log(
                     result["info"]["learner"]["regionsclub"]["learner_stats"],
                     step=result["episodes_total"],
@@ -691,15 +711,13 @@ if __name__ == "__main__":
             save_model_checkpoint(trainer, save_dir, total_timesteps)
             logging.info(result)
         print(f"""episode_reward_mean: {result.get('episode_reward_mean')}""")
-    
+
     # Create a (zipped) submission file
     # ---------------------------------
     subprocess.call(
         [
             "python",
-            os.path.join(
-                PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"
-            ),
+            os.path.join(PUBLIC_REPO_DIR, "scripts", "create_submission_zip.py"),
             "--results_dir",
             save_dir,
         ]
