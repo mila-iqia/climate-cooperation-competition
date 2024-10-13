@@ -50,8 +50,6 @@ class APrioriBasicClub(Rice):
         self.club_members = club_members
         self.club_mitigation_rate = club_mitigation_rate
         
-        # TODO: implement fixed or random
-        
         # check type of club_members. If it is an integer, then it is the size of the club
         # if it is a float between 0 and 1 it is a percentage
         if isinstance(self.club_members, int):
