@@ -776,7 +776,9 @@ class Rice(gym.Env):
                 )
             elif self.dmg_function == "updated":
                 damages[region_id] = (
-                    1 - (0.7438 * (prev_atmospheric_temperature**2)) / 100
+                    # According to Howard & Sterner (2017), calculated wrt 1850-1900 temperature (IPCC)
+                    # 0.115 maps from 1750 to the 1850-1900 reference period
+                    1 - (0.7438 * ((prev_atmospheric_temperature-0.115)**2)) / 100
                 )
             else:
                 raise ValueError(f"Unknown damage function: {self.dmg_function}")
