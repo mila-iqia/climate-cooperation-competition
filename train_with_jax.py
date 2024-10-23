@@ -17,6 +17,7 @@ if not os.path.exists(SAVE_MODEL_PATH):
     os.makedirs(SAVE_MODEL_PATH)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-t", "--total_timesteps", help="Total timesteps to train for", default=1e6, type=int)
 parser.add_argument("-a", "--algorithm", help="Algorithm to train with", default="ppo", choices=["ppo", "a2c", "random"])
 parser.add_argument("-w", "--wandb", help="Log to wandb", action="store_true")
 parser.add_argument("-wg", "--wandb_group", help="Group of wandb init calls", default=None)
@@ -39,6 +40,7 @@ parser.add_argument(
     type=int,
     choices=[3, 7, 20],
 )
+parser.add_argument("--temperature_calibration", help="Temperature model", type=str, default="base", choices=["base", "FaIR", "DFaIR"])
 args = parser.parse_args()
 
 
@@ -101,12 +103,13 @@ yaml_file = {
         "scenario": args.scenario,
         "diff_reward_mode": True,
         "relative_reward_mode": False,
-        "disable_trading": False
+        "disable_trading": False,
+        "temperature_calibration": args.temperature_calibration,
     },
     "trainer_settings": {
         "num_log_episodes_after_training": 2,
         "num_envs": 4,
-        "total_timesteps": 15e6,
+        "total_timesteps": args.total_timesteps,
         "trainer_seed": args.seed,
         "backend": "gpu",
         "debug": args.debug, # Print rollout rewards during training
@@ -120,7 +123,7 @@ if yaml_file["wandb"] and not args.skip_training:
     # removing arrays, as they cause issues with wandb
     merged_settings = eqx.filter(merged_settings, eqx.is_array, inverse=True)
     wandb.init(
-        project="jice", config=merged_settings, tags=["train_run"], group=args.wandb_group, entity="ai4gcc-gaia"
+        project="jice", config=merged_settings, tags=["train_run"], group=args.wandb_group#, entity="ai4gcc-gaia"
     )
 
 seed = jax.random.PRNGKey(args.seed)

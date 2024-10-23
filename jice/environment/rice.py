@@ -66,8 +66,8 @@ class Actions:
 
 @chex.dataclass
 class EnvState:
-    current_timestep: int
-    activity_timestep: int
+    current_timestep: int # The RL timestep
+    activity_timestep: int # The timestep in the simulation (can be different from RL timestep if negotiation is on)
     current_simulation_year: int
 
     # climate states
@@ -148,8 +148,8 @@ class Rice(JaxBaseEnv):
     disable_trading: bool = False # trade actions always 0, actions are not removed from the action space
     negotiation_on: bool = False
     dmg_function: str = "base"
-    temperature_calibration: str = "base"
-    carbon_model: str = "base"
+    temperature_calibration: str = "base" # ["base", "FaIR", "DFaIR"]
+    carbon_model: str = "base" # ["base", "FaIR", "DFaIR", "AR5(?)"]
     apply_welfloss: bool = True
     apply_welfgain: bool = True
 
@@ -174,11 +174,16 @@ class Rice(JaxBaseEnv):
 
     @property
     def episode_length(self):
-        return self.region_params.xN  # (max steps in episode)
-
-    # if self.negotiation_on:
-    #     # NOTE: need to increase number of steps
-    #     raise NotImplementedError("Negotiation not implemented yet")
+        simulation_timesteps = self.region_params.xN 
+        if self.negotiation_on:
+            """
+            if negotion, then 3 RL steps per climate step:
+                - propose
+                - evaluate proposals
+                - step_climate_and_economy
+            """
+            return 3 * simulation_timesteps
+        return simulation_timesteps
 
     def __check_init__(self):
         # eqx module function, may use to assert some things
@@ -311,7 +316,6 @@ class Rice(JaxBaseEnv):
 
         state = replace(
             prev_state,
-            activity_timestep=prev_state.activity_timestep + 1,
             current_timestep=prev_state.current_timestep + 1,
         )
 
@@ -467,7 +471,6 @@ class Rice(JaxBaseEnv):
             reward = reward - self.baseline_rewards[old_state.current_timestep]
         
         return reward
-        
 
     def generate_terminated_truncated_discount(
         self, state: EnvState
@@ -639,7 +642,7 @@ class Rice(JaxBaseEnv):
         global_carbon_mass = self.calc_global_carbon_mass(
             state, productions, actions.mitigation_rate
         )
-        global_temperature, global_exogenous_emissions = self.calc_global_temperature(
+        global_temperature, global_exogenous_emissions, global_temperature_boxes = self.calc_global_temperature(
             state
         )
 
@@ -649,6 +652,7 @@ class Rice(JaxBaseEnv):
 
         state: EnvState = replace(
             state,
+            activity_timestep=state.activity_timestep + 1,
             # actions
             savings_all_regions=actions.savings_rate,
             import_tariffs=actions.import_tariff,
@@ -673,6 +677,7 @@ class Rice(JaxBaseEnv):
             global_carbon_mass=global_carbon_mass,
             global_temperature=global_temperature,
             global_exogenous_emissions=global_exogenous_emissions,
+            global_temperature_boxes=global_temperature_boxes,
             current_simulation_year=current_simulation_year,
             utility_times_welfloss_all_regions=utility_times_welfloss,
         )
@@ -1152,6 +1157,8 @@ class Rice(JaxBaseEnv):
 
     def calc_global_temperature(self, state: EnvState) -> chex.Array:
 
+        global_temperature_boxes = state.global_temperature_boxes # only changed in DFaIR
+
         def calc_exogenous_emissions():
             """Obtain the amount of exogeneous emissions."""
             f_0 = self.region_params.xf_0
@@ -1185,7 +1192,7 @@ class Rice(JaxBaseEnv):
                 + global_exogenous_emissions,
             )
 
-            return global_temperature, global_exogenous_emissions
+            return global_temperature, global_exogenous_emissions, global_temperature_boxes
 
         elif self.temperature_calibration == "FaIR":
             global_exogenous_emissions = calc_exogenous_emissions()
@@ -1229,60 +1236,45 @@ class Rice(JaxBaseEnv):
                 ]
             )
 
-            return global_temperature, global_exogenous_emissions
+            return global_temperature, global_exogenous_emissions, global_temperature_boxes
 
         elif self.temperature_calibration == "DFaIR":
-            raise NotImplementedError(
-                f"Temperature calibration {self.temperature_calibration} not implemented for jax yet."
-            )
-            global_exogenous_emissions = self.calc_exogenous_emissions()
-            prev_carbon_mass = self.get_prev_state("global_carbon_mass")
-            prev_global_temperature = self.get_prev_state("global_temperature")
-            prev_global_temperature_boxes = self.get_prev_state(
-                "global_temperature_boxes"
-            )
+            global_exogenous_emissions = calc_exogenous_emissions()
+            prev_carbon_mass = state.global_carbon_mass
+            prev_global_temperature = state.global_temperature
+            prev_global_temperature_boxes = state.global_temperature_boxes
 
-            # TODO: why the zero index?
-            # global_exogenous_emissions = global_exogenous_emissions[0]
+            # (original) TODO: why the zero index?
+            # (original) global_exogenous_emissions = global_exogenous_emissions[0]
             prev_atmospheric_carbon_mass = prev_carbon_mass[0]
-            atmospheric_carbon_mass = np.array(
-                self.all_regions_params[0]["xM_AT_1750"]
-            )  # Equilibrium atmospheric carbon mass
-            f_2x = np.array(self.all_regions_params[0]["xF_2x"])
+            atmospheric_carbon_mass = np.array(self.region_params.xM_AT_1750)
 
+            f_2x = self.region_params.xF_2x
             d = np.array(
                 [
-                    self.all_regions_params[0]["xT_LO_rt"],
-                    self.all_regions_params[0]["xT_UO_rt"],
+                    self.region_params.xT_LO_rt,
+                    self.region_params.xT_UO_rt
                 ]
             )
             teq = np.array(
                 [
-                    self.all_regions_params[0]["xT_LO_tq"],
-                    self.all_regions_params[0]["xT_UO_tq"],
+                    self.region_params.xT_LO_tq,
+                    self.region_params.xT_UO_tq,
                 ]
             )
-
             forcings = (
                 f_2x
-                * np.log(prev_atmospheric_carbon_mass / atmospheric_carbon_mass)
-                / np.log(2)
+                * jnp.log(prev_atmospheric_carbon_mass / atmospheric_carbon_mass)
+                / jnp.log(2)
                 + global_exogenous_emissions
             )
-
-            global_temperature_boxes = prev_global_temperature_boxes * np.exp(
+            global_temperature_boxes = prev_global_temperature_boxes * jnp.exp(
                 -5 / d
-            ) + teq * forcings * (1 - np.exp(-5 / d))
+            ) + teq * forcings * (1 - jnp.exp(-5 / d))
 
-            if save_state:
-                self.set_state("global_temperature_boxes", global_temperature_boxes)
+            global_temperature = jnp.array([np.sum(global_temperature_boxes), 0])
 
-            global_temperature = np.array([np.sum(global_temperature_boxes), 0])
-
-            if save_state:
-                self.set_state("global_temperature", global_temperature)
-
-            return global_temperature
+            return global_temperature, global_exogenous_emissions, global_temperature_boxes
 
         else:
             raise ValueError(
