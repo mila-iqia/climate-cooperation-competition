@@ -134,8 +134,8 @@ class Rice(JaxBaseEnv):
 
     num_regions: int = 3
     scenario: str = "default"
-    diff_reward_mode: bool = False
-    relative_reward_mode: bool = True
+    diff_reward_mode: bool = True
+    relative_reward_mode: bool = False
     # action_type: str = "discrete" # NOTE: continuous not implemented
     num_discrete_action_levels: int = 10
     train_env: bool = (
@@ -482,6 +482,7 @@ class Rice(JaxBaseEnv):
 
         # TODO: variable gamma based on state (per agent)
         discount = jnp.ones((self.num_regions,)) * self.init_gamma
+        discount = jnp.power(discount, self.years_per_step)
         return done, discount
 
     def generate_info(self, state: EnvState, actions: Actions) -> dict:
@@ -505,15 +506,16 @@ class Rice(JaxBaseEnv):
                     for region_id in range(info[key].shape[0])
                 }
                 info[key] = this_key_region_dict
-            for key in trade_states:
-                this_key_region_dict = {
-                    f"from-{region_id}": {
-                        f"to-{region_id_2}": info[key][region_id, region_id_2]
-                        for region_id_2 in range(info[key].shape[1])
-                    }
-                    for region_id in range(info[key].shape[0])
-                }
-                info[key] = this_key_region_dict
+            # for key in trade_states:
+            # # NOTE: this causes insane memory requirements in creating eval runs
+            #     this_key_region_dict = {
+            #         f"from-{region_id}": {
+            #             f"to-{region_id_2}": info[key][region_id, region_id_2]
+            #             for region_id_2 in range(info[key].shape[1])
+            #         }
+            #         for region_id in range(info[key].shape[0])
+            #     }
+            #     info[key] = this_key_region_dict
             info["global_temperature"] = {
                 "atmosphere": info["global_temperature"][0],
                 "lower_ocean": info["global_temperature"][1],

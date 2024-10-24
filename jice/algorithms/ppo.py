@@ -203,14 +203,14 @@ def build_ppo_trainer(
             (obsv, reward, done, discount, info), env_state = jax.vmap(
                 env.step, in_axes=(0, 0, 0)
             )(step_keys, env_state, action)
+            broadcasted_done = jnp.broadcast_to(done, (reward.shape[1], reward.shape[0])).T
 
             # # next value "hack" used in SB3, would like a different solution
             # # but this works for now
             # # https://github.com/DLR-RM/stable-baselines3/issues/633
+            # NOTE: this should be implemented, but causes radically different learning
             # terminal_obs = info["terminal_observation"]
             # next_value = jax.vmap(jax.vmap(train_state.critic))(terminal_obs)
-            broadcasted_done = jnp.broadcast_to(done, (reward.shape[1], reward.shape[0])).T
-            # eqx.debug.breakpoint_if(jnp.any(broadcasted_done))
             # reward = reward + (broadcasted_done * discount * next_value)
 
             transition = Transition(
@@ -235,8 +235,8 @@ def build_ppo_trainer(
                 transition.discount,
                 transition.done,
             )
-            delta = reward + config.gamma * next_value * (1 - done) - value
-            gae = delta + config.gamma * config.gae_lambda * (1 - done) * gae
+            delta = reward + gamma * next_value * (1 - done) - value
+            gae = delta + gamma * config.gae_lambda * (1 - done) * gae
             return (gae, value), (gae, gae + value)
 
         def _update_epoch(update_state, _):
@@ -394,23 +394,9 @@ def build_ppo_trainer(
             trained_train_state = train_state
             metrics = None
 
-        if trainer_params.num_log_episodes_after_training > 0:
-            rng, eval_key = jax.random.split(rng)
-            eval_keys = jax.random.split(
-                eval_key, trainer_params.num_log_episodes_after_training
-            )
-            eval_rewards, eval_logs = jax.vmap(eval_func, in_axes=(0, None))(
-                eval_keys, trained_train_state
-            )
-        else:
-            eval_rewards = None
-            eval_logs = None
-
         return {
             "train_state": trained_train_state,
-            "train_metrics": metrics,
-            "eval_rewards": eval_rewards,
-            "eval_logs": eval_logs,
+            "train_metrics": metrics
         }
 
-    return train_func
+    return train_func, eval_func

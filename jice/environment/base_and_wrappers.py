@@ -11,7 +11,7 @@ class EnvState:
 
 
 class TimeStep(NamedTuple):
-    observation: chex.Array
+    observation: Union[dict, chex.Array]
     reward: Union[float, chex.Array]
     done: bool
     discount: Union[float, chex.Array]
@@ -52,7 +52,7 @@ class JaxBaseEnv(eqx.Module):
         obs = jax.lax.cond(done, lambda: obs_reset, lambda: obs_step)
 
         # NOTE: Not a huge fan of this approach, but it is what gymnasium uses.
-        if isinstance(info, dict):
+        if isinstance(obs_step, dict):
             info.update({
                 "terminal_observation": obs_step["observations"],
             })

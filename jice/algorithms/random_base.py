@@ -51,7 +51,6 @@ def build_random_trainer(
 ):
     config = trainer_params
 
-    config = trainer_params
     eval_env = eqx.tree_at(lambda x: x.train_env, env, False)
     env = LogWrapper(env)
 
@@ -66,7 +65,7 @@ def build_random_trainer(
     agent = RandomAgent(env.action_space)
 
     @partial(jax.jit, backend=trainer_params.backend)
-    def eval_func(key: chex.PRNGKey):
+    def eval_func(key: chex.PRNGKey, train_state=None):
         def step_env(carry, _):
             rng, obs, env_state, done, episode_reward = carry
             rng, step_key, sample_key = jax.random.split(rng, 3)
@@ -131,21 +130,9 @@ def build_random_trainer(
             train_runner_state = initial_train_runner_state
             train_rewards = None
 
-        if trainer_params.num_log_episodes_after_training > 0:
-            rng, eval_key = jax.random.split(rng)
-            eval_keys = jax.random.split(
-                eval_key, trainer_params.num_log_episodes_after_training
-            )
-            eval_rewards, eval_logs = jax.vmap(eval_func)(eval_keys)
-        else:
-            eval_rewards = None
-            eval_logs = None
-
         return {
             "train_state": train_runner_state,
-            "train_metrics": train_rewards,
-            "eval_rewards": eval_rewards,
-            "eval_logs": eval_logs,
+            "train_metrics": train_rewards
         }
 
-    return train_function
+    return train_function, eval_func

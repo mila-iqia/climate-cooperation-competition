@@ -69,12 +69,12 @@ def build_trainer(yaml_file: Dict[str, Any]) -> Tuple[Callable, dict]:
         print("Using random agent...")
         trainer_params = BaseTrainerParams(**yaml_file["trainer_settings"])
         env = build_env_scenario(yaml_file)
-        trainer = build_random_trainer(env=env, trainer_params=trainer_params)
+        train_func, eval_func = build_random_trainer(env=env, trainer_params=trainer_params)
     elif args.algorithm == "ppo":
         print("Using PPO agent...")
         trainer_params = PpoTrainerParams(**yaml_file["trainer_settings"])
         env = build_env_scenario(yaml_file, trainer_params.gamma)
-        trainer = build_ppo_trainer(
+        train_func, eval_func = build_ppo_trainer(
             env=env, trainer_params=trainer_params, load_model=args.load_model
         )
     elif args.algorithm == "a2c":
@@ -82,7 +82,7 @@ def build_trainer(yaml_file: Dict[str, Any]) -> Tuple[Callable, dict]:
         trainer_params = PpoTrainerParams(**yaml_file["trainer_settings"])
         trainer_params.a2c_mode = True
         env = build_env_scenario(yaml_file, trainer_params.gamma)
-        trainer = build_ppo_trainer(
+        train_func, eval_func = build_ppo_trainer(
             env=env, trainer_params=trainer_params, load_model=args.load_model
         )
     # elif args.algorithm == "sac":
@@ -93,7 +93,7 @@ def build_trainer(yaml_file: Dict[str, Any]) -> Tuple[Callable, dict]:
     #         env=env, trainer_params=trainer_params, load_model=args.load_model
     #     )
     merged_settings = {**args.__dict__, **env.__dict__, **trainer_params.__dict__}
-    return trainer, merged_settings
+    return (train_func, eval_func), merged_settings
 
 yaml_file = {
     "wandb": args.wandb,
@@ -117,7 +117,7 @@ yaml_file = {
     },
 }
 
-trainer, merged_settings = build_trainer(yaml_file)
+(train_func, eval_func), merged_settings = build_trainer(yaml_file)
 
 if yaml_file["wandb"] and not args.skip_training:
     # removing arrays, as they cause issues with wandb
@@ -130,7 +130,7 @@ seed = jax.random.PRNGKey(args.seed)
 
 start_time = time.time()
 print("Starting JAX compilation...")
-trainer = jax.jit(trainer, backend=merged_settings["backend"]).lower(seed).compile()
+trainer = jax.jit(train_func, backend=merged_settings["backend"]).lower(seed).compile()
 print(
     f"JAX compilation finished in {time.time() - start_time} seconds, starting training..."
 )
@@ -140,8 +140,6 @@ wandb.finish()
 
 train_state = out["train_state"]
 train_rewards = out["train_metrics"]
-eval_logs = out["eval_logs"]
-eval_rewards = out["eval_rewards"]
 
 print(f"finished training")
 
@@ -151,4 +149,11 @@ if not args.skip_training:
     eqx.tree_serialise_leaves(f"{SAVE_MODEL_PATH}{model_name}.eqx", train_state)
 
 if yaml_file["wandb"]:
-    log_episode_stats_to_wandb(eval_logs, merged_settings, args.wandb_group)
+    num_eval_episodes = merged_settings["num_log_episodes_after_training"]
+    if num_eval_episodes > 0:
+        rng, eval_key = jax.random.split(seed)
+        eval_keys = jax.random.split(eval_key, num_eval_episodes)
+        eval_rewards, eval_logs = jax.vmap(eval_func, in_axes=(0, None))(
+            eval_keys, train_state
+        )
+        log_episode_stats_to_wandb(eval_logs, merged_settings, args.wandb_group)
