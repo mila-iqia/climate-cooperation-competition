@@ -62,7 +62,10 @@ class Actions:
     export_limit: chex.Array  # one action (per region)
     import_bids: chex.Array  # num_regions actions (-1(optional)) (per region)
     import_tariff: chex.Array  # num_regions actions (-1(optional)) (per region)
-
+    
+    promised_mitigation_rate: chex.Array = None
+    requested_mitigation_rate: chex.Array = None
+    proposal_decisions: chex.Array = None
 
 @chex.dataclass
 class EnvState:
@@ -117,11 +120,11 @@ class EnvState:
     )  # this is basically what used to be "rewards_all_regions"
 
     # # negotiation states
-    # negotiation_stage: chex.Array
-    # minimum_mitigation_rate_all_regions: chex.Array
-    # promised_mitigation_rate: chex.Array
-    # requested_mitigation_rate: chex.Array
-    # proposal_decisions: chex.Array
+    negotiation_stage: chex.Array
+    minimum_mitigation_rate_all_regions: chex.Array
+    promised_mitigation_rate: chex.Array
+    requested_mitigation_rate: chex.Array
+    proposal_decisions: chex.Array
 
 
 class Rice(JaxBaseEnv):
@@ -146,7 +149,7 @@ class Rice(JaxBaseEnv):
     )
 
     disable_trading: bool = False # trade actions always 0, actions are not removed from the action space
-    negotiation_on: bool = False
+    negotiation_on: bool = True
     dmg_function: str = "base"
     temperature_calibration: str = "base" # ["base", "FaIR", "DFaIR"]
     carbon_model: str = "base" # ["base", "FaIR", "DFaIR", "AR5(?)"]
@@ -300,6 +303,13 @@ class Rice(JaxBaseEnv):
             imports_minus_tariffs=jnp.zeros((self.num_regions, self.num_regions)),
             export_limit_all_regions=self.region_params.xexport,
             savings_all_regions=self.region_params.xsaving_0,
+
+            # negotiation states
+            negotiation_stage=0,
+            minimum_mitigation_rate_all_regions=jnp.zeros(self.num_regions),
+            promised_mitigation_rate=jnp.zeros(self.num_regions),
+            requested_mitigation_rate=jnp.zeros(self.num_regions),
+            proposal_decisions=jnp.zeros(self.num_regions),
         )
 
         obs_dict = self.generate_observation_and_action_mask(state)
@@ -310,6 +320,7 @@ class Rice(JaxBaseEnv):
         key: chex.PRNGKey,
         prev_state: EnvState,
         actions: chex.Array,
+        negotiation_stage: int = 0,
     ) -> Tuple[chex.PyTreeDef, EnvState, float, bool, dict]:
 
         actions = self.process_actions(actions)
@@ -319,12 +330,12 @@ class Rice(JaxBaseEnv):
             current_timestep=prev_state.current_timestep + 1,
         )
 
-        if self.negotiation_on:
-            raise NotImplementedError("Negotiation not implemented yet")
-            state = self.step_propose()
-            state = self.step_evaluate_proposals()
-
-        state = self.step_climate_and_economy(state, actions)
+        if negotiation_stage == 0:
+            state = self.step_climate_and_economy(state, actions)
+        elif negotiation_stage == 1:
+            state = self.step_propose(state, actions)
+        elif negotiation_stage == 2:
+            state = self.step_evaluate_proposals(state, actions)
 
         obs_dict = self.generate_observation_and_action_mask(state)
         reward = self.generate_rewards(
@@ -400,18 +411,18 @@ class Rice(JaxBaseEnv):
         # Features concerning two regions
         # bilateral_features = []
 
-        if self.negotiation_on:  # TODO
-            raise NotImplementedError("Negotiation not implemented yet")
-            global_features += ["negotiation_stage"]
-            public_features += []
-            private_features += [
-                "minimum_mitigation_rate_all_regions",
-            ]
-            bilateral_features += [
-                "promised_mitigation_rate",
-                "requested_mitigation_rate",
-                "proposal_decisions",
-            ]
+        if self.negotiation_on: # TODO
+            pass
+            # global_features += ["negotiation_stage"]
+            # public_features += []
+            # private_features += [
+            #     "minimum_mitigation_rate_all_regions",
+            # ]
+            # bilateral_features += [
+            #     "promised_mitigation_rate",
+            #     "requested_mitigation_rate",
+            #     "proposal_decisions",
+            # ]
 
         # Normalization:
         # assert all norm factors are present
@@ -455,8 +466,7 @@ class Rice(JaxBaseEnv):
             ),
             dtype=jnp.bool,
         )
-        if self.negotiation_on:
-            raise NotImplementedError("Negotiation not implemented yet")
+        #TODO minimum mitigation rate
         return default_action_mask
 
     def generate_rewards(self, new_state: EnvState, old_state: EnvState) -> chex.Array:
@@ -527,7 +537,7 @@ class Rice(JaxBaseEnv):
             }
 
             # actions
-            info["actions"] = {key: {} for key in actions.__annotations__.keys()}
+            info["actions"] = {key: {} for key in actions.__annotations__.keys() if actions[key] is not None}
             for action_key in info["actions"].keys():
                 for region_id in range(self.num_regions):
                     info["actions"][action_key][region_id] = actions.__getattribute__(
@@ -539,6 +549,18 @@ class Rice(JaxBaseEnv):
     def process_actions(self, actions: chex.Array) -> Actions:
         # actions is currently structured as (num_regions, num_actions)
         actions = actions.T  # (num_actions, num_regions)
+        savings_rate_index = 0
+        mitigation_rate_index = 1
+        export_limit_index = 2
+        import_bid_index_start = 3
+        import_bid_index_end = import_bid_index_start + self.num_regions - self.reduce_action_space_size
+        import_tariff_index_start = import_bid_index_end
+        import_tariff_index_end = import_tariff_index_start + self.num_regions - self.reduce_action_space_size
+        proposal_index_start = import_tariff_index_end
+        proposal_index_end = proposal_index_start + (self.num_regions * 2)
+        decision_index_start = proposal_index_end
+        decision_index_end = decision_index_start + self.num_regions
+
 
         @jax.jit
         def add_diagonal_of_zeros(x: chex.Array):
@@ -567,30 +589,27 @@ class Rice(JaxBaseEnv):
 
             return output.reshape((n, n))
 
-        if not self.negotiation_on:
-            savings_rate_actions = actions[0]
-            mitigation_rate_actions = actions[1]
-            export_limit_actions = actions[2]
+        savings_rate_actions = actions[savings_rate_index]
+        mitigation_rate_actions = actions[mitigation_rate_index]
+        export_limit_actions = actions[export_limit_index]
+        import_bid_actions = actions[import_bid_index_start:import_bid_index_end].T
+        import_tariff_actions = actions[import_tariff_index_start:import_tariff_index_end].T
 
-            if self.reduce_action_space_size:
-                import_bid_actions = actions[3 : 3 + (self.num_regions - 1)].T
-                import_tariff_actions = actions[3 + (self.num_regions - 1) :].T
-                import_bid_actions = add_diagonal_of_zeros(import_bid_actions)
-                import_tariff_actions = add_diagonal_of_zeros(import_tariff_actions)
-            else:
-                import_bid_actions = actions[3 : 3 + self.num_regions].T
-                import_tariff_actions = actions[3 + self.num_regions :].T
-                # set the diagonal to 0:
-                import_bid_actions = import_bid_actions.at[
-                    np.eye(self.num_regions).astype(jnp.bool)
-                ].set(0)
-                import_tariff_actions = import_tariff_actions.at[
-                    np.eye(self.num_regions).astype(jnp.bool)
-                ].set(0)
-            if self.disable_trading:
-                export_limit_actions = jnp.zeros_like(export_limit_actions)
-                import_bid_actions = jnp.zeros_like(import_bid_actions)
-                import_tariff_actions = jnp.zeros_like(import_tariff_actions)
+        if self.reduce_action_space_size:
+            import_bid_actions = add_diagonal_of_zeros(import_bid_actions)
+            import_tariff_actions = add_diagonal_of_zeros(import_tariff_actions)
+        else: # set the diagonal to 0:
+            import_bid_actions = import_bid_actions.at[
+                np.eye(self.num_regions).astype(jnp.bool)
+            ].set(0)
+            import_tariff_actions = import_tariff_actions.at[
+                np.eye(self.num_regions).astype(jnp.bool)
+            ].set(0)
+        if self.disable_trading:
+            export_limit_actions = jnp.zeros_like(export_limit_actions)
+            import_bid_actions = jnp.zeros_like(import_bid_actions)
+            import_tariff_actions = jnp.zeros_like(import_tariff_actions)
+        if not self.negotiation_on:
             return Actions(
                 savings_rate=savings_rate_actions / self.num_discrete_action_levels,
                 mitigation_rate=mitigation_rate_actions / self.num_discrete_action_levels,
@@ -598,8 +617,8 @@ class Rice(JaxBaseEnv):
                 import_bids=import_bid_actions / self.num_discrete_action_levels,
                 import_tariff=import_tariff_actions / self.num_discrete_action_levels,
             )
-        else:
-            raise NotImplementedError("Negotiation not implemented yet")
+        # else:
+        #     breakpoint()
 
     def step_climate_and_economy(
         self, state: EnvState, actions: Actions
@@ -688,11 +707,39 @@ class Rice(JaxBaseEnv):
     def step_propose(
         self, state: EnvState, actions: Actions
     ) -> Tuple[chex.Array, EnvState]:
-        raise NotImplementedError("Negotiation not implemented yet")
+        if not self.negotiation_on:
+            raise ValueError("Negotiation is not enabled")
+        promised_mitigation_rate = actions.mitigation_rate
+        requested_mitigation_rate = actions.mitigation_rate
+
+        state = replace(
+            state,
+            promised_mitigation_rate=promised_mitigation_rate,
+            requested_mitigation_rate=requested_mitigation_rate,
+        )
 
     def step_evaluate_proposals(
         self, state: EnvState, actions: Actions
     ) -> Tuple[chex.Array, EnvState]:
+        if not self.negotiation_on:
+            raise ValueError("Negotiation is not enabled")
+        
+        # def calc_mitigation_rate_lower_bound(self, region_id):
+        #     outgoing_accepted_mitigation_rates = (
+        #         self.get_outgoing_accepted_mitigation_rates(region_id)
+        #     )
+        #     incoming_accepted_mitigation_rates = (
+        #         self.get_incoming_accepted_mitigation_rates(region_id)
+        #     )
+
+        #     min_mitigation = max(
+        #         outgoing_accepted_mitigation_rates + incoming_accepted_mitigation_rates
+        #     )
+        #     return min_mitigation
+
+        # proposal_decisions = actions.proposal_decisions
+        # # min_mitigation = 
+
         raise NotImplementedError("Negotiation not implemented yet")
 
     ### Rice specific functions
@@ -1291,27 +1338,28 @@ class Rice(JaxBaseEnv):
     ###
     @property
     def action_nvec(self) -> chex.Array:
-        if not self.negotiation_on:
-            num_actions = len(Actions.__annotations__)
-            num_regions = self.num_regions
-            import_bids_nvec = [self.num_discrete_action_levels] * (
-                num_regions - self.reduce_action_space_size
-            )
-            import_tariff_nvec = [self.num_discrete_action_levels] * (
-                num_regions - self.reduce_action_space_size
-            )
-            actions_nvec = np.concatenate(
-                [
-                    [self.num_discrete_action_levels],  # savings_rate
-                    [self.num_discrete_action_levels],  # mitigation_rate
-                    [self.num_discrete_action_levels],  # export_limit
-                    import_bids_nvec,
-                    import_tariff_nvec,
-                ]
-            )
-            return actions_nvec
-        else:
-            raise NotImplementedError("Negotiation not implemented yet")
+        # num_actions = len(Actions.__annotations__)
+        num_regions = self.num_regions
+        import_bids_nvec = [self.num_discrete_action_levels] * (
+            num_regions - self.reduce_action_space_size
+        )
+        import_tariff_nvec = [self.num_discrete_action_levels] * (
+            num_regions - self.reduce_action_space_size
+        )
+        actions_nvec = [
+                [self.num_discrete_action_levels],  # savings_rate
+                [self.num_discrete_action_levels],  # mitigation_rate
+                [self.num_discrete_action_levels],  # export_limit
+                import_bids_nvec,
+                import_tariff_nvec,
+            ]
+
+        if self.negotiation_on:
+            proposal_nvec = [self.num_discrete_action_levels] * 2 * num_regions
+            decision_nvec = [2] * num_regions
+            actions_nvec += [proposal_nvec, decision_nvec]
+
+        return np.concatenate(actions_nvec)
 
     @property
     def action_space(self) -> MultiDiscrete:
