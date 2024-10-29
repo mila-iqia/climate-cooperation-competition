@@ -36,12 +36,12 @@ class JaxBaseEnv(eqx.Module):
         pass
 
     def step(
-        self, key: chex.PRNGKey, state: EnvState, action: Union[int, float, chex.Array]
+        self, key: chex.PRNGKey, state: EnvState, action: Union[int, float, chex.Array], **kwargs
     ) -> Tuple[TimeStep, EnvState]:
         """Performs step transitions in the environment."""
 
         (obs_step, reward, done, discount, info), state_step = self.step_env(
-            key, state, action
+            key, state, action, **kwargs
         )
         obs_reset, state_reset = self.reset_env(key)
 

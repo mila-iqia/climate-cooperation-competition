@@ -108,7 +108,7 @@ class EnvState:
     production_factor_all_regions: chex.Array
     current_balance_all_regions: chex.Array
     abatement_cost_all_regions: chex.Array
-    mitigation_cost_all_regions: chex.Array
+    # mitigation_cost_all_regions: chex.Array
     damages_all_regions: chex.Array
     utility_all_regions: chex.Array
     # social_welfare_all_regions: chex.Array
@@ -175,6 +175,12 @@ class Rice(JaxBaseEnv):
     init_gamma: float = 0.99  # discount factor
 
     @property
+    def STEP_STAGES(self):
+        if self.negotiation_on:
+            return 3 # step_climate_and_economy, step_propose, step_evaluate_proposals
+        return 1
+
+    @property
     def start_year(self):
         return self.region_params.xt_0
 
@@ -185,15 +191,7 @@ class Rice(JaxBaseEnv):
     @property
     def episode_length(self):
         simulation_timesteps = self.region_params.xN 
-        if self.negotiation_on:
-            """
-            if negotion, then 3 RL steps per climate step:
-                - propose
-                - evaluate proposals
-                - step_climate_and_economy
-            """
-            return 3 * simulation_timesteps
-        return simulation_timesteps
+        return simulation_timesteps * self.STEP_STAGES
 
     def __check_init__(self):
         # eqx module function, may use to assert some things
@@ -294,7 +292,7 @@ class Rice(JaxBaseEnv):
             production_factor_all_regions=self.region_params.xA_0,
             current_balance_all_regions=jnp.zeros(self.num_regions),
             abatement_cost_all_regions=jnp.zeros(self.num_regions),
-            mitigation_cost_all_regions=jnp.zeros(self.num_regions),
+            # mitigation_cost_all_regions=jnp.zeros(self.num_regions),
             damages_all_regions=jnp.zeros(self.num_regions),
             utility_all_regions=jnp.zeros(self.num_regions),
             # social_welfare_all_regions=jnp.zeros(self.num_regions),
@@ -336,6 +334,9 @@ class Rice(JaxBaseEnv):
         )
 
         actions = self.process_actions(raw_actions, state)
+
+        if not self.negotiation_on:
+            negotiation_stage = 0
 
         if negotiation_stage == 0:
             state = self.step_climate_and_economy(state, actions)
@@ -399,7 +400,7 @@ class Rice(JaxBaseEnv):
             "agent_ids": binary_agent_ids,
             "production_factor_all_regions": state.production_factor_all_regions,
             "intensity_all_regions": state.intensity_all_regions,
-            "mitigation_cost_all_regions": state.mitigation_cost_all_regions,
+            # "mitigation_cost_all_regions": state.mitigation_cost_all_regions,
             "damages_all_regions": state.damages_all_regions,
             "abatement_cost_all_regions": state.abatement_cost_all_regions,
             "production_all_regions": state.production_all_regions,
@@ -656,7 +657,7 @@ class Rice(JaxBaseEnv):
                 import_tariff=import_tariff_actions / self.num_discrete_action_levels,
                 promised_mitigation_rate=promise_actions / self.num_discrete_action_levels,
                 requested_mitigation_rate=request_actions / self.num_discrete_action_levels,
-                proposal_decisions=decision_actions < (self.num_discrete_action_levels / 2), # TODO
+                proposal_decisions=decision_actions >= (self.num_discrete_action_levels / 2), # TODO
             )
 
     def step_climate_and_economy(
@@ -751,7 +752,7 @@ class Rice(JaxBaseEnv):
         promised_mitigation_rate = actions.promised_mitigation_rate
         requested_mitigation_rate = actions.requested_mitigation_rate
 
-        state = replace(
+        return replace(
             state,
             promised_mitigation_rate=promised_mitigation_rate,
             requested_mitigation_rate=requested_mitigation_rate,
@@ -771,7 +772,9 @@ class Rice(JaxBaseEnv):
         incoming_accepted_mitigation_rates = requested_mitigation_rates * proposal_decisions
         # NOTE: The original Rice-N adds the two arrays?
         combined_max_accepted_mitigation_rates = jnp.maximum(outgoing_accepted_mitigation_rates, incoming_accepted_mitigation_rates.T)
-        lower_bound_mitigation_rates = jnp.max(combined_max_accepted_mitigation_rates, axis=0)
+        lower_bound_mitigation_rates = jnp.max(combined_max_accepted_mitigation_rates, axis=1)
+
+        breakpoint()
 
         return replace(
             state,
