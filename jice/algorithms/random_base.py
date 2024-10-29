@@ -68,14 +68,16 @@ def build_random_trainer(
     def eval_func(key: chex.PRNGKey, train_state=None):
         def step_env(carry, _):
             rng, obs, env_state, done, episode_reward = carry
-            rng, step_key, sample_key = jax.random.split(rng, 3)
+            for stage in range(eval_env.STEP_STAGES):
+                stage = (stage + 1) % eval_env.STEP_STAGES
+                rng, step_key, sample_key = jax.random.split(rng, 3)
 
-            sample_keys = jax.random.split(sample_key, num_agents)
-            actions = jax.vmap(agent)(sample_keys, obs)
-            (obs_v, reward, done, discount, info), env_state = eval_env.step(
-                step_key, env_state, actions
-            )
-            episode_reward += reward
+                sample_keys = jax.random.split(sample_key, num_agents)
+                actions = jax.vmap(agent)(sample_keys, obs)
+                (obs_v, reward, done, discount, info), env_state = eval_env.step(
+                    step_key, env_state, actions, stage
+                )
+                episode_reward += reward
 
             return (rng, obs, env_state, done, episode_reward), info
 
@@ -90,6 +92,9 @@ def build_random_trainer(
             None,
             eval_env.episode_length,
         )
+        episode_stats = jax.tree.map(
+            lambda x: x.reshape((-1,) + x.shape[2:]), episode_stats
+        )
 
         return carry[-1], episode_stats
 
@@ -97,23 +102,26 @@ def build_random_trainer(
     def train_function(rng: chex.PRNGKey = rng):
 
         def env_step(runner_state, _):
-            rng, obs, env_state, counter = runner_state
-            rng, key = jax.random.split(rng)
+            rng, obs_v, env_state, counter = runner_state
 
-            # split key into a 2d array of num_envs x num_agents
-            action_keys = jax.random.split(
-                key, num_agents * trainer_params.num_envs
-            ).reshape((trainer_params.num_envs, num_agents, 2))
-            action = jax.vmap(jax.vmap(agent))(action_keys, obs)
+            for stage in range(env.STEP_STAGES):
+                stage = (stage + 1) % env.STEP_STAGES
+                rng, key = jax.random.split(rng)
 
-            step_key = jax.random.split(key, trainer_params.num_envs)
-            (obs_v, reward_v, done, discount, info), env_state = jax.vmap(
-                env.step, in_axes=(0, 0, 0)
-            )(step_key, env_state, action)
+                # split key into a 2d array of num_envs x num_agents
+                action_keys = jax.random.split(
+                    key, num_agents * trainer_params.num_envs
+                ).reshape((trainer_params.num_envs, num_agents, 2))
+                action = jax.vmap(jax.vmap(agent))(action_keys, obs_v)
 
-            jax.debug.callback(
-                logwrapper_callback, info, trainer_params.num_envs, counter
-            )
+                step_key = jax.random.split(key, trainer_params.num_envs)
+                (obs_v, reward_v, done, discount, info), env_state = jax.vmap(
+                    env.step, in_axes=(0, 0, 0, None)
+                )(step_key, env_state, action, stage)
+
+                jax.debug.callback(
+                    logwrapper_callback, info, trainer_params.num_envs, counter
+                )
 
             return (rng, obs_v, env_state, counter + 1), reward_v
 
@@ -125,6 +133,9 @@ def build_random_trainer(
                 initial_train_runner_state,
                 None,
                 length=trainer_params.total_timesteps,
+            )
+            train_rewards = jax.tree.map(
+                lambda x: x.reshape((-1,) + x.shape[2:]), train_rewards
             )
         else:
             train_runner_state = initial_train_runner_state

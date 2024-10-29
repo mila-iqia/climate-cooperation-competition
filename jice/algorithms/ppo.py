@@ -161,14 +161,16 @@ def build_ppo_trainer(
     def eval_func(key: chex.PRNGKey, train_state: TrainState):
         def step_env(carry, _):
             rng, obs_v, env_state, done, episode_reward = carry
-            rng, step_key, sample_key = jax.random.split(rng, 3)
+            for stage in range(eval_env.STEP_STAGES):
+                stage = (stage + 1) % eval_env.STEP_STAGES
+                rng, step_key, sample_key = jax.random.split(rng, 3)
 
-            action_dist = jax.vmap(train_state.actor)(obs_v)
-            actions = action_dist.sample(seed=sample_key)
-            (obs_v, reward, done, discount, info), env_state = eval_env.step(
-                step_key, env_state, actions
-            )
-            episode_reward += reward
+                action_dist = jax.vmap(train_state.actor)(obs_v)
+                actions = action_dist.sample(seed=sample_key)
+                (obs_v, reward, done, discount, info), env_state = eval_env.step(
+                    step_key, env_state, actions, stage
+                )
+                episode_reward += reward
 
             return (rng, obs, env_state, done, episode_reward), info
 
@@ -184,6 +186,9 @@ def build_ppo_trainer(
             None,
             eval_env.episode_length,
         )
+        episode_stats = jax.tree.map(
+            lambda x: x.reshape((-1,) + x.shape[2:]), episode_stats
+        )
 
         return carry[-1], episode_stats
 
@@ -194,38 +199,46 @@ def build_ppo_trainer(
 
         def _env_step(runner_state, _):
             train_state, env_state, last_obs, rng = runner_state
-            rng, sample_key, step_key = jax.random.split(rng, 3)
 
-            action_dist = jax.vmap(jax.vmap(train_state.actor))(last_obs)
-            value = jax.vmap(jax.vmap(train_state.critic))(last_obs)
-            action, log_prob = action_dist.sample_and_log_prob(seed=sample_key)
-            step_keys = jax.random.split(step_key, config.num_envs)
-            (obsv, reward, done, discount, info), env_state = jax.vmap(
-                env.step, in_axes=(0, 0, 0)
-            )(step_keys, env_state, action)
-            broadcasted_done = jnp.broadcast_to(done, (reward.shape[1], reward.shape[0])).T
+            transitions = []
+            for stage in range(env.STEP_STAGES):
+                stage = (stage + 1) % env.STEP_STAGES
 
-            # # next value "hack" used in SB3, would like a different solution
-            # # but this works for now
-            # # https://github.com/DLR-RM/stable-baselines3/issues/633
-            # NOTE: this should be implemented, but causes radically different learning
-            # terminal_obs = info["terminal_observation"]
-            # next_value = jax.vmap(jax.vmap(train_state.critic))(terminal_obs)
-            # reward = reward + (broadcasted_done * discount * next_value)
+                rng, sample_key, step_key = jax.random.split(rng, 3)
 
-            transition = Transition(
-                observation=last_obs,
-                action=action,
-                reward=reward,
-                done=broadcasted_done,
-                discount=discount,
-                value=value,
-                log_prob=log_prob,
-                info=info,
-            )
+                action_dist = jax.vmap(jax.vmap(train_state.actor))(last_obs)
+                value = jax.vmap(jax.vmap(train_state.critic))(last_obs)
+                action, log_prob = action_dist.sample_and_log_prob(seed=sample_key)
+                step_keys = jax.random.split(step_key, config.num_envs)
+                (obsv, reward, done, discount, info), env_state = jax.vmap(
+                    env.step, in_axes=(0, 0, 0, None)
+                )(step_keys, env_state, action, stage)
+                broadcasted_done = jnp.broadcast_to(done, (reward.shape[1], reward.shape[0])).T
+
+                # # next value "hack" used in SB3, would like a different solution
+                # # but this works for now
+                # # https://github.com/DLR-RM/stable-baselines3/issues/633
+                # NOTE: this should be implemented, but causes radically different learning
+                # terminal_obs = info["terminal_observation"]
+                # next_value = jax.vmap(jax.vmap(train_state.critic))(terminal_obs)
+                # reward = reward + (broadcasted_done * discount * next_value)
+
+                transition = Transition(
+                    observation=last_obs,
+                    action=action,
+                    reward=reward,
+                    done=broadcasted_done,
+                    discount=discount,
+                    value=value,
+                    log_prob=log_prob,
+                    info=info,
+                )
+                last_obs = obsv
+                transitions.append(transition)
+            transitions = jax.tree.map(lambda *x: jnp.stack(x), *transitions)
 
             runner_state = (train_state, env_state, obsv, rng)
-            return runner_state, transition
+            return runner_state, transitions
 
         def _calculate_gae(gae_and_next_values, transition):
             gae, next_value = gae_and_next_values
@@ -319,14 +332,14 @@ def build_ppo_trainer(
 
             train_state, trajectory_batch, advantages, returns, rng = update_state
             rng, key = jax.random.split(rng)
-
-            batch_idx = jax.random.permutation(key, config.batch_size)
+ 
             batch = (trajectory_batch, advantages, returns)
 
             # reshape (flatten)
             batch = jax.tree_util.tree_map(
-                lambda x: x.reshape((config.batch_size,) + x.shape[2:]), batch
+                lambda x: x.reshape((-1,) + x.shape[2:]), batch
             )
+            batch_idx = jax.random.permutation(key, batch[-1].shape[0])
             # take from the batch in a new order (the order of the randomized batch_idx)
             shuffled_batch = jax.tree_util.tree_map(
                 lambda x: jnp.take(x, batch_idx, axis=0), batch
@@ -348,6 +361,10 @@ def build_ppo_trainer(
             # Do rollout of single trajactory (num_steps)
             runner_state, trajectory_batch = jax.lax.scan(
                 _env_step, runner_state, None, config.num_steps
+            )
+            # trajectory_batch is now of size (num_steps, num_stages, ...)
+            trajectory_batch = jax.tree.map(
+                lambda x: x.reshape((-1,) + x.shape[2:]), trajectory_batch
             )
 
             # calculate gae

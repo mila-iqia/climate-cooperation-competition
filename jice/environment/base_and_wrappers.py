@@ -36,12 +36,12 @@ class JaxBaseEnv(eqx.Module):
         pass
 
     def step(
-        self, key: chex.PRNGKey, state: EnvState, action: Union[int, float, chex.Array], **kwargs
+        self, key: chex.PRNGKey, state: EnvState, action: Union[int, float, chex.Array], negotiation_stage: int
     ) -> Tuple[TimeStep, EnvState]:
         """Performs step transitions in the environment."""
 
         (obs_step, reward, done, discount, info), state_step = self.step_env(
-            key, state, action, **kwargs
+            key, state, action, negotiation_stage
         )
         obs_reset, state_reset = self.reset_env(key)
 
@@ -150,9 +150,10 @@ class LogWrapper(JaxEnvWrapper):
         key: chex.PRNGKey,
         state: LogEnvState,
         action: Union[int, float, chex.Array],
+        negotiation_stage: int,
     ) -> Tuple[TimeStep, LogEnvState]:
         (obs, reward, done, discount, info), env_state = self._env.step(
-            key, state.env_state, action
+            key, state.env_state, action, negotiation_stage
         )
         new_episode_return = state.episode_returns + reward
         state = LogEnvState(

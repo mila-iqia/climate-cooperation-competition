@@ -206,9 +206,11 @@ class Rice(JaxBaseEnv):
         default_actions = default_actions.at[:, 1].set(0.0) # mitigation
         _, state = self.reset_env(key)
         rewards = []
-        while True:
-            (_, reward, done, _, _), state = self.step_env(key, state, default_actions)
-            rewards.append(reward)
+        while True and self.relative_reward_mode:
+            for stage in range(self.STEP_STAGES):
+                stage = (stage + 1) % self.STEP_STAGES
+                (_, reward, done, _, _), state = self.step_env(key, state, default_actions, stage)
+                rewards.append(reward)
             if done:
                 break
 
@@ -325,7 +327,7 @@ class Rice(JaxBaseEnv):
         key: chex.PRNGKey,
         prev_state: EnvState,
         raw_actions: chex.Array,
-        negotiation_stage: int = 0,
+        negotiation_stage: int,
     ) -> Tuple[chex.PyTreeDef, EnvState, float, bool, dict]:
         
         state = replace(
@@ -773,8 +775,6 @@ class Rice(JaxBaseEnv):
         # NOTE: The original Rice-N adds the two arrays?
         combined_max_accepted_mitigation_rates = jnp.maximum(outgoing_accepted_mitigation_rates, incoming_accepted_mitigation_rates.T)
         lower_bound_mitigation_rates = jnp.max(combined_max_accepted_mitigation_rates, axis=1)
-
-        breakpoint()
 
         return replace(
             state,
