@@ -307,9 +307,9 @@ class Rice(JaxBaseEnv):
             # negotiation states
             negotiation_stage=0,
             minimum_mitigation_rate_all_regions=jnp.zeros(self.num_regions),
-            promised_mitigation_rate=jnp.zeros(self.num_regions),
-            requested_mitigation_rate=jnp.zeros(self.num_regions),
-            proposal_decisions=jnp.zeros(self.num_regions),
+            promised_mitigation_rate=jnp.zeros((self.num_regions, self.num_regions)),
+            requested_mitigation_rate=jnp.zeros((self.num_regions, self.num_regions)),
+            proposal_decisions=jnp.zeros((self.num_regions, self.num_regions), dtype=jnp.bool),
         )
 
         obs_dict = self.generate_observation_and_action_mask(state)
@@ -319,16 +319,16 @@ class Rice(JaxBaseEnv):
         self,
         key: chex.PRNGKey,
         prev_state: EnvState,
-        actions: chex.Array,
+        raw_actions: chex.Array,
         negotiation_stage: int = 0,
     ) -> Tuple[chex.PyTreeDef, EnvState, float, bool, dict]:
-
-        actions = self.process_actions(actions)
-
+        
         state = replace(
             prev_state,
             current_timestep=prev_state.current_timestep + 1,
         )
+
+        actions = self.process_actions(raw_actions, state)
 
         if negotiation_stage == 0:
             state = self.step_climate_and_economy(state, actions)
@@ -466,8 +466,15 @@ class Rice(JaxBaseEnv):
             ),
             dtype=jnp.bool,
         )
-        #TODO minimum mitigation rate
-        return default_action_mask
+        #TODO check this
+        minimum_mitigation_rate = state.minimum_mitigation_rate_all_regions
+        action_mask = default_action_mask.at[
+            :, self.action_index["mitigation_rate"]
+        ].set(
+            jnp.arange(self.num_discrete_action_levels) >= minimum_mitigation_rate[:, None]
+        )
+
+        return action_mask
 
     def generate_rewards(self, new_state: EnvState, old_state: EnvState) -> chex.Array:
         
@@ -546,23 +553,10 @@ class Rice(JaxBaseEnv):
 
             return info
 
-    def process_actions(self, actions: chex.Array) -> Actions:
+    def process_actions(self, actions: chex.Array, state: EnvState) -> Actions:
         # actions is currently structured as (num_regions, num_actions)
         actions = actions.T  # (num_actions, num_regions)
-        savings_rate_index = 0
-        mitigation_rate_index = 1
-        export_limit_index = 2
-        import_bid_index_start = 3
-        import_bid_index_end = import_bid_index_start + self.num_regions - self.reduce_action_space_size
-        import_tariff_index_start = import_bid_index_end
-        import_tariff_index_end = import_tariff_index_start + self.num_regions - self.reduce_action_space_size
-        proposal_index_start = import_tariff_index_end
-        proposal_index_end = proposal_index_start + (self.num_regions * 2)
-        decision_index_start = proposal_index_end
-        decision_index_end = decision_index_start + self.num_regions
 
-
-        @jax.jit
         def add_diagonal_of_zeros(x: chex.Array):
             """
             Takes an ((n, n-1)) matrix and adds a 0s diagonal to it
@@ -589,22 +583,33 @@ class Rice(JaxBaseEnv):
 
             return output.reshape((n, n))
 
-        savings_rate_actions = actions[savings_rate_index]
-        mitigation_rate_actions = actions[mitigation_rate_index]
-        export_limit_actions = actions[export_limit_index]
-        import_bid_actions = actions[import_bid_index_start:import_bid_index_end].T
-        import_tariff_actions = actions[import_tariff_index_start:import_tariff_index_end].T
+        def set_diagonal_to_zeros(x: chex.Array):
+            """
+            Takes an ((n, n)) matrix and sets the diagonal to 0
+            """
+            n, m = x.shape
+            assert n == m, f"Expected x to have shape ((n, n)), but got {x.shape}"
+
+            output = x.at[np.eye(n).astype(jnp.bool)].set(0)
+            return output
+
+        savings_rate_actions = actions[self.action_index["savings_rate"]]
+        mitigation_rate_actions = actions[self.action_index["mitigation_rate"]]
+        export_limit_actions = actions[self.action_index["export_limit"]]
+        import_bid_actions = actions[self.action_index["import_bid_start"]:self.action_index["import_bid_end"]].T
+        import_tariff_actions = actions[self.action_index["import_tariff_start"]:self.action_index["import_tariff_end"]].T
+
+        ### Set mitigation rate at min. mitigation rate
+        ## This should also be enforced in the action mask
+        min_mitigation_rate = state.minimum_mitigation_rate_all_regions * self.num_discrete_action_levels
+        mitigation_rate_actions = jnp.maximum(mitigation_rate_actions, min_mitigation_rate)
 
         if self.reduce_action_space_size:
             import_bid_actions = add_diagonal_of_zeros(import_bid_actions)
             import_tariff_actions = add_diagonal_of_zeros(import_tariff_actions)
         else: # set the diagonal to 0:
-            import_bid_actions = import_bid_actions.at[
-                np.eye(self.num_regions).astype(jnp.bool)
-            ].set(0)
-            import_tariff_actions = import_tariff_actions.at[
-                np.eye(self.num_regions).astype(jnp.bool)
-            ].set(0)
+            import_bid_actions = set_diagonal_to_zeros(import_bid_actions)
+            import_tariff_actions = set_diagonal_to_zeros(import_tariff_actions)
         if self.disable_trading:
             export_limit_actions = jnp.zeros_like(export_limit_actions)
             import_bid_actions = jnp.zeros_like(import_bid_actions)
@@ -617,8 +622,24 @@ class Rice(JaxBaseEnv):
                 import_bids=import_bid_actions / self.num_discrete_action_levels,
                 import_tariff=import_tariff_actions / self.num_discrete_action_levels,
             )
-        # else:
-        #     breakpoint()
+        else:
+            proposal_actions = actions[self.action_index["proposal_start"]:self.action_index["proposal_end"]].T
+            promise_actions = proposal_actions[:, :self.num_regions]
+            request_actions = proposal_actions[:, self.num_regions:]
+            decision_actions = actions[self.action_index["decision_start"]:self.action_index["decision_end"]].T
+            promise_actions = set_diagonal_to_zeros(promise_actions)
+            request_actions = set_diagonal_to_zeros(request_actions)
+            decision_actions = set_diagonal_to_zeros(decision_actions)
+            return Actions(
+                savings_rate=savings_rate_actions / self.num_discrete_action_levels,
+                mitigation_rate=mitigation_rate_actions / self.num_discrete_action_levels,
+                export_limit=export_limit_actions / self.num_discrete_action_levels,
+                import_bids=import_bid_actions / self.num_discrete_action_levels,
+                import_tariff=import_tariff_actions / self.num_discrete_action_levels,
+                promised_mitigation_rate=promise_actions / self.num_discrete_action_levels,
+                requested_mitigation_rate=request_actions / self.num_discrete_action_levels,
+                proposal_decisions=decision_actions < (self.num_discrete_action_levels / 2), # TODO
+            )
 
     def step_climate_and_economy(
         self, state: EnvState, actions: Actions
@@ -709,8 +730,8 @@ class Rice(JaxBaseEnv):
     ) -> Tuple[chex.Array, EnvState]:
         if not self.negotiation_on:
             raise ValueError("Negotiation is not enabled")
-        promised_mitigation_rate = actions.mitigation_rate
-        requested_mitigation_rate = actions.mitigation_rate
+        promised_mitigation_rate = actions.promised_mitigation_rate
+        requested_mitigation_rate = actions.requested_mitigation_rate
 
         state = replace(
             state,
@@ -724,23 +745,21 @@ class Rice(JaxBaseEnv):
         if not self.negotiation_on:
             raise ValueError("Negotiation is not enabled")
         
-        # def calc_mitigation_rate_lower_bound(self, region_id):
-        #     outgoing_accepted_mitigation_rates = (
-        #         self.get_outgoing_accepted_mitigation_rates(region_id)
-        #     )
-        #     incoming_accepted_mitigation_rates = (
-        #         self.get_incoming_accepted_mitigation_rates(region_id)
-        #     )
+        promised_mitigation_rates = state.promised_mitigation_rate
+        requested_mitigation_rates = state.requested_mitigation_rate
+        proposal_decisions = actions.proposal_decisions.T
 
-        #     min_mitigation = max(
-        #         outgoing_accepted_mitigation_rates + incoming_accepted_mitigation_rates
-        #     )
-        #     return min_mitigation
+        outgoing_accepted_mitigation_rates = promised_mitigation_rates * proposal_decisions
+        incoming_accepted_mitigation_rates = requested_mitigation_rates * proposal_decisions
+        # NOTE: The original Rice-N adds the two arrays?
+        combined_max_accepted_mitigation_rates = jnp.maximum(outgoing_accepted_mitigation_rates, incoming_accepted_mitigation_rates.T)
+        lower_bound_mitigation_rates = jnp.max(combined_max_accepted_mitigation_rates, axis=0)
 
-        # proposal_decisions = actions.proposal_decisions
-        # # min_mitigation = 
-
-        raise NotImplementedError("Negotiation not implemented yet")
+        return replace(
+            state,
+            proposal_decisions=proposal_decisions,
+            minimum_mitigation_rate_all_regions=lower_bound_mitigation_rates,
+        )
 
     ### Rice specific functions
     ## Part of step_climate_and_economy()
@@ -1356,7 +1375,9 @@ class Rice(JaxBaseEnv):
 
         if self.negotiation_on:
             proposal_nvec = [self.num_discrete_action_levels] * 2 * num_regions
-            decision_nvec = [2] * num_regions
+            # TODO: decision_nvec needs to be [2] * num_regions
+            # But the current setup is not able to handle varying length outputs
+            decision_nvec = [self.num_discrete_action_levels] * num_regions 
             actions_nvec += [proposal_nvec, decision_nvec]
 
         return np.concatenate(actions_nvec)
@@ -1369,3 +1390,31 @@ class Rice(JaxBaseEnv):
         obs_dict, _ = self.reset(jax.random.PRNGKey(0))
         obs = obs_dict[OBSERVATIONS]
         return Box(-9999, 9999, shape=obs.shape, dtype=obs.dtype)
+    
+    @property
+    def action_index(self):
+        # Action indices
+        SAVINGS_RATE_INDEX = 0
+        MITIGATION_RATE_INDEX = 1
+        EXPORT_LIMIT_INDEX = 2
+        IMPORT_BID_INDEX_START = 3
+        IMPORT_BID_INDEX_END = IMPORT_BID_INDEX_START + self.num_regions - self.reduce_action_space_size
+        IMPORT_TARIFF_INDEX_START = IMPORT_BID_INDEX_END
+        IMPORT_TARIFF_INDEX_END = IMPORT_TARIFF_INDEX_START + self.num_regions - self.reduce_action_space_size
+        PROPOSAL_INDEX_START = IMPORT_TARIFF_INDEX_END
+        PROPOSAL_INDEX_END = PROPOSAL_INDEX_START + (self.num_regions * 2)
+        DECISION_INDEX_START = PROPOSAL_INDEX_END
+        DECISION_INDEX_END = DECISION_INDEX_START + self.num_regions
+        return {
+            "savings_rate": SAVINGS_RATE_INDEX,
+            "mitigation_rate": MITIGATION_RATE_INDEX,
+            "export_limit": EXPORT_LIMIT_INDEX,
+            "import_bid_start": IMPORT_BID_INDEX_START,
+            "import_bid_end": IMPORT_BID_INDEX_END,
+            "import_tariff_start": IMPORT_TARIFF_INDEX_START,
+            "import_tariff_end": IMPORT_TARIFF_INDEX_END,
+            "proposal_start": PROPOSAL_INDEX_START,
+            "proposal_end": PROPOSAL_INDEX_END,
+            "decision_start": DECISION_INDEX_START,
+            "decision_end": DECISION_INDEX_END,
+        }

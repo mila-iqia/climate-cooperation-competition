@@ -25,6 +25,7 @@ parser.add_argument("-s", "--seed", help="Random seed", default=42, type=int)
 parser.add_argument("-sk", "--skip_training", help="Skip training", action="store_true")
 parser.add_argument("-l", "--load_model", help="Path to model file", default=None)
 parser.add_argument("-d", "--debug", help="Print rollout rewards during training", action="store_true")
+parser.add_argument("-ng", "--negotiation_on", help="Enable negotiation", action="store_true")
 parser.add_argument(
     "-sc",
     "--scenario",
@@ -92,6 +93,8 @@ def build_trainer(yaml_file: Dict[str, Any]) -> Tuple[Callable, dict]:
     #     trainer = build_sac_trainer(
     #         env=env, trainer_params=trainer_params, load_model=args.load_model
     #     )
+    else:
+        raise ValueError(f"Algorithm {args.algorithm} not recognized")
     merged_settings = {**args.__dict__, **env.__dict__, **trainer_params.__dict__}
     return (train_func, eval_func), merged_settings
 
@@ -105,6 +108,7 @@ yaml_file = {
         "relative_reward_mode": False,
         "disable_trading": False,
         "temperature_calibration": args.temperature_calibration,
+        "negotiation_on": args.negotiation_on,
     },
     "trainer_settings": {
         "num_log_episodes_after_training": 2,
@@ -132,7 +136,7 @@ start_time = time.time()
 print("Starting JAX compilation...")
 trainer = jax.jit(train_func, backend=merged_settings["backend"]).lower(seed).compile()
 print(
-    f"JAX compilation finished in {time.time() - start_time} seconds, starting training..."
+    f"JAX compilation finished in {(time.time() - start_time):.2f} seconds, starting training..."
 )
 out = trainer(seed)
 print("Training finished")
@@ -148,12 +152,12 @@ if not args.skip_training:
     print(f"saving model to {SAVE_MODEL_PATH}{model_name}")
     eqx.tree_serialise_leaves(f"{SAVE_MODEL_PATH}{model_name}.eqx", train_state)
 
-if yaml_file["wandb"]:
-    num_eval_episodes = merged_settings["num_log_episodes_after_training"]
-    if num_eval_episodes > 0:
-        rng, eval_key = jax.random.split(seed)
-        eval_keys = jax.random.split(eval_key, num_eval_episodes)
-        eval_rewards, eval_logs = jax.vmap(eval_func, in_axes=(0, None))(
-            eval_keys, train_state
-        )
-        log_episode_stats_to_wandb(eval_logs, merged_settings, args.wandb_group)
+num_eval_episodes = merged_settings["num_log_episodes_after_training"]
+if yaml_file["wandb"] and num_eval_episodes > 0:
+    print("Starting evaluation runs...")
+    rng, eval_key = jax.random.split(seed)
+    eval_keys = jax.random.split(eval_key, num_eval_episodes)
+    eval_rewards, eval_logs = jax.vmap(eval_func, in_axes=(0, None))(
+        eval_keys, train_state
+    )
+    log_episode_stats_to_wandb(eval_logs, merged_settings, args.wandb_group)
