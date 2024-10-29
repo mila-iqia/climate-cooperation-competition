@@ -47,6 +47,13 @@ NORMALIZATION_FACTORS = {
     "utility_all_regions": 1,
     "social_welfare_all_regions": 1,
     "utility_times_welfloss_all_regions": 1,
+
+    # negotiation states
+    "negotiation_stage": 1,
+    "minimum_mitigation_rate_all_regions": 1e1,
+    "promised_mitigation_rate": 1e1,
+    "requested_mitigation_rate": 1e1,
+    "proposal_decisions": 1,
 }
 
 
@@ -409,15 +416,20 @@ class Rice(JaxBaseEnv):
         }
 
         # Features concerning two regions
-        # bilateral_features = []
+        bilateral_features = {}
 
-        if self.negotiation_on: # TODO
-            pass
-            # global_features += ["negotiation_stage"]
-            # public_features += []
-            # private_features += [
-            #     "minimum_mitigation_rate_all_regions",
-            # ]
+        if self.negotiation_on:
+            global_features["negotiation_stage"] = jnp.array([state.negotiation_stage])
+
+            private_features["minimum_mitigation_rate_all_regions"] = state.minimum_mitigation_rate_all_regions
+
+            bilateral_features = {
+                "promised_mitigation_rate": state.promised_mitigation_rate,
+                "requested_mitigation_rate": state.requested_mitigation_rate,
+                "proposal_decisions": state.proposal_decisions,
+            }
+
+
             # bilateral_features += [
             #     "promised_mitigation_rate",
             #     "requested_mitigation_rate",
@@ -426,13 +438,13 @@ class Rice(JaxBaseEnv):
 
         # Normalization:
         # assert all norm factors are present
-        feature_keys = set(global_features.keys()) | set(public_features.keys()) | set(private_features.keys())
-        assert feature_keys.issubset(set(NORMALIZATION_FACTORS.keys()))
+        feature_keys = set(global_features.keys()) | set(public_features.keys()) | set(private_features.keys()) | set(bilateral_features.keys())
+        assert feature_keys.issubset(set(NORMALIZATION_FACTORS.keys())), f"Missing normalization factors for {feature_keys - set(NORMALIZATION_FACTORS.keys())}"
         norm_factors = {k: v for k, v in NORMALIZATION_FACTORS.items() if k in feature_keys}
 
         normalized_features = jax.tree.map(
             lambda x, y: x / y,
-            {**global_features, **public_features, **private_features},
+            {**global_features, **public_features, **private_features, **bilateral_features},
             norm_factors,
         )
 
@@ -451,10 +463,16 @@ class Rice(JaxBaseEnv):
         }
         private_features_per_agent = jnp.column_stack(jax.tree.leaves(private_features))
 
-        observations = jnp.concatenate(
-            [global_public_features_per_agent, private_features_per_agent], axis=1
-        )
-        return observations
+        observations = [global_public_features_per_agent, private_features_per_agent]
+
+        if self.negotiation_on:
+            bilateral_features = {
+                k: v for k, v in normalized_features.items() if k in bilateral_features.keys()
+            }
+            bilateral_features = jnp.hstack(jax.tree.leaves(bilateral_features))
+            observations += [bilateral_features]
+
+        return jnp.concatenate(observations, axis=1)
 
     def generate_action_masks(self, state: EnvState) -> chex.Array:
         """This function is typically overwritten by a scenario"""
