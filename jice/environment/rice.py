@@ -154,6 +154,7 @@ class Rice(JaxBaseEnv):
     reduce_action_space_size: bool = (
         False  # removes irrelevant actions from the action space (i.e. tarriff on itself). #NOTE: not sure if this confuses learning, so made this optional
     )
+    action_window_size: int = 0 # 0 = No action windows
 
     disable_trading: bool = False # trade actions always 0, actions are not removed from the action space
     negotiation_on: bool = True
@@ -337,6 +338,8 @@ class Rice(JaxBaseEnv):
 
         actions = self.process_actions(raw_actions, state)
 
+        eqx.debug.breakpoint_if(not self.train_env)
+
         if not self.negotiation_on:
             negotiation_stage = 0
 
@@ -487,13 +490,34 @@ class Rice(JaxBaseEnv):
             ),
             dtype=jnp.bool,
         )
-        #TODO check this
+        action_mask = default_action_mask
+        
+        # if self.action_window_size > 0:
+        #     # Only allow actions around the previous action
+        #     # For the actions: Savings_rate and Mitigation_rate
+        #     action_window_mask = default_action_mask.copy()
+        #     prev_savings_action = jnp.round(state.savings_all_regions * self.num_discrete_action_levels).astype(jnp.int32)
+        #     prev_mitigation_action = jnp.round(state.mitigation_rates_all_regions  * self.num_discrete_action_levels).astype(jnp.int32)
+        #     action_window_mask = action_window_mask.at[
+        #         :, self.action_index["savings_rate"]
+        #     ].set(
+        #         jnp.abs(np.arange(self.num_discrete_action_levels) - prev_savings_action[:, None]).astype(jnp.int32) <= self.action_window_size
+        #     )
+        #     action_window_mask = action_window_mask.at[
+        #         :, self.action_index["mitigation_rate"]
+        #     ].set(
+        #         jnp.abs(np.arange(self.num_discrete_action_levels) - prev_mitigation_action[:, None]).astype(jnp.int32) <= self.action_window_size
+        #     )
+        #     action_mask = action_mask * action_window_mask
+        
+        min_mitigation_mask = default_action_mask.copy()
         minimum_mitigation_rate = state.minimum_mitigation_rate_all_regions
-        action_mask = default_action_mask.at[
+        min_mitigation_mask = min_mitigation_mask.at[
             :, self.action_index["mitigation_rate"]
         ].set(
             jnp.arange(self.num_discrete_action_levels) >= minimum_mitigation_rate[:, None]
         )
+        action_mask = action_mask * min_mitigation_mask
 
         return action_mask
 
@@ -620,10 +644,20 @@ class Rice(JaxBaseEnv):
         import_bid_actions = actions[self.action_index["import_bid_start"]:self.action_index["import_bid_end"]].T
         import_tariff_actions = actions[self.action_index["import_tariff_start"]:self.action_index["import_tariff_end"]].T
 
+        # action windows
+        if self.action_window_size > 0:
+            # clip actions to be within the action window
+            prev_savings_action = jnp.round(state.savings_all_regions * self.num_discrete_action_levels).astype(jnp.int32)
+            prev_mitigation_action = jnp.round(state.mitigation_rates_all_regions  * self.num_discrete_action_levels).astype(jnp.int32)
+            savings_rate_actions = jnp.clip(savings_rate_actions, prev_savings_action - self.action_window_size, prev_savings_action + self.action_window_size)
+            mitigation_rate_actions = jnp.clip(mitigation_rate_actions, prev_mitigation_action - self.action_window_size, prev_mitigation_action + self.action_window_size)
+
         ### Set mitigation rate at min. mitigation rate
-        ## This should also be enforced in the action mask
+        ## This is for now also be enforced in the action mask
+        # NOTE: this can possibly clash with the action window
         min_mitigation_rate = state.minimum_mitigation_rate_all_regions * self.num_discrete_action_levels
         mitigation_rate_actions = jnp.maximum(mitigation_rate_actions, min_mitigation_rate)
+            
 
         if self.reduce_action_space_size:
             import_bid_actions = add_diagonal_of_zeros(import_bid_actions)

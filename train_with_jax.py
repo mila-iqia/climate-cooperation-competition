@@ -26,6 +26,7 @@ parser.add_argument("-sk", "--skip_training", help="Skip training", action="stor
 parser.add_argument("-l", "--load_model", help="Path to model file", default=None)
 parser.add_argument("-d", "--debug", help="Print rollout rewards during training", action="store_true")
 parser.add_argument("-ng", "--negotiation_on", help="Enable negotiation", action="store_true")
+parser.add_argument("--action_window_size", help="Action window size | 0 = disabled", default=0, type=int)
 parser.add_argument(
     "-sc",
     "--scenario",
@@ -109,6 +110,7 @@ yaml_file = {
         "disable_trading": False,
         "temperature_calibration": args.temperature_calibration,
         "negotiation_on": args.negotiation_on,
+        "action_window_size": args.action_window_size,
     },
     "trainer_settings": {
         "num_log_episodes_after_training": 2,
