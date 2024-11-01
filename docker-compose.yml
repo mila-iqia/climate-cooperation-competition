@@ -1,0 +1,12 @@
+services:
+  jax_app:
+    build:
+      context: .
+      dockerfile: Dockerfile_jax
+    container_name: jax_container
+    volumes:
+      - .:/app
+    environment:
+      PYTHONUNBUFFERED: 1
+    stdin_open: true
+    tty: true
