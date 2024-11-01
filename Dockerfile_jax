@@ -1,0 +1,24 @@
+# Use the official Python image as a base
+
+FROM python:3.12
+
+# install python3-pip
+RUN apt update && apt install python3-pip -y
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the requirements file into the image
+COPY jice/requirements.txt /app/
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy the rest of the application code into the image
+COPY . /app
+
+# Simple command to keep container running
+CMD ["python", "-c", "import time; time.sleep(1000000)"]
