@@ -26,6 +26,7 @@ parser.add_argument("-sk", "--skip_training", help="Skip training", action="stor
 parser.add_argument("-l", "--load_model", help="Path to model file", default=None)
 parser.add_argument("-d", "--debug", help="Print rollout rewards during training", action="store_true")
 parser.add_argument("-ng", "--negotiation_on", help="Enable negotiation", action="store_true")
+parser.add_argument("-c", "--use_cpu", help="use cpu instead of gpu", action="store_true")
 parser.add_argument("--action_window_size", help="Action window size | 0 = disabled", default=0, type=int)
 parser.add_argument(
     "-sc",
@@ -117,7 +118,7 @@ yaml_file = {
         "num_envs": 4,
         "total_timesteps": args.total_timesteps,
         "trainer_seed": args.seed,
-        "backend": "gpu",
+        "backend": "cpu" if args.use_cpu else "gpu",
         "debug": args.debug, # Print rollout rewards during training
         "skip_training": args.skip_training,
     },

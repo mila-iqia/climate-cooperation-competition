@@ -3,3 +3,6 @@ Submissions
 *.pdf
 core
 .tmp
+scripts/experiments
+.png
+.zip
