@@ -338,8 +338,6 @@ class Rice(JaxBaseEnv):
 
         actions = self.process_actions(raw_actions, state)
 
-        eqx.debug.breakpoint_if(not self.train_env)
-
         if not self.negotiation_on:
             negotiation_stage = 0
 
