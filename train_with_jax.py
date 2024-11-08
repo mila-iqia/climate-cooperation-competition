@@ -10,11 +10,18 @@ wandb.require("core")
 
 from jice.util import load_region_yamls, log_episode_stats_to_wandb
 from jice.algorithms import *
-from jice.environment import Rice, OptimalMitigation, BasicClub
+from jice.environment import Rice, OptimalMitigation, BasicClub, OptIn
 
 SAVE_MODEL_PATH = "jice/saved_models/"
 if not os.path.exists(SAVE_MODEL_PATH):
     os.makedirs(SAVE_MODEL_PATH)
+
+SCENARIOS = {
+    "default":Rice,
+    "optimal_mitigation":OptimalMitigation,
+    "basic_club":BasicClub,
+    "opt_in":OptIn
+}
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-t", "--total_timesteps", help="Total timesteps to train for", default=1e6, type=int)
@@ -33,7 +40,7 @@ parser.add_argument(
     "--scenario",
     help="Scenario to train on",
     default="default",
-    choices=["default", "optimal_mitigation", "basic_club"],
+    choices=SCENARIOS.keys(),
 )
 parser.add_argument(
     "-n",
@@ -55,14 +62,11 @@ def build_env_scenario(yaml_file: Dict[str, Any], init_gamma: float = 0.99) -> R
         **yaml_file["env_settings"],
     }
 
-    if env_settings["scenario"] == "default":
-        env = Rice(**env_settings)
-    elif env_settings["scenario"] == "optimal_mitigation":
-        env = OptimalMitigation(**env_settings)
-    elif env_settings["scenario"] == "basic_club":
-        env = BasicClub(**env_settings)
-    else:
+    if env_settings["scenario"] not in (SCENARIOS.keys()):
         raise ValueError(f"Scenario {env_settings['scenario']} not recognized")
+    else:
+        env = SCENARIOS[env_settings["scenario"]](**env_settings)
+
 
     return env
 
