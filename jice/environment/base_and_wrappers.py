@@ -49,6 +49,7 @@ class JaxBaseEnv(eqx.Module):
         state = jax.tree_map(
             lambda x, y: jax.lax.select(done, x, y), state_reset, state_step
         )
+
         obs = jax.lax.cond(done, lambda: obs_reset, lambda: obs_step)
 
         # NOTE: Not a huge fan of this approach, but it is what gymnasium uses.

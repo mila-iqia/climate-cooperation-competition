@@ -6,6 +6,8 @@ import equinox as eqx
 import time
 import os
 
+os.environ["WANDB_API_KEY"] = "5cdf06a0402717b3ff415e920264a5b55b6a5da9"
+
 wandb.require("core")
 
 from jice.util import load_region_yamls, log_episode_stats_to_wandb
@@ -34,7 +36,7 @@ parser.add_argument("-l", "--load_model", help="Path to model file", default=Non
 parser.add_argument("-d", "--debug", help="Print rollout rewards during training", action="store_true")
 parser.add_argument("-ng", "--negotiation_on", help="Enable negotiation", action="store_true")
 parser.add_argument("-c", "--use_cpu", help="use cpu instead of gpu", action="store_true")
-parser.add_argument("--action_window_size", help="Action window size | 0 = disabled", default=0, type=int)
+parser.add_argument("--action_window_size", help="Action window size | 0 = disabled", default=1, type=int)
 parser.add_argument(
     "-sc",
     "--scenario",
