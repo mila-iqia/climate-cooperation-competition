@@ -188,6 +188,17 @@ class OptIn(Rice):
             "decision_start": DECISION_INDEX_START,
             "decision_end": DECISION_INDEX_END,
         }
+
+    @property
+    def STEP_STAGES(self):
+        if self.negotiation_on:
+            return 4 # step_climate_and_economy, step_opt, step_propose, step_evaluate_proposals
+        return 1
+
+    @property
+    def episode_length(self):
+        simulation_timesteps = self.region_params.xN 
+        return simulation_timesteps * self.STEP_STAGES
     
     ###
     ## Helper and environment functions
@@ -239,7 +250,7 @@ class OptIn(Rice):
 
     def step_propose(
         self, state: EnvStateOpt, actions: ActionsOpt
-    ) -> Tuple[chex.Array, EnvState]:
+    ) -> Tuple[chex.Array, EnvStateOpt]:
         if not self.negotiation_on:
             raise ValueError("Negotiation is not enabled")
         proposed_mitigation_rates = actions.proposed_mitigation_rates
@@ -255,13 +266,11 @@ class OptIn(Rice):
 
     def step_evaluate_proposals(
         self, state: EnvStateOpt, actions: ActionsOpt
-    ) -> Tuple[chex.Array, EnvState]:
+    ) -> Tuple[chex.Array, EnvStateOpt]:
         if not self.negotiation_on:
             raise ValueError("Negotiation is not enabled")
-        print("AAAAAAAAAAn\n\n")
         proposed_mitigation_rates = state.proposed_mitigation_rates
         proposal_decisions = actions.proposal_decisions.T
-        print(proposal_decisions)
 
         accepted_mitigation_rates = proposed_mitigation_rates * proposal_decisions
         lower_bound_mitigation_rates = jnp.max(accepted_mitigation_rates, axis=1)
@@ -272,8 +281,92 @@ class OptIn(Rice):
         return replace(
             state,
             proposal_decisions=proposal_decisions,
-            minimum_mitigation_rate_all_regions=lower_bound_mitigation_rates,
+            minimum_mitigation_rate_all_regions=lower_bound_mitigation_rates_opt_ins,
         )
+    
+    def step_climate_and_economy(
+        self, state: EnvStateOpt, actions: ActionsOpt
+    ) -> Tuple[chex.Array, EnvStateOpt]:
+
+        damages = self.calc_damages(state)
+        abatement_costs = self.calc_abatement_costs(state, actions)  #
+        productions = self.calc_productions(state)
+        gross_outputs = self.calc_gross_outputs(
+            damages, abatement_costs, productions
+        )  #
+        investments = self.calc_investments(gross_outputs, actions)  #
+        gov_balances_post_interest = self.calc_gov_balances_post_interest(state)
+        debt_ratios = self.calc_debt_ratios(gov_balances_post_interest)
+        gross_imports = self.calc_gross_imports(
+            state,
+            actions,
+            gross_outputs,
+            investments,
+            debt_ratios,
+        )
+
+        tariff_revenues, net_imports = self.calc_trade_sanctions(
+            state, gross_imports, actions
+        )
+        welfloss_multipliers = self.calc_welfloss_multiplier(
+            state, gross_outputs, gross_imports, net_imports
+        )
+        consumptions = self.calc_consumptions(
+            gross_outputs, investments, gross_imports, net_imports
+        )
+        utilities = self.calc_utilities(state, consumptions)  #
+        # social_welfare = self.calc_social_welfares(state, utilities) #
+        labors = self.calc_labors(state)
+        capitals = self.calc_capitals(state, investments)
+        production_factors = self.calc_production_factors(state)
+        gov_balances_post_trade = self.calc_gov_balances_post_trade(
+            gov_balances_post_interest, gross_imports
+        )
+        carbon_intensities = self.calc_carbon_intensities(state)
+
+        global_carbon_mass = self.calc_global_carbon_mass(
+            state, productions, actions.mitigation_rate
+        )
+        global_temperature, global_exogenous_emissions, global_temperature_boxes = self.calc_global_temperature(
+            state
+        )
+
+        current_simulation_year = self.calc_current_simulation_year(state)
+
+        utility_times_welfloss = utilities * welfloss_multipliers
+
+        state: EnvStateOpt = replace(
+            state,
+            activity_timestep=state.activity_timestep + 1,
+            # actions
+            savings_all_regions=actions.savings_rate,
+            import_tariffs=actions.import_tariff,
+            export_limit_all_regions=actions.export_limit,
+            import_bids_all_regions=actions.import_bids,
+            mitigation_rates_all_regions=actions.mitigation_rate,
+            # others
+            damages_all_regions=damages,
+            aggregate_consumption=consumptions,
+            abatement_cost_all_regions=abatement_costs,
+            production_all_regions=productions,
+            gross_output_all_regions=gross_outputs,
+            investment_all_regions=investments,
+            current_balance_all_regions=gov_balances_post_trade,
+            imports_minus_tariffs=net_imports,
+            utility_all_regions=utilities,
+            # social_welfare_all_regions=social_welfare,
+            labor_all_regions=labors,
+            capital_all_regions=capitals,
+            production_factor_all_regions=production_factors,
+            intensity_all_regions=carbon_intensities,
+            global_carbon_mass=global_carbon_mass,
+            global_temperature=global_temperature,
+            global_exogenous_emissions=global_exogenous_emissions,
+            global_temperature_boxes=global_temperature_boxes,
+            current_simulation_year=current_simulation_year,
+            utility_times_welfloss_all_regions=utility_times_welfloss,
+        )
+        return state
     
     def reset_env(self, key: chex.PRNGKey) -> Tuple[chex.Array, EnvState]:
 
