@@ -90,7 +90,7 @@ def build_random_trainer(
             step_env,
             (rng, obs_v, env_state_v, done, episode_reward),
             None,
-            eval_env.episode_length,
+            eval_env.episode_length  // eval_env.STEP_STAGES,
         )
         episode_stats = jax.tree.map(
             lambda x: x.reshape((-1,) + x.shape[2:]), episode_stats
