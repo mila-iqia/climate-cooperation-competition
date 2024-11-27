@@ -12,7 +12,7 @@ wandb.require("core")
 
 from jice.util import load_region_yamls, log_episode_stats_to_wandb
 from jice.algorithms import *
-from jice.environment import Rice, OptimalMitigation, BasicClub, OptIn
+from jice.environment import Rice, OptimalMitigation, BasicClub, OptIn,BasicClubTariffAmbition
 
 SAVE_MODEL_PATH = "jice/saved_models/"
 if not os.path.exists(SAVE_MODEL_PATH):
@@ -21,8 +21,9 @@ if not os.path.exists(SAVE_MODEL_PATH):
 SCENARIOS = {
     "default":Rice,
     "optimal_mitigation":OptimalMitigation,
-    "basic_club":BasicClub,
-    "opt_in":OptIn
+    "basic_club_fixed":BasicClub,
+    "opt_in":OptIn,
+    "basic_club":BasicClubTariffAmbition
 }
 
 parser = argparse.ArgumentParser()
