@@ -61,7 +61,36 @@ SCENARIO_MAPPING = {
     "OptimalMitigationActionWindow": OptimalMitigationActionWindow,
     "BasicClubFixed": BasicClubFixed,
 }
+from typing import Dict, Tuple
+import ray
+from ray.rllib.algorithms.callbacks import DefaultCallbacks
+from ray.rllib.env import BaseEnv
+from ray.rllib.evaluation import Episode, RolloutWorker
+from ray.rllib.policy import Policy
+class MyCallbacks(DefaultCallbacks):
+    def on_episode_end(
+        self,
+        *,
+        worker: RolloutWorker,
+        base_env: BaseEnv,
+        policies: Dict[str, Policy],
+        episode: Episode,
+        env_index: int,
+        **kwargs,
+    ):
+        
+        # collect metric at the end of episode
+        test_metric = episode._last_infos['test']['level']
+        # episode_reward = episode._last_infos['agent0']['episode_reward']
+        # step_num = episode._last_infos['agent0']['step_num']
+        # success = episode._last_infos['agent0']['success']
+        episode.custom_metrics["test_val"] = test_metric
 
+        # # define custom metric to store metric of each level 
+        # level_str = str(level)
+        # episode.custom_metrics[level_str+'_episode_reward'] = episode_reward
+        # episode.custom_metrics[level_str+'_step_num'] = step_num
+        # episode.custom_metrics[level_str+'_success'] = success
 
 def get_config_yaml(yaml_path):
     config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", yaml_path)
@@ -442,6 +471,7 @@ def create_trainer(config_yaml=None, source_dir=None, seed=None):
         EnvWrapper,
         env_config=rllib_config["env_config"],
     )
+    config = config.callbacks(MyCallbacks)
 
     config.seed = seed
 

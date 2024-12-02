@@ -299,7 +299,7 @@ class Rice(gym.Env):
         terminateds["__all__"] = 0
         truncateds = {region_id: 0 for region_id in range(self.num_regions)}
         truncateds["__all__"] = 0
-        info = {}
+        info = {"test":1}
 
         return observations, rewards, terminateds, truncateds, info
 
@@ -325,7 +325,7 @@ class Rice(gym.Env):
         terminateds["__all__"] = 0
         truncateds = {region_id: 0 for region_id in range(self.num_regions)}
         truncateds["__all__"] = 0
-        info = {}
+        info = {"test":1}
         return observations, rewards, terminateds, truncateds, info
 
     def default_actions_dict(self):
@@ -419,7 +419,7 @@ class Rice(gym.Env):
         terminateds = {"__all__": current_simulation_year == self.end_year}
         truncateds = {region_id: 0 for region_id in range(self.num_regions)}
         truncateds = {"__all__": current_simulation_year == self.episode_length}
-        info = {}
+        info = {"test":1}
 
         return observations, rewards, terminateds, truncateds, info
 
