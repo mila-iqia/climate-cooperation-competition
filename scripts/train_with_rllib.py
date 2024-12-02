@@ -506,11 +506,26 @@ def create_save_dir_path(exp_run_config, results_dir=None):
     return results_save_dir
 
 
+# class NumpyArrayEncoder(json.JSONEncoder):
+#     def default(self, obj):
+#         if isinstance(obj, np.ndarray):
+#             return obj.tolist()
+#         return json.JSONEncoder.default(self, obj)
+
 class NumpyArrayEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
+        elif isinstance(obj, (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32, np.uint64)):
+            return int(obj)
+        elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
+            return float(obj)
+        elif isinstance(obj, (np.bool_)):
+            return bool(obj)
+        elif isinstance(obj, (np.void)):  # Catch-all for any other types not explicitly handled
+            return None
+        else:
+            return super(NumpyArrayEncoder, self).default(obj)
 
 
 def fetch_episode_states(trainer_obj=None, episode_states=None, file_name=None):
@@ -709,12 +724,12 @@ if __name__ == "__main__":
         env_obj = trainer.workers.local_worker().env.env
 
     episode_length = env_obj.episode_length
-    num_iters = (num_episodes * episode_length) // train_batch_size
+    num_iters = 1#2(num_episodes * episode_length) // train_batch_size
+    logs = []
     for iteration in tqdm(range(num_iters)):
         print(f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********")
         result = trainer.train()
-        print("CALLBACKS\n\n")
-        print(result["custom_metrics"])
+        logs.append(result["custom_metrics"])
         if config_yaml["logging"]["enabled"]:
             wandb.log(
                 {
@@ -752,6 +767,9 @@ if __name__ == "__main__":
             #logging.info(result)
         print(f"""episode_reward_mean: {result.get('episode_reward_mean')}""")
 
+    file_name = save_dir.split("/")[-1]
+    with open(os.path.join(PUBLIC_REPO_DIR,"callback_logs", f"{file_name}.json"), "w") as f:
+        json.dump(logs, f,cls=NumpyArrayEncoder)
     # Create a (zipped) submission file
     # ---------------------------------
     subprocess.call(
