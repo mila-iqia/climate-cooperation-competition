@@ -724,7 +724,7 @@ if __name__ == "__main__":
         env_obj = trainer.workers.local_worker().env.env
 
     episode_length = env_obj.episode_length
-    num_iters = 1#2(num_episodes * episode_length) // train_batch_size
+    num_iters = (num_episodes * episode_length) // train_batch_size
     logs = []
     for iteration in tqdm(range(num_iters)):
         print(f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********")
