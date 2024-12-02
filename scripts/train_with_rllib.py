@@ -80,12 +80,20 @@ class MyCallbacks(DefaultCallbacks):
     ):
         
         # collect metric at the end of episode
-        test_metric = episode._last_infos['__common__']
+        episode.custom_metrics["temperature_rise"] = episode._last_infos['__common__']["temp_rise"]
+        metrics = episode._last_infos['__common__']["metrics"]
+        num_regions = episode._last_infos['__common__']["num_regions"]
+
+        for metric in metrics:
+            for region in range(num_regions):
+                episode.custom_metrics[f"{metric}_region_{region}"] = episode._last_infos[region][metric]
+        
+        # test_agent_metric = episode._last_infos[0]["test"]
         # episode_reward = episode._last_infos['agent0']['episode_reward']
         # step_num = episode._last_infos['agent0']['step_num']
         # success = episode._last_infos['agent0']['success']
-        episode.custom_metrics["test_val"] = test_metric
-
+        # episode.custom_metrics["test_val"] = test_metric
+        # episode.custom_metrics["test_agent"] = test_agent_metric
         # # define custom metric to store metric of each level 
         # level_str = str(level)
         # episode.custom_metrics[level_str+'_episode_reward'] = episode_reward

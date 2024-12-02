@@ -263,8 +263,16 @@ class Rice(gym.Env):
         return self.get_observations(), info
 
     def generate_info(self, obs, rewards):
-        print(rewards.keys())
-        info = {"__common__":rewards[0]}
+        info = {"__common__":{
+            "temp_rise":self.get_state("global_temperature", timestep=self.current_timestep) - self.get_state("global_temperature", timestep=0),
+            "metrics":["mitigation_rates_all_regions", "utility_all_regions"],
+            "num_regions":self.num_agents
+        }}
+        for agent in range(self.num_agents):
+            agent_info_dict = {"test":1}
+            for info_ in info["__common__"]["metrics"]:
+                agent_info_dict[info_] = self.get_state(info_, region_id=agent)
+            info[agent] = agent_info_dict        
         return info
 
     def step(self, actions):
