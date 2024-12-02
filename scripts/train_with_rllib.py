@@ -80,7 +80,7 @@ class MyCallbacks(DefaultCallbacks):
     ):
         
         # collect metric at the end of episode
-        test_metric = episode._last_infos['test']['level']
+        test_metric = episode._last_infos['__common__']
         # episode_reward = episode._last_infos['agent0']['episode_reward']
         # step_num = episode._last_infos['agent0']['step_num']
         # success = episode._last_infos['agent0']['success']
@@ -705,7 +705,8 @@ if __name__ == "__main__":
     for iteration in tqdm(range(num_iters)):
         print(f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********")
         result = trainer.train()
-
+        print("CALLBACKS\n\n")
+        print(result["custom_metrics"])
         if config_yaml["logging"]["enabled"]:
             wandb.log(
                 {
@@ -739,7 +740,8 @@ if __name__ == "__main__":
             or iteration == num_iters - 1
         ):
             save_model_checkpoint(trainer, save_dir, total_timesteps)
-            logging.info(result)
+            
+            #logging.info(result)
         print(f"""episode_reward_mean: {result.get('episode_reward_mean')}""")
 
     # Create a (zipped) submission file

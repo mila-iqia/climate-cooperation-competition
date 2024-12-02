@@ -262,6 +262,11 @@ class Rice(gym.Env):
         }  # for the new ray rllib env format
         return self.get_observations(), info
 
+    def generate_info(self, obs, rewards):
+        print(rewards.keys())
+        info = {"__common__":rewards[0]}
+        return info
+
     def step(self, actions):
         self.current_timestep += 1
         self.set_state("timestep", self.current_timestep, dtype=self.int_dtype)
@@ -299,7 +304,7 @@ class Rice(gym.Env):
         terminateds["__all__"] = 0
         truncateds = {region_id: 0 for region_id in range(self.num_regions)}
         truncateds["__all__"] = 0
-        info = {"test":1}
+        info = self.generate_info(observations, rewards)
 
         return observations, rewards, terminateds, truncateds, info
 
@@ -325,7 +330,7 @@ class Rice(gym.Env):
         terminateds["__all__"] = 0
         truncateds = {region_id: 0 for region_id in range(self.num_regions)}
         truncateds["__all__"] = 0
-        info = {"test":1}
+        info = self.generate_info(observations, rewards)
         return observations, rewards, terminateds, truncateds, info
 
     def default_actions_dict(self):
@@ -419,7 +424,7 @@ class Rice(gym.Env):
         terminateds = {"__all__": current_simulation_year == self.end_year}
         truncateds = {region_id: 0 for region_id in range(self.num_regions)}
         truncateds = {"__all__": current_simulation_year == self.episode_length}
-        info = {"test":1}
+        info = self.generate_info(observations, rewards)
 
         return observations, rewards, terminateds, truncateds, info
 
