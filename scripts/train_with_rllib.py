@@ -61,6 +61,33 @@ SCENARIO_MAPPING = {
     "OptimalMitigationActionWindow": OptimalMitigationActionWindow,
     "BasicClubFixed": BasicClubFixed,
 }
+from typing import Dict, Tuple
+import ray
+from ray.rllib.algorithms.callbacks import DefaultCallbacks
+from ray.rllib.env import BaseEnv
+from ray.rllib.evaluation import Episode, RolloutWorker
+from ray.rllib.policy import Policy
+class Callbacks(DefaultCallbacks):
+    def on_episode_end(
+        self,
+        *,
+        worker: RolloutWorker,
+        base_env: BaseEnv,
+        policies: Dict[str, Policy],
+        episode: Episode,
+        env_index: int,
+        **kwargs,
+    ):
+        
+        # collect metric at the end of episode
+        episode.custom_metrics["temperature_rise"] = episode._last_infos['__common__']["temp_rise"]
+        metrics = episode._last_infos['__common__']["metrics"]
+        num_regions = episode._last_infos['__common__']["num_regions"]
+
+        for metric in metrics:
+            for region in range(num_regions):
+                episode.custom_metrics[f"{metric}_region_{region}"] = episode._last_infos[region][metric]
+        
 
 
 def get_config_yaml(yaml_path):
@@ -442,6 +469,7 @@ def create_trainer(config_yaml=None, source_dir=None, seed=None):
         EnvWrapper,
         env_config=rllib_config["env_config"],
     )
+    config = config.callbacks(Callbacks)
 
     config.seed = seed
 
@@ -468,11 +496,26 @@ def create_save_dir_path(exp_run_config, results_dir=None):
     return results_save_dir
 
 
+# class NumpyArrayEncoder(json.JSONEncoder):
+#     def default(self, obj):
+#         if isinstance(obj, np.ndarray):
+#             return obj.tolist()
+#         return json.JSONEncoder.default(self, obj)
+
 class NumpyArrayEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
+        elif isinstance(obj, (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32, np.uint64)):
+            return int(obj)
+        elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
+            return float(obj)
+        elif isinstance(obj, (np.bool_)):
+            return bool(obj)
+        elif isinstance(obj, (np.void)):  # Catch-all for any other types not explicitly handled
+            return None
+        else:
+            return super(NumpyArrayEncoder, self).default(obj)
 
 
 def fetch_episode_states(trainer_obj=None, episode_states=None, file_name=None):
@@ -672,10 +715,11 @@ if __name__ == "__main__":
 
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
+    logs = []
     for iteration in tqdm(range(num_iters)):
         print(f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********")
         result = trainer.train()
-
+        logs.append(result["custom_metrics"])
         if config_yaml["logging"]["enabled"]:
             wandb.log(
                 {
@@ -709,9 +753,13 @@ if __name__ == "__main__":
             or iteration == num_iters - 1
         ):
             save_model_checkpoint(trainer, save_dir, total_timesteps)
-            logging.info(result)
+            
+            #logging.info(result)
         print(f"""episode_reward_mean: {result.get('episode_reward_mean')}""")
 
+    file_name = save_dir.split("/")[-1]
+    with open(os.path.join(PUBLIC_REPO_DIR,"callback_logs", f"{file_name}.json"), "w") as f:
+        json.dump(logs, f,cls=NumpyArrayEncoder)
     # Create a (zipped) submission file
     # ---------------------------------
     subprocess.call(

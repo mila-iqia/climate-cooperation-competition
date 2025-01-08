@@ -262,6 +262,19 @@ class Rice(gym.Env):
         }  # for the new ray rllib env format
         return self.get_observations(), info
 
+    def generate_info(self, obs, rewards):
+        info = {"__common__":{
+            "temp_rise":self.get_state("global_temperature", timestep=self.current_timestep) - self.get_state("global_temperature", timestep=0),
+            "metrics":["mitigation_rates_all_regions", "utility_all_regions"],
+            "num_regions":self.num_agents
+        }}
+        for agent in range(self.num_agents):
+            agent_info_dict = {"test":1}
+            for info_ in info["__common__"]["metrics"]:
+                agent_info_dict[info_] = self.get_state(info_, region_id=agent)
+            info[agent] = agent_info_dict        
+        return info
+
     def step(self, actions):
         self.current_timestep += 1
         self.set_state("timestep", self.current_timestep, dtype=self.int_dtype)
@@ -299,7 +312,7 @@ class Rice(gym.Env):
         terminateds["__all__"] = 0
         truncateds = {region_id: 0 for region_id in range(self.num_regions)}
         truncateds["__all__"] = 0
-        info = {}
+        info = self.generate_info(observations, rewards)
 
         return observations, rewards, terminateds, truncateds, info
 
@@ -325,7 +338,7 @@ class Rice(gym.Env):
         terminateds["__all__"] = 0
         truncateds = {region_id: 0 for region_id in range(self.num_regions)}
         truncateds["__all__"] = 0
-        info = {}
+        info = self.generate_info(observations, rewards)
         return observations, rewards, terminateds, truncateds, info
 
     def default_actions_dict(self):
@@ -419,7 +432,7 @@ class Rice(gym.Env):
         terminateds = {"__all__": current_simulation_year == self.end_year}
         truncateds = {region_id: 0 for region_id in range(self.num_regions)}
         truncateds = {"__all__": current_simulation_year == self.episode_length}
-        info = {}
+        info = self.generate_info(observations, rewards)
 
         return observations, rewards, terminateds, truncateds, info
 
