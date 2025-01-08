@@ -67,7 +67,7 @@ from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.env import BaseEnv
 from ray.rllib.evaluation import Episode, RolloutWorker
 from ray.rllib.policy import Policy
-class MyCallbacks(DefaultCallbacks):
+class Callbacks(DefaultCallbacks):
     def on_episode_end(
         self,
         *,
@@ -88,17 +88,7 @@ class MyCallbacks(DefaultCallbacks):
             for region in range(num_regions):
                 episode.custom_metrics[f"{metric}_region_{region}"] = episode._last_infos[region][metric]
         
-        # test_agent_metric = episode._last_infos[0]["test"]
-        # episode_reward = episode._last_infos['agent0']['episode_reward']
-        # step_num = episode._last_infos['agent0']['step_num']
-        # success = episode._last_infos['agent0']['success']
-        # episode.custom_metrics["test_val"] = test_metric
-        # episode.custom_metrics["test_agent"] = test_agent_metric
-        # # define custom metric to store metric of each level 
-        # level_str = str(level)
-        # episode.custom_metrics[level_str+'_episode_reward'] = episode_reward
-        # episode.custom_metrics[level_str+'_step_num'] = step_num
-        # episode.custom_metrics[level_str+'_success'] = success
+
 
 def get_config_yaml(yaml_path):
     config_path = os.path.join(PUBLIC_REPO_DIR, "scripts", yaml_path)
@@ -479,7 +469,7 @@ def create_trainer(config_yaml=None, source_dir=None, seed=None):
         EnvWrapper,
         env_config=rllib_config["env_config"],
     )
-    config = config.callbacks(MyCallbacks)
+    config = config.callbacks(Callbacks)
 
     config.seed = seed
 
