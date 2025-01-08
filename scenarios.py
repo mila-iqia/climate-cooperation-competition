@@ -780,38 +780,11 @@ class BasicClubAblateMasks(BasicClubTariffAmbition):
             else:
                 mask = self.default_agent_action_mask.copy()
 
-            # #minimum commitment
+            #minimum commitment
             min_mitigation_rate = int(round(self.get_state("minimum_mitigation_rate_all_regions",
                             region_id=region_id,
                                 timestep=self.current_timestep)*self.num_discrete_action_levels))
             
-            # current_mitigation_rate = int(round(self.get_state("mitigation_rates_all_regions",
-            #                 region_id=region_id,
-            #                     timestep=self.current_timestep)*self.num_discrete_action_levels))
-            
-            
-            # #if agent has a minimum mitigation rate, it must increase mitigation until target reached
-            # if current_mitigation_rate < min_mitigation_rate:
-            #     mitigation_mask = [0]*(current_mitigation_rate + 1) + [1] + [0]*(self.num_discrete_action_levels - current_mitigation_rate - 2)
-            # #if at the club level, agent has the possibility of keeping the same mitigation level
-            # elif current_mitigation_rate == min_mitigation_rate and current_mitigation_rate < self.num_discrete_action_levels - 1:
-            #     mitigation_mask = [0]*(current_mitigation_rate) + [1,1] + [0]*(self.num_discrete_action_levels - current_mitigation_rate - 2)
-            # #if at max mitigation remain there
-            # elif current_mitigation_rate == self.num_discrete_action_levels - 1:
-            #     mitigation_mask = [0]*(current_mitigation_rate) + [1]
-
-
-
-            # # if above club level, normal action window applies
-            # if current_mitigation_rate > min_mitigation_rate:
-            #     pass
-            # else:
-            #     mitigation_mask_start = sum(self.savings_possible_actions)
-            #     mitigation_mask_end = mitigation_mask_start + sum(
-            #             self.mitigation_rate_possible_actions
-            #         )
-            #     mask[mitigation_mask_start:mitigation_mask_end] = np.array(mitigation_mask)
-
             if self.current_timestep != 0:
                 # tariff non club members
                 tariff_mask = []
@@ -843,19 +816,6 @@ class BasicClubAblateMasks(BasicClubTariffAmbition):
                             + [1] * (self.num_discrete_action_levels-tariff_rate)
                     tariff_mask.extend(regional_tariff_mask)
 
-                    #if not, tariff difference of 
-
-                    # # if other region is self or in club
-                    # if (other_region_id == region_id) or (other_mitigation_rate >=min_mitigation_rate):
-                    #     # minimize tariff for free trade
-                    #     regional_tariff_mask = [1] + [0] * (self.num_discrete_action_levels-1)
-                    # else:
-                        
-                    #     #min tariff by difference between mitigation rate and club mitigation rate
-                    #     tariff_rate = int(min_mitigation_rate - other_mitigation_rate)
-                    #     regional_tariff_mask = [0] * tariff_rate \
-                    #         + [1] * (self.num_discrete_action_levels-tariff_rate)
-                    
 
                 #mask tariff
                 tariff_mask_start = sum(self.savings_possible_actions
