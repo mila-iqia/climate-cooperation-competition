@@ -38,6 +38,7 @@ from scenarios import (
     MinimalMitigationActionWindow,
     OptimalMitigationActionWindow,
     BasicClubFixed,
+    BasicClubAblateMasks
 )
 import argparse
 from collections import OrderedDict
@@ -60,6 +61,7 @@ SCENARIO_MAPPING = {
     "MinimalMitigationActionWindow": MinimalMitigationActionWindow,
     "OptimalMitigationActionWindow": OptimalMitigationActionWindow,
     "BasicClubFixed": BasicClubFixed,
+    "BasicClubAblateMasks":BasicClubAblateMasks
 }
 from typing import Dict, Tuple
 import ray
@@ -666,7 +668,8 @@ if __name__ == "__main__":
     parser.add_argument("--yaml", "-y", type=str, default="rice_rllib_discrete.yaml")
     args = parser.parse_args()
     config_yaml = get_config_yaml(yaml_path=args.yaml)
-
+    print("CURRENT CONFIG: \n\n")
+    print(config_yaml)
     ray.init(ignore_reinit_error=True)
 
     if config_yaml["logging"]["enabled"]:
@@ -757,7 +760,7 @@ if __name__ == "__main__":
             #logging.info(result)
         print(f"""episode_reward_mean: {result.get('episode_reward_mean')}""")
 
-    file_name = save_dir.split("/")[-1]
+    file_name = save_dir.split("/")[-1]+f"_"+config_yaml["env"]["scenario"]+"_"+str(config_yaml["regions"]["num_agents"])
     with open(os.path.join(PUBLIC_REPO_DIR,"callback_logs", f"{file_name}.json"), "w") as f:
         json.dump(logs, f,cls=NumpyArrayEncoder)
     # Create a (zipped) submission file

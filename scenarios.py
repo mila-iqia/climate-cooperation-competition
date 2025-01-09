@@ -708,9 +708,9 @@ class BasicClubTariffAmbition(Rice):
             for other_region_id in range(self.num_regions):
 
                 #get other regions mitigation commitment
-                other_mitigation_rate = self.get_state("minimum_mitigation_rate_all_regions",
+                other_mitigation_rate = int(round(self.get_state("minimum_mitigation_rate_all_regions",
                             region_id=other_region_id,
-                                timestep=self.current_timestep)
+                                timestep=self.current_timestep)))
 
                 # if other region is self or in club
                 if (other_region_id == region_id) or (other_mitigation_rate >=min_mitigation_rate):
@@ -738,8 +738,98 @@ class BasicClubTariffAmbition(Rice):
         return mask_dict
         
            
-        
+class BasicClubAblateMasks(BasicClubTariffAmbition):
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=True, # If True then negotiation is on, else off
+                 scenario="BasicClubAblateMasks",
+                 action_space_type="discrete",  # or "continuous"
+                 dmg_function="base",
+                 carbon_model="base",
+                 temperature_calibration="base",
+                 prescribed_emissions=None,
+                 pct_reward=False,
+                 clubs_enabled = False,
+                 club_members = [],
+                 action_window = True,
+                 relative_reward = True
+            ):
+        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels, 
+                action_space_type=action_space_type,  # or "continuous"
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions,
+                pct_reward=pct_reward,
+                clubs_enabled = clubs_enabled,
+                club_members = club_members,
+                action_window = action_window,
+                relative_reward=relative_reward)
+    
+    def calc_action_mask(self):
+        """
+        Generate action masks.
+        """
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
 
+            if self.action_window:
+                mask = self.calc_action_window(region_id)
+            else:
+                mask = self.default_agent_action_mask.copy()
+
+            #minimum commitment
+            min_mitigation_rate = int(round(self.get_state("minimum_mitigation_rate_all_regions",
+                            region_id=region_id,
+                                timestep=self.current_timestep)*self.num_discrete_action_levels))
+            
+            if self.current_timestep != 0:
+                # tariff non club members
+                tariff_mask = []
+                for other_region_id in range(self.num_regions):
+
+                    #get other regions mitigation commitment
+                    other_minimum_mitigation_rate = self.get_state("minimum_mitigation_rate_all_regions",
+                                region_id=other_region_id,
+                                    timestep=self.current_timestep)
+                    
+                    other_mitigation_rate = int(round(self.get_state("mitigation_rates_all_regions",
+                                region_id=other_region_id,
+                                    timestep=self.current_timestep)*self.num_discrete_action_levels))
+                    
+                    other_previous_mitigation_rate = int(round(self.get_state("mitigation_rates_all_regions",
+                                region_id=other_region_id,
+                                    timestep=self.current_timestep-1)*self.num_discrete_action_levels))
+
+                    #has other region increased mitigation since previous time step or other region mitigation matches my goal
+                    #if yes, no tariff
+                    if other_minimum_mitigation_rate > other_previous_mitigation_rate \
+                        or other_mitigation_rate >= min_mitigation_rate \
+                            or other_region_id == region_id:
+                        regional_tariff_mask = [1] + [0] * (self.num_discrete_action_levels-1)
+                    #otherwise tariff on the difference between ambition (minimum mitigation rate) and other regions current mitigation rate
+                    else:
+                        tariff_rate = int(min_mitigation_rate - other_mitigation_rate)
+                        regional_tariff_mask = [0] * tariff_rate \
+                            + [1] * (self.num_discrete_action_levels-tariff_rate)
+                    tariff_mask.extend(regional_tariff_mask)
+
+
+                #mask tariff
+                tariff_mask_start = sum(self.savings_possible_actions
+                    + self.mitigation_rate_possible_actions
+                    + self.export_limit_possible_actions
+                    + self.import_bids_possible_actions)
+
+                tariff_mask_end = tariff_mask_start + sum(self.calc_possible_actions("import_tariffs"))
+                mask[tariff_mask_start:tariff_mask_end] = np.array(tariff_mask)
+
+            mask_dict[region_id] = mask
+            
+        return mask_dict
+        
 
 class CarbonLeakageFixed(Rice):
 
