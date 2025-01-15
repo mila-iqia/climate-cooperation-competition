@@ -79,8 +79,11 @@ class Convergence(Rice):
         return total_possible_actions
     
     def get_actions(self, action_type, actions):
-        if action_type in ["savings", "export_limit"]:
-            [.1 for region_id in range(self.num_regions)]
+        if action_type == "savings":
+            return self.get_state("savings_all_regions", timestep = 0)
+
+        if action_type == "export_limit":
+            return self.get_state("export_limit_all_regions", timestep = 0)
 
         if action_type == "mitigation_rate":
             mitigation_rate_action_index = self.get_actions_index("mitigation_rate")
@@ -91,16 +94,10 @@ class Convergence(Rice):
             ]
 
         if action_type == "import_bids":
-            return [
-                .5
-                for region_id in range(self.num_regions)
-            ]
+            return self.get_state("import_bids_all_regions", timestep = 0)
 
         if action_type == "import_tariffs":
-            return [
-                [.1 for region_id in range(self.num_regions)]
-                for region_id in range(self.num_regions)
-            ]
+            return self.get_state("import_tariffs", timestep = 0)
         
     def get_actions_index(self, action_type):
         if action_type == "mitigation_rate":
@@ -123,7 +120,6 @@ class Convergence(Rice):
                     "import_tariffs", actions
                 ),
             }
-
         if self.action_space_type == "continuous":
             actions_dict = self.cont_implement_bounds(actions_dict)
         self.set_actions_in_global_state(actions_dict)

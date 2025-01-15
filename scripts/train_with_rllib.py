@@ -65,33 +65,63 @@ SCENARIO_MAPPING = {
     "BasicClubAblateMasks":BasicClubAblateMasks,
     "Convergence":Convergence
 }
-from typing import Dict, Tuple
-import ray
+
+import numpy as np
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
-from ray.rllib.env import BaseEnv
-from ray.rllib.evaluation import Episode, RolloutWorker
-from ray.rllib.policy import Policy
+from typing import Dict
+from ray.rllib.evaluation.episode import Episode
+from ray.rllib.evaluation.rollout_worker import RolloutWorker
+from ray.rllib.env.base_env import BaseEnv
+from ray.rllib.policy.policy import Policy
+
 class Callbacks(DefaultCallbacks):
-    def on_episode_end(
-        self,
-        *,
-        worker: RolloutWorker,
-        base_env: BaseEnv,
-        policies: Dict[str, Policy],
-        episode: Episode,
-        env_index: int,
-        **kwargs,
-    ):
-        
-        # collect metric at the end of episode
+    def on_episode_start(self, *, worker: RolloutWorker, base_env: BaseEnv, policies: Dict[str, Policy], episode: Episode, **kwargs):
+        # Initialize storage for metrics if it doesn't exist
+        if not hasattr(worker, "custom_metrics_storage"):
+            worker.custom_metrics_storage = []
+
+    def on_episode_end(self, *, worker: RolloutWorker, base_env: BaseEnv, policies: Dict[str, Policy], episode: Episode, **kwargs):
+        # Check and initialize storage if not already done
+        if not hasattr(worker, "custom_metrics_storage"):
+            worker.custom_metrics_storage = []
+
+        # Collect metrics at the end of the episode
         episode.custom_metrics["temperature_rise"] = episode._last_infos['__common__']["temp_rise"]
         metrics = episode._last_infos['__common__']["metrics"]
         num_regions = episode._last_infos['__common__']["num_regions"]
 
         for metric in metrics:
             for region in range(num_regions):
-                episode.custom_metrics[f"{metric}_region_{region}"] = episode._last_infos[region][metric]
-        
+                metric_key = f"{metric}_region_{region}"
+                value = episode._last_infos[region][metric]
+                episode.custom_metrics[metric_key] = value
+
+        # Append episode metrics to worker's storage
+        worker.custom_metrics_storage.append(episode.custom_metrics)
+
+    def on_train_result(self, *, algorithm, result: dict, **kwargs):
+        # Aggregate metrics from all workers
+        all_metrics = algorithm.workers.foreach_worker(lambda w: getattr(w, "custom_metrics_storage", []))
+
+        # Flatten the list of lists
+        all_metrics_flat = [metric for sublist in all_metrics for metric in sublist]
+
+        # Calculate variance across all collected metrics
+        variance_metrics = {}
+        if all_metrics_flat:
+            for metric_key in all_metrics_flat[0]:
+                values = [m[metric_key] for m in all_metrics_flat if metric_key in m]
+                if len(values) > 1:
+                    mean = sum(values) / len(values)
+                    squared_diff_sum = sum((x - mean) ** 2 for x in values)
+                    variance = squared_diff_sum / (len(values) - 1)
+                    variance_metrics[f"{metric_key}_variance"] = variance
+
+        # Update the result with variance metrics
+        result["custom_metrics"].update(variance_metrics)
+
+        # Clear metrics storage for the next iteration
+        algorithm.workers.foreach_worker(lambda w: setattr(w, "custom_metrics_storage", []))
 
 
 def get_config_yaml(yaml_path):
@@ -725,6 +755,7 @@ if __name__ == "__main__":
         print(f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********")
         result = trainer.train()
         logs.append(result["custom_metrics"])
+        print(result["custom_metrics"])
         if config_yaml["logging"]["enabled"]:
             wandb.log(
                 {
