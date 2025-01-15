@@ -4,6 +4,187 @@ from math import ceil
 _FEATURES = "features"
 _ACTION_MASK = "action_mask"
 
+class Convergence(Rice):
+    """
+    a simplified action space to test convergence.
+    """
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=True, # If True then negotiation is on, else off
+                 scenario="Convergence",
+                 action_space_type="discrete",  # or "continuous"
+                 dmg_function="base",
+                 carbon_model="base",
+                 temperature_calibration="base",
+                 prescribed_emissions=None,
+                 pct_reward=False,
+                 clubs_enabled = False,
+                 club_members = [],
+                 action_window = True,
+                 relative_reward = True
+            ):
+        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels, 
+                action_space_type=action_space_type,  # or "continuous"
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions,
+                pct_reward=pct_reward,
+                clubs_enabled = clubs_enabled,
+                club_members = club_members,
+                action_window = action_window,
+                relative_reward=relative_reward)
+        
+    def calc_action_window(self, region_id):
+        """
+        create mask around all actions not adjacent to the previous action.
+        """
+
+        base_mask = self.default_agent_action_mask.copy()
+        single_actions = [
+            "mitigation_rates_all_regions",
+        ]
+        for action in single_actions:
+            previous_action = self.global_state[action]["value"][
+                max(0, self.current_timestep), region_id
+            ]
+            previous_action_scaled = int(
+                previous_action * self.num_discrete_action_levels
+            )
+            mask_start, mask_end = self.get_mask_index(
+                action.replace("_all_regions", "")
+            )
+            current_mask = base_mask[mask_start:mask_end]
+            current_mask[:] = 0
+            current_mask[
+                max(0, previous_action_scaled - 1) : min(
+                    self.num_discrete_action_levels, previous_action_scaled + 2
+                )
+            ] = 1
+            base_mask[mask_start:mask_end] = current_mask
+
+        return base_mask.astype(int)
+        
+    def calc_total_possible_actions(self, negotiation_on):
+
+        total_possible_actions = self.mitigation_rate_possible_actions
+
+        if negotiation_on:
+            total_possible_actions += (
+                self.proposal_possible_actions + self.evaluation_possible_actions
+            )
+
+        return total_possible_actions
+    
+    def get_actions(self, action_type, actions):
+        if action_type in ["savings", "export_limit"]:
+            [.1 for region_id in range(self.num_regions)]
+
+        if action_type == "mitigation_rate":
+            mitigation_rate_action_index = self.get_actions_index("mitigation_rate")
+            return [
+                actions[region_id][mitigation_rate_action_index]
+                / self.num_discrete_action_levels
+                for region_id in range(self.num_regions)
+            ]
+
+        if action_type == "import_bids":
+            return [
+                .5
+                for region_id in range(self.num_regions)
+            ]
+
+        if action_type == "import_tariffs":
+            return [
+                [.1 for region_id in range(self.num_regions)]
+                for region_id in range(self.num_regions)
+            ]
+        
+    def get_actions_index(self, action_type):
+        if action_type == "mitigation_rate":
+            return 0
+        
+    
+    def step_climate_and_economy(self, actions=None, actions_dict=None):
+        self.calc_activity_timestep()
+        self.is_valid_negotiation_stage(negotiation_stage=0)
+        self.is_valid_actions_dict(actions)
+        if actions_dict is None:
+            actions_dict = {
+                "savings_all_regions": self.get_actions("savings", actions),
+                "mitigation_rates_all_regions": self.get_actions(
+                    "mitigation_rate", actions
+                ),
+                "export_limit_all_regions": self.get_actions("export_limit", actions),
+                "import_bids_all_regions": self.get_actions("import_bids", actions),
+                "import_tariffs_all_regions": self.get_actions(
+                    "import_tariffs", actions
+                ),
+            }
+
+        if self.action_space_type == "continuous":
+            actions_dict = self.cont_implement_bounds(actions_dict)
+        self.set_actions_in_global_state(actions_dict)
+
+        damages = self.calc_damages()
+        abatement_costs = self.calc_abatement_costs(
+            actions_dict["mitigation_rates_all_regions"]
+        )
+        productions = self.calc_productions()
+
+        gross_outputs = self.calc_gross_outputs(damages, abatement_costs, productions)
+        investments = self.calc_investments(
+            gross_outputs, actions_dict["savings_all_regions"]
+        )
+
+        gov_balances_post_interest = self.calc_gov_balances_post_interest()
+        debt_ratios = self.calc_debt_ratios(gov_balances_post_interest)
+
+        # TODO: self.set_global_state("tariffs", self.global_state["import_tariffs"]["value"][self.current_timestep])
+        # TODO: fix dependency on gross_output_all_regions
+        # TODO: government should reuse tariff revenue
+        gross_imports = self.calc_gross_imports(
+            actions_dict["import_bids_all_regions"],
+            gross_outputs,
+            investments,
+            debt_ratios,
+        )
+
+        tariff_revenues, net_imports = self.calc_trade_sanctions(gross_imports)
+        welfloss_multipliers = self.calc_welfloss_multiplier(
+            gross_outputs, gross_imports, net_imports
+        )
+
+        consumptions = self.calc_consumptions(
+            gross_outputs, investments, gross_imports, net_imports
+        )
+        utilities = self.calc_utilities(consumptions)
+
+        self.calc_social_welfares(utilities)
+        self.calc_rewards(utilities, welfloss_multipliers)
+
+        self.calc_capitals(investments)
+        self.calc_labors()
+        self.calc_production_factors()
+        self.calc_gov_balances_post_trade(gov_balances_post_interest, gross_imports)
+
+        self.calc_carbon_intensities()
+        self.calc_global_carbon_mass(productions)
+        self.calc_global_temperature()
+
+        current_simulation_year = self.calc_current_simulation_year()
+        observations = self.get_observations()
+        rewards = self.get_rewards()
+        terminateds = {region_id: 0 for region_id in range(self.num_regions)}
+        terminateds = {"__all__": current_simulation_year == self.end_year}
+        truncateds = {region_id: 0 for region_id in range(self.num_regions)}
+        truncateds = {"__all__": current_simulation_year == self.episode_length}
+        info = self.generate_info(observations, rewards)
+
+        return observations, rewards, terminateds, truncateds, info
+
 class BasicClubFixed(Rice):
     """
     Club members have a fixed rate and fixed initial members

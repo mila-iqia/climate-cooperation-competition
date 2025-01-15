@@ -38,7 +38,8 @@ from scenarios import (
     MinimalMitigationActionWindow,
     OptimalMitigationActionWindow,
     BasicClubFixed,
-    BasicClubAblateMasks
+    BasicClubAblateMasks,
+    Convergence
 )
 import argparse
 from collections import OrderedDict
@@ -61,7 +62,8 @@ SCENARIO_MAPPING = {
     "MinimalMitigationActionWindow": MinimalMitigationActionWindow,
     "OptimalMitigationActionWindow": OptimalMitigationActionWindow,
     "BasicClubFixed": BasicClubFixed,
-    "BasicClubAblateMasks":BasicClubAblateMasks
+    "BasicClubAblateMasks":BasicClubAblateMasks,
+    "Convergence":Convergence
 }
 from typing import Dict, Tuple
 import ray
