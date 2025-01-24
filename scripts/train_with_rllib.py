@@ -142,6 +142,7 @@ import torch
 import gymnasium as gym
 from gymnasium.spaces import Box, Dict
 from ray.rllib.algorithms.a2c import A2CConfig
+from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from datetime import datetime
 from ray.tune.logger import NoopLogger
@@ -481,7 +482,12 @@ def create_trainer(config_yaml=None, source_dir=None, seed=None):
         seed=seed,
     )
 
-    config = A2CConfig()
+    if config_yaml["trainer"]["algorithm"]=="A2C":
+        config = A2CConfig()
+        logging.info("using a2c algo, ray==2.7.1")
+    elif config_yaml["trainer"]["algorithm"]=="PPO":
+        config = PPOConfig()
+        logging.info("using ppo algo, ray == 2.9.3")
 
     # config.num_agents = rllib_config["num_envs_per_worker"]
 

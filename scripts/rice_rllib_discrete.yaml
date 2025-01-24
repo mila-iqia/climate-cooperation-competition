@@ -27,6 +27,7 @@ trainer:
     num_cpus_per_worker: 1 # do not set to -1
     num_gpus: 0 # number of GPUs to allocate to the trainer process. This can also be fractional (e.g., 0.3 GPUs).
     num_gpus_per_worker: 0 # required by certain ray algos
+    algorithm: "PPO" #or A2C
 # Environment configuration
 env:
     negotiation_on: False # flag to indicate whether negotiation is allowed or not
@@ -38,7 +39,7 @@ env:
     temperature_calibration: "base"
     pct_reward: False
     clubs_enabled: False
-    club_members: [1]
+    club_members: []
     action_window: True
 
 regions:
