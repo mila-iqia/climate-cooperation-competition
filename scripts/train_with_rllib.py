@@ -751,11 +751,18 @@ if __name__ == "__main__":
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
     logs = []
+    file_name = save_dir.split("/")[-1]+f"_"+config_yaml["env"]["scenario"]+"_"+str(config_yaml["regions"]["num_agents"])
+
     for iteration in tqdm(range(num_iters)):
         print(f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********")
         result = trainer.train()
-        logs.append(result["custom_metrics"])
-        print(result["custom_metrics"])
+        current_logs = result["custom_metrics"]
+        keys_to_log =  ['num_agent_steps_sampled', 'num_agent_steps_trained', 'num_env_steps_sampled', 'num_env_steps_trained', 'num_env_steps_sampled_this_iter', 'num_env_steps_trained_this_iter', 'num_env_steps_sampled_throughput_per_sec', 'num_env_steps_trained_throughput_per_sec', 'timesteps_total', 'num_steps_trained_this_iter', 'agent_timesteps_total', 'config']
+        current_logs["learner_stats"] = result["info"]["learner"]["regions"]["learner_stats"]
+        
+        for key in keys_to_log:
+            current_logs[key] = result[key]
+        print(f"STEPS LOGGED: {current_logs["num_env_steps_trained_this_iter"]}")
         if config_yaml["logging"]["enabled"]:
             wandb.log(
                 {
@@ -790,12 +797,16 @@ if __name__ == "__main__":
         ):
             save_model_checkpoint(trainer, save_dir, total_timesteps)
             
-            #logging.info(result)
         print(f"""episode_reward_mean: {result.get('episode_reward_mean')}""")
-
-    file_name = save_dir.split("/")[-1]+f"_"+config_yaml["env"]["scenario"]+"_"+str(config_yaml["regions"]["num_agents"])
-    with open(os.path.join(PUBLIC_REPO_DIR,"callback_logs", f"{file_name}.json"), "w") as f:
-        json.dump(logs, f,cls=NumpyArrayEncoder)
+        if iteration!=0:
+            with open(os.path.join(PUBLIC_REPO_DIR,"callback_logs", f"{file_name}.json"), "r") as f:
+                file_logs = json.load(f)
+            file_logs.append(current_logs)
+            with open(os.path.join(PUBLIC_REPO_DIR,"callback_logs", f"{file_name}.json"), "w") as f:
+                json.dump(file_logs, f,cls=NumpyArrayEncoder)
+        else:
+            with open(os.path.join(PUBLIC_REPO_DIR,"callback_logs", f"{file_name}.json"), "w") as f:
+                json.dump([current_logs], f,cls=NumpyArrayEncoder)
     # Create a (zipped) submission file
     # ---------------------------------
     subprocess.call(
