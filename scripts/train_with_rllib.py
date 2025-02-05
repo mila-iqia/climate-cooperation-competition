@@ -762,7 +762,8 @@ if __name__ == "__main__":
         
         for key in keys_to_log:
             current_logs[key] = result[key]
-        print(f"STEPS LOGGED: {current_logs["num_env_steps_trained_this_iter"]}")
+        trained_steps = current_logs["num_env_steps_trained_this_iter"]
+        print(f"STEPS LOGGED: {trained_steps}")
         if config_yaml["logging"]["enabled"]:
             wandb.log(
                 {
