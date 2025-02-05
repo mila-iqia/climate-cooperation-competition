@@ -4,6 +4,364 @@ from math import ceil
 _FEATURES = "features"
 _ACTION_MASK = "action_mask"
 
+class BasicClubConvergence(Rice):
+    """
+    Basic Club adapted to the action window context
+     given the action windows all agents start at 0 mitigation and will take some time before they get to high mitigation
+     So the tariff is based on the target mitigation rate, ie the agents ambition
+    """
+    def __init__(self,
+                 num_discrete_action_levels=10,  # the number of discrete levels for actions, > 1
+                 negotiation_on=True, # If True then negotiation is on, else off
+                 scenario="BasicClubConvergence",
+                 action_space_type="discrete",  # or "continuous"
+                 dmg_function="base",
+                 carbon_model="base",
+                 temperature_calibration="base",
+                 prescribed_emissions=None,
+                 pct_reward=False,
+                 clubs_enabled = False,
+                 club_members = [],
+                 action_window = True,
+                 relative_reward = True
+            ):
+        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+                scenario=scenario,
+                num_discrete_action_levels=num_discrete_action_levels, 
+                action_space_type=action_space_type,  # or "continuous"
+                dmg_function=dmg_function,
+                carbon_model=carbon_model,
+                temperature_calibration=temperature_calibration,
+                prescribed_emissions=prescribed_emissions,
+                pct_reward=pct_reward,
+                clubs_enabled = clubs_enabled,
+                club_members = club_members,
+                action_window = action_window,
+                relative_reward=relative_reward)
+        
+    def calc_possible_actions(self, action_type):
+        if self.action_space_type == "discrete":
+            if action_type == "savings":
+                return [self.num_discrete_action_levels]
+            if action_type == "mitigation_rate":
+                return [self.num_discrete_action_levels]
+            if action_type == "export_limit":
+                return [self.num_discrete_action_levels]
+            if action_type == "import_bids":
+                return [self.num_discrete_action_levels] * self.num_regions
+            if action_type == "import_tariffs":
+                return [self.num_discrete_action_levels] * self.num_regions
+
+            if action_type == "proposal":
+                return [self.num_discrete_action_levels] 
+
+            if action_type == "proposal_decisions":
+                return [2] * self.num_regions
+
+    def calc_total_possible_actions(self, negotiation_on):
+
+        total_possible_actions = self.savings_possible_actions \
+                    + self.mitigation_rate_possible_actions \
+                    + self.import_tariff_possible_actions
+
+        if negotiation_on:
+            total_possible_actions += (
+                self.proposal_possible_actions + self.evaluation_possible_actions
+            )
+
+        return total_possible_actions
+            
+    def get_actions_index(self, action_type):
+        if action_type == "savings":
+            return 0
+        if action_type == "mitigation_rate":
+            return len(self.savings_possible_actions)
+        if action_type == "import_tariffs":
+            return (
+                len(self.savings_possible_actions) 
+                + len(self.mitigation_rate_possible_actions)
+            )
+        if action_type == "proposal":
+            return len(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.import_tariff_possible_actions
+            )
+        if action_type == "proposal_decisions":
+            return len(
+                self.savings_possible_actions
+                + self.mitigation_rate_possible_actions
+                + self.import_tariff_possible_actions
+                + self.proposal_possible_actions
+            )
+    def get_mask_index(self, action_type):
+        """get start and end index for a particular action"""
+
+        if action_type == "savings":
+            return 0, sum(self.savings_possible_actions)
+        if action_type == "mitigation_rates":
+            return sum(self.savings_possible_actions), sum(
+                self.savings_possible_actions + self.mitigation_rate_possible_actions
+            )
+        if action_type == "import_tariffs":
+            return sum(self.savings_possible_actions + self.mitigation_rate_possible_actions), sum(
+                self.savings_possible_actions + self.mitigation_rate_possible_actions + self.import_tariff_possible_actions
+            )    
+            
+    def get_actions(self, action_type, actions):
+        if action_type == "savings":
+            savings_actions_index = self.get_actions_index("savings")
+            return [
+                actions[region_id][savings_actions_index]
+                / self.num_discrete_action_levels  # TODO: change this for savings levels?
+                for region_id in range(self.num_regions)
+            ]
+
+        if action_type == "mitigation_rate":
+            mitigation_rate_action_index = self.get_actions_index("mitigation_rate")
+            return [
+                actions[region_id][mitigation_rate_action_index]
+                / self.num_discrete_action_levels
+                for region_id in range(self.num_regions)
+            ]
+
+        if action_type == "export_limit":
+            #return self.get_state("export_limit_all_regions", timestep = 0)
+            return [.2 for i in range(self.num_regions)]
+
+        if action_type == "import_bids":
+            # print("IMP")
+            # print(self.get_state("import_bids_all_regions", timestep = 0).shape)
+            return np.full(self.get_state("import_bids_all_regions", timestep = 0).shape, .5)
+            #return self.get_state("import_bids_all_regions", timestep = 0)
+
+        if action_type == "import_tariffs":
+            tariffs_action_index = self.get_actions_index("import_tariffs")
+            return [
+                actions[region_id][
+                    tariffs_action_index : tariffs_action_index + self.num_regions
+                ]
+                / self.num_discrete_action_levels
+                for region_id in range(self.num_regions)
+            ]
+
+        if action_type == "proposed_mitigation_rate":
+            proposal_actions_index_start = self.get_actions_index("proposal")
+
+            return [
+                actions[region_id][proposal_actions_index_start]
+                / self.num_discrete_action_levels
+                for region_id in range(self.num_regions)
+            ]
+
+        if action_type == "proposal_decisions":
+            proposal_decisions_index_start = self.get_actions_index(
+                "proposal_decisions"
+            )
+            num_evaluation_actions = len(self.evaluation_possible_actions)
+
+            proposal_decisions = np.array(
+                [
+                    actions[region_id][
+                        proposal_decisions_index_start : proposal_decisions_index_start
+                        + num_evaluation_actions
+                    ]
+                    for region_id in range(self.num_regions)
+                ]
+            )
+            for region_id in range(self.num_regions):
+                proposal_decisions[region_id, region_id] = 0
+
+            return proposal_decisions
+            
+    
+            
+    def step_propose(self, actions=None):
+        self.is_valid_negotiation_stage(negotiation_stage=1)
+        self.is_valid_actions_dict(actions)
+
+        proposed_mitigation_rates = self.get_actions(
+            "proposed_mitigation_rate", actions
+        )
+
+        self.set_state("proposed_mitigation_rate", np.array(proposed_mitigation_rates))
+
+        observations = self.get_observations()
+        rewards = {region_id: 0.0 for region_id in range(self.num_regions)}
+        terminateds = {region_id: 0 for region_id in range(self.num_regions)}
+        terminateds["__all__"] = 0
+        truncateds = {region_id: 0 for region_id in range(self.num_regions)}
+        truncateds["__all__"] = 0
+        info = {}
+
+        return observations, rewards, terminateds, truncateds, info
+    
+    def reset_state(self, key):
+        
+        if key == "proposed_mitigation_rate":
+            self.set_state(key, value=np.zeros(self.num_regions))
+        else:
+            super().reset_state(key)
+
+    def reset(self, *, seed=None, options=None):
+        obs, info = super().reset(seed=seed, options=options)
+
+        #scenario specific global state
+        self.reset_state("proposed_mitigation_rate")
+
+        return obs, info
+    
+    def calc_mitigation_rate_lower_bound(self, region_id):
+
+        #get all proposed_mitigation rates
+        current_proposals = self.global_state["proposed_mitigation_rate"]["value"][self.current_timestep]
+        proposal_decisions = [
+            self.global_state["proposal_decisions"]["value"][
+                self.current_timestep, j, region_id
+            ]
+            for j in range(self.num_regions)
+        ]
+
+
+        #remove all rejected mitigation rates
+        accepted_proposals = current_proposals*proposal_decisions
+
+        #return max of accepted
+        return max(accepted_proposals)
+
+    def step_evaluate_proposals(self, actions=None):
+        self.is_valid_negotiation_stage(negotiation_stage=2)
+        self.is_valid_actions_dict(actions)
+
+        proposal_decisions = self.get_actions("proposal_decisions", actions)
+
+        self.set_state("proposal_decisions", proposal_decisions)
+
+        for region_id in range(self.num_regions):
+            min_mitigation = self.calc_mitigation_rate_lower_bound(region_id)
+
+            self.set_state(
+                "minimum_mitigation_rate_all_regions", min_mitigation, region_id
+            )
+
+        observations = self.get_observations()
+
+        rewards = {region_id: 0.0 for region_id in range(self.num_regions)}
+        terminateds = {region_id: 0 for region_id in range(self.num_regions)}
+        terminateds["__all__"] = 0
+        truncateds = {region_id: 0 for region_id in range(self.num_regions)}
+        truncateds["__all__"] = 0
+        info = {}
+        return observations, rewards, terminateds, truncateds, info
+
+    def calc_action_window(self, region_id):
+        """
+        create mask around all actions not adjacent to the previous action.
+        """
+
+        base_mask = self.default_agent_action_mask.copy()
+        single_actions = [
+           "savings_all_regions", "mitigation_rates_all_regions"
+        ]
+        for action in single_actions:
+            previous_action = self.global_state[action]["value"][
+                max(0, self.current_timestep), region_id
+            ]
+            previous_action_scaled = int(
+                previous_action * self.num_discrete_action_levels
+            )
+            mask_start, mask_end = self.get_mask_index(
+                action.replace("_all_regions", "")
+            )
+
+            current_mask = base_mask[mask_start:mask_end]
+            current_mask[:] = 0
+            current_mask[
+                max(0, previous_action_scaled - 1) : min(
+                    self.num_discrete_action_levels, previous_action_scaled + 2
+                )
+            ] = 1
+            base_mask[mask_start:mask_end] = current_mask
+
+        return base_mask.astype(int)
+        
+    def calc_action_mask(self):
+        """
+        Generate action masks.
+        """
+        mask_dict = {region_id: None for region_id in range(self.num_regions)}
+        for region_id in range(self.num_regions):
+
+            if self.action_window:
+                mask = self.calc_action_window(region_id)
+            else:
+                mask = self.default_agent_action_mask.copy()
+
+            #minimum commitment
+            min_mitigation_rate = int(round(self.get_state("minimum_mitigation_rate_all_regions",
+                            region_id=region_id,
+                                timestep=self.current_timestep)*self.num_discrete_action_levels))
+            
+            current_mitigation_rate = int(round(self.get_state("mitigation_rates_all_regions",
+                            region_id=region_id,
+                                timestep=self.current_timestep)*self.num_discrete_action_levels))
+
+            #if agent has a minimum mitigation rate, it must increase mitigation until target reached
+            if current_mitigation_rate < min_mitigation_rate:
+                mitigation_mask = [0]*(current_mitigation_rate + 1) + [1] + [0]*(self.num_discrete_action_levels - current_mitigation_rate - 2)
+            #if at the club level, agent has the possibility of keeping the same mitigation level
+            elif current_mitigation_rate == min_mitigation_rate and current_mitigation_rate < self.num_discrete_action_levels - 1:
+                mitigation_mask = [0]*(current_mitigation_rate) + [1,1] + [0]*(self.num_discrete_action_levels - current_mitigation_rate - 2)
+            #if at max mitigation remain there
+            elif current_mitigation_rate == self.num_discrete_action_levels - 1:
+                mitigation_mask = [0]*(current_mitigation_rate) + [1]
+
+
+
+            # if above club level, normal action window applies
+            if current_mitigation_rate > min_mitigation_rate:
+                pass
+            else:
+                mitigation_mask_start = sum(self.savings_possible_actions)
+                mitigation_mask_end = mitigation_mask_start + sum(
+                        self.mitigation_rate_possible_actions
+                    )
+                mask[mitigation_mask_start:mitigation_mask_end] = np.array(mitigation_mask)
+
+
+            # tariff non club members
+            tariff_mask = []
+            for other_region_id in range(self.num_regions):
+
+                #get other regions mitigation commitment
+                other_mitigation_rate = int(round(self.get_state("minimum_mitigation_rate_all_regions",
+                            region_id=other_region_id,
+                                timestep=self.current_timestep)))
+
+                # if other region is self or in club
+                if (other_region_id == region_id) or (other_mitigation_rate >=min_mitigation_rate):
+                    # minimize tariff for free trade
+                    regional_tariff_mask = [1] + [0] * (self.num_discrete_action_levels-1)
+                else:
+                    
+                    #min tariff by difference between mitigation rate and club mitigation rate
+                    tariff_rate = int(min_mitigation_rate - other_mitigation_rate)
+                    regional_tariff_mask = [0] * tariff_rate \
+                        + [1] * (self.num_discrete_action_levels-tariff_rate)
+                tariff_mask.extend(regional_tariff_mask)
+
+            #mask tariff
+            tariff_mask_start = sum(self.savings_possible_actions
+                + self.mitigation_rate_possible_actions)
+
+            tariff_mask_end = tariff_mask_start + sum(self.calc_possible_actions("import_tariffs"))
+            mask[tariff_mask_start:tariff_mask_end] = np.array(tariff_mask)
+
+            mask_dict[region_id] = mask
+            
+        return mask_dict
+
+
 class ConvergenceMitigationSavings(Rice):
     """
     a simplified action space to test convergence.
@@ -21,7 +379,7 @@ class ConvergenceMitigationSavings(Rice):
                  clubs_enabled = False,
                  club_members = [],
                  action_window = True,
-                 relative_reward = True
+                 relative_reward = False
             ):
         super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
                 scenario=scenario,
