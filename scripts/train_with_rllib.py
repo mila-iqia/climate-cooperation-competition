@@ -538,18 +538,25 @@ def create_save_dir_path(exp_run_config, results_dir=None):
 
 class NumpyArrayEncoder(json.JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        elif isinstance(obj, (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32, np.uint64)):
-            return int(obj)
-        elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
-            return float(obj)
-        elif isinstance(obj, (np.bool_)):
-            return bool(obj)
-        elif isinstance(obj, (np.void)):  # Catch-all for any other types not explicitly handled
-            return None
-        else:
-            return super(NumpyArrayEncoder, self).default(obj)
+        try:
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, (np.int_, np.intc, np.intp, np.int8, 
+                                  np.int16, np.int32, np.int64, 
+                                  np.uint8, np.uint16, np.uint32, np.uint64)):
+                return int(obj)
+            elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
+                return float(obj)
+            elif isinstance(obj, (np.bool_)):
+                return bool(obj)
+            elif isinstance(obj, type):
+                return str(obj)
+            # You can add more type-specific conversions here if needed
+        except TypeError:
+            pass
+
+        # Catch-all: Convert the object to a string
+        return str(obj)
 
 
 def fetch_episode_states(trainer_obj=None, episode_states=None, file_name=None):
