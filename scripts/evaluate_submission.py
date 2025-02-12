@@ -212,7 +212,7 @@ def compute_metrics(
     desired_outputs = list(_METRICS_TO_LABEL_DICT.keys())
     # Add auxiliary outputs required for processing
     required_outputs = desired_outputs + ["activity_timestep"]
-    log_config["enabled"] = True
+    log_config["enabled"] = False
     if log_config and log_config["enabled"]:
         wandb_config = log_config["wandb_config"]
         wandb.login(key=wandb_config["login"])
@@ -541,7 +541,9 @@ def perform_evaluation(
 
     # Load model checkpoints
     try:
+        #trainer = load_model_checkpoints(trainer, results_directory)
         load_model_checkpoints(trainer, results_directory)
+        logging.info("checkpoint loaded\n\n\n")
     except Exception as err:
         logging.error(f"Could not load model checkpoints.")
         raise err   

@@ -39,7 +39,8 @@ from scenarios import (
     OptimalMitigationActionWindow,
     BasicClubFixed,
     BasicClubAblateMasks,
-    Convergence
+    BasicClubConvergence,
+    ConvergenceMitigationSavings
 )
 import argparse
 from collections import OrderedDict
@@ -63,7 +64,8 @@ SCENARIO_MAPPING = {
     "OptimalMitigationActionWindow": OptimalMitigationActionWindow,
     "BasicClubFixed": BasicClubFixed,
     "BasicClubAblateMasks":BasicClubAblateMasks,
-    "Convergence":Convergence
+    "ConvergenceMitigationSavings":ConvergenceMitigationSavings,
+    "BasicClubConvergence":BasicClubConvergence
 }
 
 import numpy as np
@@ -529,27 +531,27 @@ def create_save_dir_path(exp_run_config, results_dir=None):
 
     return results_save_dir
 
-
-# class NumpyArrayEncoder(json.JSONEncoder):
-#     def default(self, obj):
-#         if isinstance(obj, np.ndarray):
-#             return obj.tolist()
-#         return json.JSONEncoder.default(self, obj)
-
 class NumpyArrayEncoder(json.JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        elif isinstance(obj, (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32, np.uint64)):
-            return int(obj)
-        elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
-            return float(obj)
-        elif isinstance(obj, (np.bool_)):
-            return bool(obj)
-        elif isinstance(obj, (np.void)):  # Catch-all for any other types not explicitly handled
-            return None
-        else:
-            return super(NumpyArrayEncoder, self).default(obj)
+        try:
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, (np.int_, np.intc, np.intp, np.int8, 
+                                  np.int16, np.int32, np.int64, 
+                                  np.uint8, np.uint16, np.uint32, np.uint64)):
+                return int(obj)
+            elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
+                return float(obj)
+            elif isinstance(obj, (np.bool_)):
+                return bool(obj)
+            elif isinstance(obj, type):
+                return str(obj)
+            # You can add more type-specific conversions here if needed
+        except TypeError:
+            pass
+
+        # Catch-all: Convert the object to a string
+        return str(obj)
 
 
 def fetch_episode_states(trainer_obj=None, episode_states=None, file_name=None):
@@ -762,7 +764,8 @@ if __name__ == "__main__":
         
         for key in keys_to_log:
             current_logs[key] = result[key]
-        print(f"STEPS LOGGED: {current_logs["num_env_steps_trained_this_iter"]}")
+        trained_steps = current_logs["num_env_steps_trained_this_iter"]
+        print(f"STEPS LOGGED: {trained_steps}")
         if config_yaml["logging"]["enabled"]:
             wandb.log(
                 {
