@@ -39,7 +39,8 @@ from scenarios import (
     OptimalMitigationActionWindow,
     BasicClubFixed,
     BasicClubAblateMasks,
-    Convergence
+    BasicClubConvergence,
+    ConvergenceMitigationSavings
 )
 import argparse
 from collections import OrderedDict
@@ -63,7 +64,8 @@ SCENARIO_MAPPING = {
     "OptimalMitigationActionWindow": OptimalMitigationActionWindow,
     "BasicClubFixed": BasicClubFixed,
     "BasicClubAblateMasks":BasicClubAblateMasks,
-    "Convergence":Convergence
+    "ConvergenceMitigationSavings":ConvergenceMitigationSavings,
+    "BasicClubConvergence":BasicClubConvergence
 }
 
 import numpy as np
@@ -528,13 +530,6 @@ def create_save_dir_path(exp_run_config, results_dir=None):
     )
 
     return results_save_dir
-
-
-# class NumpyArrayEncoder(json.JSONEncoder):
-#     def default(self, obj):
-#         if isinstance(obj, np.ndarray):
-#             return obj.tolist()
-#         return json.JSONEncoder.default(self, obj)
 
 class NumpyArrayEncoder(json.JSONEncoder):
     def default(self, obj):

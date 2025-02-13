@@ -10,3 +10,4 @@ gputil
 psutil
 statannot
 seaborn==0.12.0    
+tqdm
