@@ -265,3 +265,4 @@ debugging_env/save_results_relative_not_pct/*.json
 callback_logs/*.json
 scripts/Untitled.ipynb
 jice/saved_models/*.eqx
+terminate_lambda.sh
