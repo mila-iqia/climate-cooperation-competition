@@ -50,12 +50,9 @@ class Rice(gym.Env):
         club_members=[],
         action_window=True,
         relative_reward=True,
-        is_perturbation={"xrho": 0.05, "preference_for_domestic": 0.05, "consumption_substitution_rate": 0.05, "welfare_loss_per_unit_tariff": 0.05, "welfare_gain_per_unit_exported": 0.05}
+        is_perturbation=False,
     ):
-        if is_perturbation:
-            self.perturbation = {k:random.uniform(1-v,1+v) for k,v in is_perturbation.items()}
-        else:
-            self.perturbation = {k:1 for k,v in is_perturbation.items()}
+        self.perturbation = is_perturbation
         self.relative_reward = relative_reward
         self.action_space_type = action_space_type
         self.num_discrete_action_levels = num_discrete_action_levels
@@ -615,7 +612,7 @@ class Rice(gym.Env):
         social_welfares = np.zeros(self.num_regions, dtype=self.float_dtype)
         for region_id in range(self.num_regions):
             regional_params = self.all_regions_params[region_id]
-            rho = regional_params["xrho"] * self.perturbation["xrho"]
+            rho = regional_params["xrho"] * (1+self.perturbation)
             delta = regional_params["xDelta"]
             """Compute social welfare"""
             social_welfares[region_id] = utilities[region_id] / pow(
@@ -926,9 +923,9 @@ class Rice(gym.Env):
             return np.ones((self.num_regions), dtype=self.float_dtype)
 
         if welfare_loss_per_unit_tariff is None:
-            welfare_loss_per_unit_tariff = 0.4*self.perturbation["welfare_loss_per_unit_tariff"]  # From Nordhaus 2015
+            welfare_loss_per_unit_tariff = 0.4*(1+self.perturbation)  # From Nordhaus 2015
         if welfare_gain_per_unit_exported is None:
-            welfare_gain_per_unit_exported = 0.4*self.perturbation["welfare_gain_per_unit_exported"]
+            welfare_gain_per_unit_exported = 0.4*(1+self.perturbation)
 
         import_tariffs = self.get_prev_state("import_tariffs_all_regions")
         welfloss = np.ones((self.num_regions), dtype=self.float_dtype)
@@ -1820,8 +1817,8 @@ class Rice(gym.Env):
 
         self.init_capital_multiplier = 10.0
         self.balance_interest_rate = 0.1
-        self.consumption_substitution_rate = 0.5 * self.perturbation["consumption_substitution_rate"]
-        self.preference_for_domestic = 0.5 * self.perturbation["preference_for_domestic"]
+        self.consumption_substitution_rate = 0.5 * (1+self.perturbation)
+        self.preference_for_domestic = 0.5 * (1+self.perturbation)
         self.preference_for_imported = self.calc_uniform_foreign_preferences()
 
         # Typecasting

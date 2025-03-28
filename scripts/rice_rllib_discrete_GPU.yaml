@@ -17,16 +17,16 @@ trainer:
     num_envs_per_worker: 1 # number of environment replicas per worker
     rollout_fragment_length: 100 # divide episodes into fragments of this many steps each during rollouts.
     train_batch_size: 2000 # total batch size used for training per iteration (across all the environments)
-    num_episodes: 999999 # number of episodes to run the training for
+    num_episodes: 33333 # number of episodes to run the training for
     framework: torch # framework setting.
     # Note: RLlib supports TF as well, but our end-to-end pipeline is built for Pytorch only.
     # === Hardware Settings ===
     num_workers: 32 # number of rollout worker actors to create for parallel sampling.
     # Note: Setting the num_workers to 0 will force rollouts to be done in the trainer actor.
     # do not set to -1
-    num_cpus_per_worker: 1 # do not set to -1
-    num_gpus: 0 # number of GPUs to allocate to the trainer process. This can also be fractional (e.g., 0.3 GPUs).
-    num_gpus_per_worker: 0 # required by certain ray algos
+    num_cpus_per_worker: 8 # do not set to -1
+    num_gpus: 1 # number of GPUs to allocate to the trainer process. This can also be fractional (e.g., 0.3 GPUs).
+    num_gpus_per_worker: 1 # required by certain ray algos
 # Environment configuration
 env:
     negotiation_on: True # flag to indicate whether negotiation is allowed or not
@@ -38,13 +38,13 @@ env:
     temperature_calibration: "base"
     pct_reward: False
     clubs_enabled: False
-    club_members: []
+    club_members: [1]
     action_window: True
     relative_reward: True
     is_perturbation: False
 
 regions:
-    num_agents:  20 #can be either {3,7,20,27}
+    num_agents: 7 #can be either {3,7,20,27}
 
 # wandb config
 logging:
@@ -62,8 +62,9 @@ policy:
         vf_loss_coeff: 0.1 # loss coefficient schedule for the value function loss
         entropy_coeff_schedule: # loss coefficient schedule for the entropy loss
             # piecewise linear, specified as (timestep, value)
-            - [0, .1]
-            - [3648000, 0.01]
+            - [0, 0.5]
+            - [1000000, 0.1]
+            - [5000000, 0.05]
         clip_grad_norm: True # flag indicating whether to clip the gradient norm or not
         max_grad_norm: 0.5 # when clip_grad_norm is True, the clip level
         gamma: 0.99 # discount factor

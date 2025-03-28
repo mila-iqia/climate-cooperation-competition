@@ -11,7 +11,7 @@ saving:
     basedir: "/tmp" # base folder used for saving
     name: "rice_cont" # experiment name
     tag: "experiments" # experiment tag
-
+    is_perturbation: False
 # Trainer settings
 trainer:
     num_envs_per_worker: 1 # number of environment replicas per worker

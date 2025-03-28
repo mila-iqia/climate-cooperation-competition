@@ -526,6 +526,8 @@ def create_save_dir_path(exp_run_config, results_dir=None):
         save_config["basedir"],
         save_config["name"],
         save_config["tag"],
+        "is_perturbation",
+        save_config["is_perturbation"],
         results_dir,
     )
 
@@ -700,8 +702,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--yaml", "-y", type=str, default="rice_rllib_discrete.yaml")
+    parser.add_argument("--perturbation", "-p", type=float, default=0.0)
     args = parser.parse_args()
     config_yaml = get_config_yaml(yaml_path=args.yaml)
+    config_yaml["saving"]["is_perturbation"] = str(args.perturbation)
+    config_yaml["env"]["is_perturbation"] = args.perturbation
     print("CURRENT CONFIG: \n\n")
     print(config_yaml)
     ray.init(ignore_reinit_error=True)

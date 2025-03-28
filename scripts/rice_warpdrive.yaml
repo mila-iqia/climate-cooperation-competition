@@ -12,7 +12,7 @@ saving:
     basedir: "/tmp" # base folder used for saving
     name: "rice" # experiment name
     tag: "experiments" # experiment tag
-
+    is_perturbation: False
 # Trainer settings
 trainer:
     num_envs: 100 # number of environment replicas
