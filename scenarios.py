@@ -23,9 +23,9 @@ class BasicClubConvergence(Rice):
                  clubs_enabled = False,
                  club_members = [],
                  action_window = True,
-                 relative_reward = True
+                 is_perturbation = False,
             ):
-        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+        super().__init__(negotiation_on=negotiation_on,   # If True then negotiation is on, else off
                 scenario=scenario,
                 num_discrete_action_levels=num_discrete_action_levels, 
                 action_space_type=action_space_type,  # or "continuous"
@@ -37,7 +37,8 @@ class BasicClubConvergence(Rice):
                 clubs_enabled = clubs_enabled,
                 club_members = club_members,
                 action_window = action_window,
-                relative_reward=relative_reward)
+                relative_reward=relative_reward,
+                is_perturbation=is_perturbation)
         
     def calc_possible_actions(self, action_type):
         if self.action_space_type == "discrete":
@@ -393,7 +394,8 @@ class ConvergenceMitigationSavings(Rice):
                 clubs_enabled = clubs_enabled,
                 club_members = club_members,
                 action_window = action_window,
-                relative_reward=relative_reward)
+                relative_reward=relative_reward,
+                is_perturbation=is_perturbation)
 
     def get_mask_index(self, action_type):
         """get start and end index for a particular action"""
@@ -575,9 +577,9 @@ class Convergence(Rice):
                  clubs_enabled = False,
                  club_members = [],
                  action_window = True,
-                 relative_reward = True
+                 is_perturbation = False,
             ):
-        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+        super().__init__(negotiation_on=negotiation_on,   # If True then negotiation is on, else off
                 scenario=scenario,
                 num_discrete_action_levels=num_discrete_action_levels, 
                 action_space_type=action_space_type,  # or "continuous"
@@ -589,7 +591,8 @@ class Convergence(Rice):
                 clubs_enabled = clubs_enabled,
                 club_members = club_members,
                 action_window = action_window,
-                relative_reward=relative_reward)
+                relative_reward=relative_reward,
+                is_perturbation=is_perturbation)
 
     def get_mask_index(self, action_type):
         """get start and end index for a particular action"""
@@ -761,7 +764,8 @@ class BasicClubFixed(Rice):
                  clubs_enabled = False,
                  club_members = [],
                  action_window = True,
-                 relative_reward = True
+                 relative_reward = True,
+                 is_perturbation = False,
             ):
         super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
                 scenario=scenario,
@@ -775,7 +779,8 @@ class BasicClubFixed(Rice):
                 clubs_enabled = clubs_enabled,
                 club_members = club_members,
                 action_window = action_window,
-                relative_reward=relative_reward)
+                relative_reward=relative_reward,
+                is_perturbation=is_perturbation)
         self.club_level = 5
         
     def calc_possible_actions(self, action_type):
@@ -1076,7 +1081,8 @@ class MinimalMitigationActionWindow(Rice):
                  clubs_enabled = False,
                  club_members = [],
                  action_window = True,
-                 relative_reward = True
+                 relative_reward = True,
+                 is_perturbation=False,
             ):
         super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
                 scenario=scenario,
@@ -1090,7 +1096,8 @@ class MinimalMitigationActionWindow(Rice):
                 clubs_enabled = clubs_enabled,
                 club_members = club_members,
                 action_window = action_window,
-                relative_reward=relative_reward)
+                relative_reward=relative_reward,
+                is_perturbation=is_perturbation,)
 
     def calc_action_mask(self):
         """
@@ -1142,7 +1149,8 @@ class OptimalMitigationActionWindow(Rice):
                  clubs_enabled = False,
                  club_members = [],
                  action_window = True,
-                 relative_reward = True
+                 relative_reward = True,
+                 is_perturbation = False,
             ):
         super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
                 scenario=scenario,
@@ -1156,7 +1164,8 @@ class OptimalMitigationActionWindow(Rice):
                 clubs_enabled = clubs_enabled,
                 club_members = club_members,
                 action_window = action_window,
-                relative_reward=relative_reward)
+                relative_reward=relative_reward,
+                is_perturbation=is_perturbation)
 
     def calc_action_mask(self):
         """
@@ -1211,7 +1220,8 @@ class BasicClubTariffAmbition(Rice):
                  clubs_enabled = False,
                  club_members = [],
                  action_window = True,
-                 relative_reward = True
+                 relative_reward = True,
+                 is_perturbation = False,
             ):
         super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
                 scenario=scenario,
@@ -1225,7 +1235,8 @@ class BasicClubTariffAmbition(Rice):
                 clubs_enabled = clubs_enabled,
                 club_members = club_members,
                 action_window = action_window,
-                relative_reward=relative_reward)
+                relative_reward=relative_reward,
+                is_perturbation=is_perturbation)
         
     def calc_possible_actions(self, action_type):
         if self.action_space_type == "discrete":
@@ -1490,9 +1501,9 @@ class BasicClubAblateMasks(BasicClubTariffAmbition):
                  clubs_enabled = False,
                  club_members = [],
                  action_window = True,
-                 relative_reward = True
+                 is_perturbation = False,
             ):
-        super().__init__(negotiation_on=negotiation_on,  # If True then negotiation is on, else off
+        super().__init__(negotiation_on=negotiation_on,   # If True then negotiation is on, else off
                 scenario=scenario,
                 num_discrete_action_levels=num_discrete_action_levels, 
                 action_space_type=action_space_type,  # or "continuous"
@@ -1504,7 +1515,8 @@ class BasicClubAblateMasks(BasicClubTariffAmbition):
                 clubs_enabled = clubs_enabled,
                 club_members = club_members,
                 action_window = action_window,
-                relative_reward=relative_reward)
+                relative_reward=relative_reward,
+                is_perturbation=is_perturbation)
     
     def calc_action_mask(self):
         """

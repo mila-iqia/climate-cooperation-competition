@@ -38,7 +38,8 @@ class TestScenario(Rice):
                 clubs_enabled = clubs_enabled,
                 club_members = club_members,
                 action_window = action_window,
-                relative_reward=relative_reward)
+                relative_reward=relative_reward,
+                is_perturbation=is_perturbation)
 ```
 
 Note, the class parameters correspond to the “env” component of the config yaml. 
@@ -83,7 +84,8 @@ For example:
                 clubs_enabled = clubs_enabled,
                 club_members = club_members,
                 action_window = action_window,
-                relative_reward=relative_reward)
+                relative_reward=relative_reward,
+                is_perturbation=is_perturbation)
         
         #disable welfloss
         self.apply_welfloss = False
