@@ -5,23 +5,14 @@ MINICONDA_VERSION="latest"
 INSTALL_DIR="$HOME/miniconda"
 
 # Determine OS and architecture
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    OS="Linux"
-elif [[ "$OSTYPE" == "darwin"* ]]; then
+OS="Linux"  # Default to Linux
+ARCH="aarch64"  # Set for ARM64/aarch64
+
+if [ "$(uname)" == "Darwin" ]; then
     OS="MacOSX"
-else
-    echo "Unsupported OS: $OSTYPE"
-    exit 1
 fi
 
 # Construct Miniconda download URL
-if [[ $(uname -m) == "x86_64" ]]; then
-    ARCH="x86_64"
-else
-    echo "Unsupported architecture: $(uname -m)"
-    exit 1
-fi
-
 MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-$MINICONDA_VERSION-$OS-$ARCH.sh"
 
 # Download Miniconda installer
@@ -42,8 +33,9 @@ conda init
 
 echo "Miniconda installation complete. Please restart your terminal or run 'source ~/.bashrc' to activate conda."
 
+# Create and activate the environment
 source ~/.bashrc
-conda create --name ai4gcc python=3.10
+conda create --name ai4gcc python=3.10 -y
 conda activate ai4gcc
 pip install -r requirements_simple.txt
-echo "ai4gcc env preparing complete. "conda activate ai4gcc" to use it."
+echo "ai4gcc env preparing complete. Run 'conda activate ai4gcc' to use it."
