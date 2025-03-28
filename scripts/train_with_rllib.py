@@ -15,6 +15,10 @@ import os
 import shutil
 import json
 
+from ray.rllib.algorithms.ppo import PPOConfig
+
+SEED = 123
+
 # import shutil
 import subprocess
 import sys
@@ -39,7 +43,8 @@ from scenarios import (
     OptimalMitigationActionWindow,
     BasicClubFixed,
     BasicClubAblateMasks,
-    Convergence
+    Convergence,
+    ConvergenceMitigationSavings
 )
 import argparse
 from collections import OrderedDict
@@ -63,7 +68,8 @@ SCENARIO_MAPPING = {
     "OptimalMitigationActionWindow": OptimalMitigationActionWindow,
     "BasicClubFixed": BasicClubFixed,
     "BasicClubAblateMasks":BasicClubAblateMasks,
-    "Convergence":Convergence
+    "Convergence":Convergence,
+    "ConvergenceMitigationSavings":ConvergenceMitigationSavings
 }
 
 import numpy as np
@@ -142,7 +148,6 @@ import torch
 import gymnasium as gym
 from gymnasium.spaces import Box, Dict
 from ray.rllib.algorithms.a2c import A2CConfig
-from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from datetime import datetime
 from ray.tune.logger import NoopLogger
@@ -256,7 +261,8 @@ class EnvWrapper(MultiAgentEnv):
         self._agent_ids = self.agent_ids
         self.num_agents = len(self.agent_ids)
 
-    def reset(self, *, seed=None, options=None):
+    #def reset(self, *, seed=None, options=None):
+    def reset(self, *, seed=SEED, options=None):
         """Reset the env."""
         obs, info = self.env.reset()
         super().reset(seed=seed)
@@ -275,8 +281,7 @@ class EnvWrapper(MultiAgentEnv):
             info,
         )
 
-
-def get_rllib_config(config_yaml=None, env_class=None, seed=None):
+def get_rllib_config(config_yaml=None, env_class=None, seed=SEED):
     """
     Reference: https://docs.ray.io/en/latest/rllib-training.html
     """
@@ -445,7 +450,8 @@ def load_model_checkpoints(trainer_obj=None, save_directory=None, ckpt_idx=-1):
     trainer_obj.set_weights(model_params)
 
 
-def create_trainer(config_yaml=None, source_dir=None, seed=None):
+#def create_trainer(config_yaml=None, source_dir=None, seed=None):
+def create_trainer(config_yaml=None, source_dir=None, seed=SEED):
     """
     Create the RLlib trainer.
     """
@@ -482,16 +488,20 @@ def create_trainer(config_yaml=None, source_dir=None, seed=None):
         seed=seed,
     )
 
-    if config_yaml["trainer"]["algorithm"]=="A2C":
-        config = A2CConfig()
-        logging.info("using a2c algo, ray==2.7.1")
-    elif config_yaml["trainer"]["algorithm"]=="PPO":
-        config = PPOConfig()
-        logging.info("using ppo algo, ray == 2.9.3")
-
+    config = A2CConfig() #requires ray==2.7.1
+    #config = PPOConfig() #requires ray == 2.9.3
     # config.num_agents = rllib_config["num_envs_per_worker"]
 
-    config = config.training(train_batch_size=rllib_config["train_batch_size"])
+    #config = config.training(train_batch_size=rllib_config["train_batch_size"])
+    # config = config.training(train_batch_size=rllib_config["train_batch_size"],
+    #                         entropy_coeff=0.5,  # Initial entropy coefficient
+    #                         entropy_coeff_schedule=[
+    #                             (0, 0.5),       # At timestep 0, set entropy coeff to 0.5
+    #                             (1000000, 0.1),   # At timestep 50,000, set entropy coeff to 0.1
+    #                             (5000000, 0.05)  # At timestep 100,000, set entropy coeff to 0.05
+    #                         ])
+    
+    
     config = config.environment(disable_env_checking=True)
     config = config.multi_agent(
         policies=rllib_config["multiagent"]["policies"],
@@ -541,21 +551,32 @@ def create_save_dir_path(exp_run_config, results_dir=None):
 #         if isinstance(obj, np.ndarray):
 #             return obj.tolist()
 #         return json.JSONEncoder.default(self, obj)
+import types
 
 class NumpyArrayEncoder(json.JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        elif isinstance(obj, (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32, np.uint64)):
-            return int(obj)
-        elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
-            return float(obj)
-        elif isinstance(obj, (np.bool_)):
-            return bool(obj)
-        elif isinstance(obj, (np.void)):  # Catch-all for any other types not explicitly handled
-            return None
-        else:
-            return super(NumpyArrayEncoder, self).default(obj)
+        try:
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, (np.int_, np.intc, np.intp, np.int8, 
+                                  np.int16, np.int32, np.int64, 
+                                  np.uint8, np.uint16, np.uint32, np.uint64)):
+                return int(obj)
+            elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
+                return float(obj)
+            elif isinstance(obj, (np.bool_)):
+                return bool(obj)
+            elif isinstance(obj, (np.void)):
+                return None
+            elif isinstance(obj, type):  # Handle class types
+                return str(obj)
+            elif isinstance(obj, types.FunctionType):  # Handle functions
+                return f'Function: {obj.__name__}'  # or return None to ignore
+            else:
+                return super(NumpyArrayEncoder, self).default(obj)
+        except:
+            pass
+        return str(obj)
 
 
 def fetch_episode_states(trainer_obj=None, episode_states=None, file_name=None):
@@ -756,12 +777,19 @@ if __name__ == "__main__":
 
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
-    logs = []
+    file_name = save_dir.split("/")[-1]+f"_"+config_yaml["env"]["scenario"]+"_"+str(config_yaml["regions"]["num_agents"])
     for iteration in tqdm(range(num_iters)):
         print(f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********")
         result = trainer.train()
-        logs.append(result["custom_metrics"])
-        print(result["custom_metrics"])
+        current_logs = result["custom_metrics"]
+        keys_to_log =  ['num_agent_steps_sampled', 'num_agent_steps_trained', 'num_env_steps_sampled', 'num_env_steps_trained', 'num_env_steps_sampled_this_iter', 'num_env_steps_trained_this_iter', 'num_env_steps_sampled_throughput_per_sec', 'num_env_steps_trained_throughput_per_sec', 'timesteps_total', 'num_steps_trained_this_iter', 'agent_timesteps_total', 'config']
+        current_logs["learner_stats"] = result["info"]["learner"]["regions"]["learner_stats"]
+        
+        for key in keys_to_log:
+            current_logs[key] = result[key]
+        print("STEPS LOGGED:")
+        print(current_logs["num_env_steps_trained_this_iter"])
+        print(result["info"]["learner"]["regions"]["learner_stats"])
         if config_yaml["logging"]["enabled"]:
             wandb.log(
                 {
@@ -798,10 +826,15 @@ if __name__ == "__main__":
             
             #logging.info(result)
         print(f"""episode_reward_mean: {result.get('episode_reward_mean')}""")
-
-    file_name = save_dir.split("/")[-1]+f"_"+config_yaml["env"]["scenario"]+"_"+str(config_yaml["regions"]["num_agents"])
-    with open(os.path.join(PUBLIC_REPO_DIR,"callback_logs", f"{file_name}.json"), "w") as f:
-        json.dump(logs, f,cls=NumpyArrayEncoder)
+        if iteration!=0:
+            with open(os.path.join(PUBLIC_REPO_DIR,"callback_logs", f"{file_name}.json"), "r") as f:
+                file_logs = json.load(f)
+            file_logs.append(current_logs)
+            with open(os.path.join(PUBLIC_REPO_DIR,"callback_logs", f"{file_name}.json"), "w") as f:
+                json.dump(file_logs, f,cls=NumpyArrayEncoder)
+        else:
+            with open(os.path.join(PUBLIC_REPO_DIR,"callback_logs", f"{file_name}.json"), "w") as f:
+                json.dump([current_logs], f,cls=NumpyArrayEncoder)
     # Create a (zipped) submission file
     # ---------------------------------
     subprocess.call(
