@@ -262,3 +262,6 @@ debugging_env/save_results_not_relative_not_pct/*.json
 debugging_env/save_results_not_relative_pct/*.json
 debugging_env/save_results_relative_pct/*.json
 debugging_env/save_results_relative_not_pct/*.json
+callback_logs/*.json
+scripts/Untitled.ipynb
+jice/saved_models/*.eqx

@@ -38,12 +38,12 @@ env:
     temperature_calibration: "base"
     pct_reward: False
     clubs_enabled: False
-    club_members: [1]
+    club_members: []
     action_window: True
     relative_reward: True
 
 regions:
-    num_agents: 7 #can be either {3,7,20,27}
+    num_agents:  20 #can be either {3,7,20,27}
 
 # wandb config
 logging:
@@ -61,9 +61,8 @@ policy:
         vf_loss_coeff: 0.1 # loss coefficient schedule for the value function loss
         entropy_coeff_schedule: # loss coefficient schedule for the entropy loss
             # piecewise linear, specified as (timestep, value)
-            - [0, 0.5]
-            - [1000000, 0.1]
-            - [5000000, 0.05]
+            - [0, .1]
+            - [1216000, 0.01]
         clip_grad_norm: True # flag indicating whether to clip the gradient norm or not
         max_grad_norm: 0.5 # when clip_grad_norm is True, the clip level
         gamma: 0.99 # discount factor

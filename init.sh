@@ -41,3 +41,9 @@ source "$INSTALL_DIR/bin/activate"
 conda init
 
 echo "Miniconda installation complete. Please restart your terminal or run 'source ~/.bashrc' to activate conda."
+
+source ~/.bashrc
+conda create --name ai4gcc python=3.10
+conda activate ai4gcc
+pip install -r requirements_simple.txt
+echo "ai4gcc env preparing complete. "conda activate ai4gcc" to use it."
