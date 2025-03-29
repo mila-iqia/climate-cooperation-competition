@@ -22,6 +22,7 @@ import json
 import numpy as np
 import yaml
 import wandb
+
 _path = Path(os.path.abspath(__file__))
 
 from fixed_paths import PUBLIC_REPO_DIR
@@ -70,14 +71,16 @@ _METRICS_TO_LABEL_DICT["abatement_cost_all_regions"] = ("Abatement Cost", 2)
 _METRICS_TO_LABEL_DICT["utility_all_regions"] = ("Utility", 2)
 _METRICS_TO_LABEL_DICT["social_welfare_all_regions"] = ("Social Welfare", 2)
 _METRICS_TO_LABEL_DICT["reward_all_regions"] = ("Reward", 2)
-#_METRICS_TO_LABEL_DICT["consumption_all_regions"] = ("Consumption", 2)
+# _METRICS_TO_LABEL_DICT["consumption_all_regions"] = ("Consumption", 2)
 _METRICS_TO_LABEL_DICT["current_balance_all_regions"] = ("Current Balance", 2)
 _METRICS_TO_LABEL_DICT["gross_output_all_regions"] = ("Gross Output", 2)
 _METRICS_TO_LABEL_DICT["investment_all_regions"] = ("Investment", 2)
 _METRICS_TO_LABEL_DICT["production_all_regions"] = ("Production", 2)
-_METRICS_TO_LABEL_DICT["minimum_mitigation_rate_all_regions"] = ("Minimum Mitigation Rate", 0)
-#_METRICS_TO_LABEL_DICT["aux_m_all_regions"] = ("Emissions", 2)
-
+_METRICS_TO_LABEL_DICT["minimum_mitigation_rate_all_regions"] = (
+    "Minimum Mitigation Rate",
+    0,
+)
+# _METRICS_TO_LABEL_DICT["aux_m_all_regions"] = ("Emissions", 2)
 
 
 def get_imports(framework=None):
@@ -90,7 +93,7 @@ def get_imports(framework=None):
             create_trainer,
             fetch_episode_states,
             load_model_checkpoints,
-            set_num_agents
+            set_num_agents,
         )
     elif framework == "warpdrive":
         from train_with_warp_drive import (
@@ -98,9 +101,7 @@ def get_imports(framework=None):
             fetch_episode_states,
             load_model_checkpoints,
         )
-        from train_with_rllib import (
-            set_num_agents
-        )
+        from train_with_rllib import set_num_agents
     else:
         raise ValueError(f"Unknown framework {framework}!")
     return create_trainer, load_model_checkpoints, fetch_episode_states, set_num_agents
@@ -161,13 +162,15 @@ def validate_dir(results_dir=None):
                 comment = f"{file} is not present in the results directory!"
                 break
             yaml_success = False
-            for file in ["rice_rllib_discrete.yaml",
-                    "rice_rllib_cont.yaml",
-                    "rice_rllib_cont_beta.yaml"]:
+            for file in [
+                "rice_rllib_discrete.yaml",
+                "rice_rllib_cont.yaml",
+                "rice_rllib_cont_beta.yaml",
+            ]:
                 if file in files:
                     yaml_success = True
                     discrete = "discrete" in file
-                    
+
             if not yaml_success:
                 logging.error(
                     "No yaml is present in the results directory: %s!",
@@ -176,8 +179,8 @@ def validate_dir(results_dir=None):
                 )
                 comment = f"yaml is not present in the results directory!"
                 break
-            success = True
-            comment = "Valid submission"
+        success = True
+        comment = "Valid submission"
     else:
         success = False
         logging.error(
@@ -187,7 +190,7 @@ def validate_dir(results_dir=None):
         )
         comment = "Missing identifier file!"
     print("comment", comment)
-    return framework, success, comment, discrete
+    return framework, success, comment
 
 
 def compute_metrics(
@@ -196,8 +199,8 @@ def compute_metrics(
     framework,
     num_episodes=1,
     include_c_e_idx=True,
-    log_config = None,
-    file_name = None
+    log_config=None,
+    file_name=None,
 ):
     """
     Generate episode rollouts and compute metrics.
@@ -216,9 +219,11 @@ def compute_metrics(
     if log_config and log_config["enabled"]:
         wandb_config = log_config["wandb_config"]
         wandb.login(key=wandb_config["login"])
-        wandb.init(project=wandb_config["project"],
+        wandb.init(
+            project=wandb_config["project"],
             name=f'{wandb_config["run"]}_eval',
-            entity=wandb_config["entity"])
+            entity=wandb_config["entity"],
+        )
 
     episode_states = {}
     eval_metrics = {}
@@ -229,9 +234,9 @@ def compute_metrics(
                     trainer, required_outputs, file_name
                 )
             else:
-                episode_states[
-                    episode_id
-                ] = trainer.fetch_episode_global_states(required_outputs)
+                episode_states[episode_id] = trainer.fetch_episode_global_states(
+                    required_outputs
+                )
 
         for feature in desired_outputs:
             feature_values = [None for _ in range(num_episodes)]
@@ -246,22 +251,18 @@ def compute_metrics(
 
             elif feature == "global_carbon_mass":
                 for episode_id in range(num_episodes):
-                    feature_values[episode_id] = episode_states[episode_id][
-                        feature
-                    ][-1, 0]
+                    feature_values[episode_id] = episode_states[episode_id][feature][
+                        -1, 0
+                    ]
 
             elif feature == "gross_output_all_regions":
                 for episode_id in range(num_episodes):
                     # collect gross output results based on activity timestep
-                    activity_timestep = episode_states[episode_id][
-                        "activity_timestep"
-                    ]
+                    activity_timestep = episode_states[episode_id]["activity_timestep"]
                     activity_index = np.append(
                         1.0, np.diff(activity_timestep.squeeze())
                     )
-                    activity_index = [
-                        np.isclose(v, 1.0) for v in activity_index
-                    ]
+                    activity_index = [np.isclose(v, 1.0) for v in activity_index]
                     feature_values[episode_id] = np.sum(
                         episode_states[episode_id]["gross_output_all_regions"][
                             activity_index
@@ -285,10 +286,9 @@ def compute_metrics(
             )
 
             if log_config and log_config["enabled"]:
-                #TODO: fix dirty method to remove negotiation steps from results
+                # TODO: fix dirty method to remove negotiation steps from results
                 interval = (len(episode_states[episode_id][feature]) - 1) // 20
                 ys = episode_states[episode_id][feature][0::interval].T
-
 
                 xs = list(range(len(ys[0])))
                 plot_name = feature.replace("_", " ").capitalize()
@@ -391,22 +391,18 @@ def val_metrics(logged_ts, framework, num_episodes=1, include_c_e_idx=True):
 
             elif feature == "global_carbon_mass":
                 for episode_id in range(num_episodes):
-                    feature_values[episode_id] = episode_states[episode_id][
-                        feature
-                    ][-1, 0]
+                    feature_values[episode_id] = episode_states[episode_id][feature][
+                        -1, 0
+                    ]
 
             elif feature == "gross_output_all_regions":
                 for episode_id in range(num_episodes):
                     # collect gross output results based on activity timestep
-                    activity_timestep = episode_states[episode_id][
-                        "activity_timestep"
-                    ]
+                    activity_timestep = episode_states[episode_id]["activity_timestep"]
                     activity_index = np.append(
                         1.0, np.diff(activity_timestep.squeeze())
                     )
-                    activity_index = [
-                        np.isclose(v, 1.0) for v in activity_index
-                    ]
+                    activity_index = [np.isclose(v, 1.0) for v in activity_index]
                     feature_values[episode_id] = np.sum(
                         episode_states[episode_id]["gross_output_all_regions"][
                             activity_index
@@ -475,7 +471,7 @@ def perform_evaluation(
     results_directory,
     framework,
     num_episodes=1,
-    discrete = True,
+    discrete=True,
     eval_seed=None,
 ):
     """
@@ -483,14 +479,11 @@ def perform_evaluation(
     """
     assert results_directory is not None
     assert num_episodes > 0
-    
-    (
-        create_trainer,
-        load_model_checkpoints,
-        fetch_episode_states,
-        set_num_agents
-    ) = get_imports(framework=framework)
-    
+
+    (create_trainer, load_model_checkpoints, fetch_episode_states, set_num_agents) = (
+        get_imports(framework=framework)
+    )
+
     # Load a run configuration
     if discrete:
         yaml_path = f"rice_{framework}_discrete.yaml"
@@ -498,24 +491,19 @@ def perform_evaluation(
         yaml_path = f"rice_{framework}_cont.yaml"
     config_file = os.path.join(results_directory, yaml_path)
 
-    
-    
     try:
         assert os.path.exists(config_file)
     except Exception as err:
-        logging.error(
-            f"The run configuration is missing in {results_directory}."
-        )
+        logging.error(f"The run configuration is missing in {results_directory}.")
         raise err
-    
+
     with open(config_file, "r", encoding="utf-8") as file_ptr:
         run_config = yaml.safe_load(file_ptr)
-        #force eval on single worker
+        # force eval on single worker
         run_config["trainer"]["num_workers"] = 0
         log_config = run_config["logging"]
-    #update region yamls
+    # update region yamls
     set_num_agents(run_config)
-    
 
     # Copy the PUBLIC region yamls and rice_build.cu to the results directory.
     if not os.path.exists(os.path.join(results_directory, "region_yamls")):
@@ -528,7 +516,7 @@ def perform_evaluation(
             os.path.join(PUBLIC_REPO_DIR, "rice_build.cu"),
             os.path.join(results_directory, "rice_build.cu"),
         )
-    
+
     # Create Trainer object
     try:
         trainer = create_trainer(
@@ -541,12 +529,12 @@ def perform_evaluation(
 
     # Load model checkpoints
     try:
-        #trainer = load_model_checkpoints(trainer, results_directory)
+        # trainer = load_model_checkpoints(trainer, results_directory)
         load_model_checkpoints(trainer, results_directory)
         logging.info("checkpoint loaded\n\n\n")
     except Exception as err:
         logging.error(f"Could not load model checkpoints.")
-        raise err   
+        raise err
 
     # Compute metrics
     try:
@@ -555,15 +543,14 @@ def perform_evaluation(
             trainer,
             framework,
             num_episodes=num_episodes,
-            log_config = log_config,
-            file_name=run_config["env"]["scenario"]
+            log_config=log_config,
+            file_name=run_config["env"]["scenario"],
         )
 
         if framework == "warpdrive":
             trainer.graceful_close()
 
         return success, eval_metrics, comment
-
 
     except Exception as err:
         logging.error(f"Count not fetch episode and compute metrics.")
@@ -676,13 +663,11 @@ if __name__ == "__main__":
     # Validate the submission directory
     framework, results_dir_is_valid, comment, discrete = validate_dir(results_dir)
     if not results_dir_is_valid:
-        raise AssertionError(
-            f"{results_dir} is not a valid submission directory."
-        )
+        raise AssertionError(f"{results_dir} is not a valid submission directory.")
 
     # Run unit tests on the simulation files
     skip_unit_tests = True  # = args.skip_unit_tests
-    
+
     try:
         if skip_unit_tests:
             logging.info("Skipping check_output test")
@@ -700,13 +685,13 @@ if __name__ == "__main__":
     except subprocess.CalledProcessError as err:
         logging.error(f"{results_dir}: unit tests were not successful.")
         raise err
-    
+
     # Run evaluation with submitted simulation and trained agents.
     logging.info("Starting eval...")
     succeeded, metrics, comments = perform_evaluation(
         results_dir, framework, discrete, eval_seed=_EVAL_SEED
     )
-    
+
     # Report results.
     eval_result_str = "\n".join(
         [

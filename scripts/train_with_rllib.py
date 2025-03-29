@@ -40,7 +40,7 @@ from scenarios import (
     BasicClubFixed,
     BasicClubAblateMasks,
     BasicClubConvergence,
-    ConvergenceMitigationSavings
+    ConvergenceMitigationSavings,
 )
 import argparse
 from collections import OrderedDict
@@ -63,9 +63,9 @@ SCENARIO_MAPPING = {
     "MinimalMitigationActionWindow": MinimalMitigationActionWindow,
     "OptimalMitigationActionWindow": OptimalMitigationActionWindow,
     "BasicClubFixed": BasicClubFixed,
-    "BasicClubAblateMasks":BasicClubAblateMasks,
-    "ConvergenceMitigationSavings":ConvergenceMitigationSavings,
-    "BasicClubConvergence":BasicClubConvergence
+    "BasicClubAblateMasks": BasicClubAblateMasks,
+    "ConvergenceMitigationSavings": ConvergenceMitigationSavings,
+    "BasicClubConvergence": BasicClubConvergence,
 }
 
 import numpy as np
@@ -76,21 +76,40 @@ from ray.rllib.evaluation.rollout_worker import RolloutWorker
 from ray.rllib.env.base_env import BaseEnv
 from ray.rllib.policy.policy import Policy
 
+
 class Callbacks(DefaultCallbacks):
-    def on_episode_start(self, *, worker: RolloutWorker, base_env: BaseEnv, policies: Dict[str, Policy], episode: Episode, **kwargs):
+    def on_episode_start(
+        self,
+        *,
+        worker: RolloutWorker,
+        base_env: BaseEnv,
+        policies: Dict[str, Policy],
+        episode: Episode,
+        **kwargs,
+    ):
         # Initialize storage for metrics if it doesn't exist
         if not hasattr(worker, "custom_metrics_storage"):
             worker.custom_metrics_storage = []
 
-    def on_episode_end(self, *, worker: RolloutWorker, base_env: BaseEnv, policies: Dict[str, Policy], episode: Episode, **kwargs):
+    def on_episode_end(
+        self,
+        *,
+        worker: RolloutWorker,
+        base_env: BaseEnv,
+        policies: Dict[str, Policy],
+        episode: Episode,
+        **kwargs,
+    ):
         # Check and initialize storage if not already done
         if not hasattr(worker, "custom_metrics_storage"):
             worker.custom_metrics_storage = []
 
         # Collect metrics at the end of the episode
-        episode.custom_metrics["temperature_rise"] = episode._last_infos['__common__']["temp_rise"]
-        metrics = episode._last_infos['__common__']["metrics"]
-        num_regions = episode._last_infos['__common__']["num_regions"]
+        episode.custom_metrics["temperature_rise"] = episode._last_infos["__common__"][
+            "temp_rise"
+        ]
+        metrics = episode._last_infos["__common__"]["metrics"]
+        num_regions = episode._last_infos["__common__"]["num_regions"]
 
         for metric in metrics:
             for region in range(num_regions):
@@ -103,7 +122,9 @@ class Callbacks(DefaultCallbacks):
 
     def on_train_result(self, *, algorithm, result: dict, **kwargs):
         # Aggregate metrics from all workers
-        all_metrics = algorithm.workers.foreach_worker(lambda w: getattr(w, "custom_metrics_storage", []))
+        all_metrics = algorithm.workers.foreach_worker(
+            lambda w: getattr(w, "custom_metrics_storage", [])
+        )
 
         # Flatten the list of lists
         all_metrics_flat = [metric for sublist in all_metrics for metric in sublist]
@@ -123,7 +144,9 @@ class Callbacks(DefaultCallbacks):
         result["custom_metrics"].update(variance_metrics)
 
         # Clear metrics storage for the next iteration
-        algorithm.workers.foreach_worker(lambda w: setattr(w, "custom_metrics_storage", []))
+        algorithm.workers.foreach_worker(
+            lambda w: setattr(w, "custom_metrics_storage", [])
+        )
 
 
 def get_config_yaml(yaml_path):
@@ -533,14 +556,28 @@ def create_save_dir_path(exp_run_config, results_dir=None):
 
     return results_save_dir
 
+
 class NumpyArrayEncoder(json.JSONEncoder):
     def default(self, obj):
         try:
             if isinstance(obj, np.ndarray):
                 return obj.tolist()
-            elif isinstance(obj, (np.int_, np.intc, np.intp, np.int8, 
-                                  np.int16, np.int32, np.int64, 
-                                  np.uint8, np.uint16, np.uint32, np.uint64)):
+            elif isinstance(
+                obj,
+                (
+                    np.int_,
+                    np.intc,
+                    np.intp,
+                    np.int8,
+                    np.int16,
+                    np.int32,
+                    np.int64,
+                    np.uint8,
+                    np.uint16,
+                    np.uint32,
+                    np.uint64,
+                ),
+            ):
                 return int(obj)
             elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
                 return float(obj)
@@ -731,6 +768,7 @@ if __name__ == "__main__":
             os.path.join(save_dir, file),
         )
     for file in [args.yaml]:
+        file = os.path.basename(file)
         shutil.copyfile(
             os.path.join(PUBLIC_REPO_DIR, "scripts", file),
             os.path.join(save_dir, file),
@@ -758,15 +796,36 @@ if __name__ == "__main__":
     episode_length = env_obj.episode_length
     num_iters = (num_episodes * episode_length) // train_batch_size
     logs = []
-    file_name = save_dir.split("/")[-1]+f"_"+config_yaml["env"]["scenario"]+"_"+str(config_yaml["regions"]["num_agents"])
+    file_name = (
+        save_dir.split("/")[-1]
+        + "_"
+        + config_yaml["env"]["scenario"]
+        + "_"
+        + str(config_yaml["regions"]["num_agents"])
+    )
 
     for iteration in tqdm(range(num_iters)):
         print(f"********** Iter : {iteration + 1:5d} / {num_iters:5d} **********")
         result = trainer.train()
         current_logs = result["custom_metrics"]
-        keys_to_log =  ['num_agent_steps_sampled', 'num_agent_steps_trained', 'num_env_steps_sampled', 'num_env_steps_trained', 'num_env_steps_sampled_this_iter', 'num_env_steps_trained_this_iter', 'num_env_steps_sampled_throughput_per_sec', 'num_env_steps_trained_throughput_per_sec', 'timesteps_total', 'num_steps_trained_this_iter', 'agent_timesteps_total', 'config']
-        current_logs["learner_stats"] = result["info"]["learner"]["regions"]["learner_stats"]
-        
+        keys_to_log = [
+            "num_agent_steps_sampled",
+            "num_agent_steps_trained",
+            "num_env_steps_sampled",
+            "num_env_steps_trained",
+            "num_env_steps_sampled_this_iter",
+            "num_env_steps_trained_this_iter",
+            "num_env_steps_sampled_throughput_per_sec",
+            "num_env_steps_trained_throughput_per_sec",
+            "timesteps_total",
+            "num_steps_trained_this_iter",
+            "agent_timesteps_total",
+            "config",
+        ]
+        current_logs["learner_stats"] = result["info"]["learner"]["regions"][
+            "learner_stats"
+        ]
+
         for key in keys_to_log:
             current_logs[key] = result[key]
         trained_steps = current_logs["num_env_steps_trained_this_iter"]
@@ -804,17 +863,23 @@ if __name__ == "__main__":
             or iteration == num_iters - 1
         ):
             save_model_checkpoint(trainer, save_dir, total_timesteps)
-            
+
         print(f"""episode_reward_mean: {result.get('episode_reward_mean')}""")
-        if iteration!=0:
-            with open(os.path.join(PUBLIC_REPO_DIR,"callback_logs", f"{file_name}.json"), "r") as f:
+        if iteration != 0:
+            with open(
+                os.path.join(PUBLIC_REPO_DIR, "callback_logs", f"{file_name}.json"), "r"
+            ) as f:
                 file_logs = json.load(f)
             file_logs.append(current_logs)
-            with open(os.path.join(PUBLIC_REPO_DIR,"callback_logs", f"{file_name}.json"), "w") as f:
-                json.dump(file_logs, f,cls=NumpyArrayEncoder)
+            with open(
+                os.path.join(PUBLIC_REPO_DIR, "callback_logs", f"{file_name}.json"), "w"
+            ) as f:
+                json.dump(file_logs, f, cls=NumpyArrayEncoder)
         else:
-            with open(os.path.join(PUBLIC_REPO_DIR,"callback_logs", f"{file_name}.json"), "w") as f:
-                json.dump([current_logs], f,cls=NumpyArrayEncoder)
+            with open(
+                os.path.join(PUBLIC_REPO_DIR, "callback_logs", f"{file_name}.json"), "w"
+            ) as f:
+                json.dump([current_logs], f, cls=NumpyArrayEncoder)
     # Create a (zipped) submission file
     # ---------------------------------
     subprocess.call(
