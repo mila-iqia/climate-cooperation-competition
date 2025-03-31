@@ -5,14 +5,23 @@ MINICONDA_VERSION="latest"
 INSTALL_DIR="$HOME/miniconda"
 
 # Determine OS and architecture
-OS="Linux"  # Default to Linux
-ARCH="aarch64"  # Set for ARM64/aarch64
-
-if [ "$(uname)" == "Darwin" ]; then
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    OS="Linux"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
     OS="MacOSX"
+else
+    echo "Unsupported OS: $OSTYPE"
+    exit 1
 fi
 
 # Construct Miniconda download URL
+if [[ $(uname -m) == "x86_64" ]]; then
+    ARCH="x86_64"
+else
+    echo "Unsupported architecture: $(uname -m)"
+    exit 1
+fi
+
 MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-$MINICONDA_VERSION-$OS-$ARCH.sh"
 
 # Download Miniconda installer

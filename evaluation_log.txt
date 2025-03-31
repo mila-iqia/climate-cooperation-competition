@@ -1,0 +1,315 @@
+2025-03-31 04:56:29,906 - INFO - Successfully read mapping file with 48 entries
+2025-03-31 04:56:29,906 - INFO - Processing 1/48: discrete_basic_club_0.01_1743164030
+2025-03-31 04:56:29,907 - INFO - Evaluating discrete_basic_club_0.01_1743164030: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.01_1743164030.zip
+2025-03-31 04:56:30,475 - INFO - Completed evaluation for discrete_basic_club_0.01_1743164030
+2025-03-31 04:56:30,475 - INFO - Processing 2/48: discrete_basic_club_0.01_1743165031
+2025-03-31 04:56:30,476 - INFO - Evaluating discrete_basic_club_0.01_1743165031: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.01_1743165031.zip
+2025-03-31 04:56:31,067 - INFO - Completed evaluation for discrete_basic_club_0.01_1743165031
+2025-03-31 04:56:31,068 - INFO - Processing 3/48: discrete_basic_club_0.02_1743180070
+2025-03-31 04:56:31,068 - INFO - Evaluating discrete_basic_club_0.02_1743180070: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.02_1743180070.zip
+2025-03-31 04:56:31,649 - INFO - Completed evaluation for discrete_basic_club_0.02_1743180070
+2025-03-31 04:56:31,649 - INFO - Processing 4/48: discrete_basic_club_0.03_1743194449
+2025-03-31 04:56:31,650 - INFO - Evaluating discrete_basic_club_0.03_1743194449: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.03_1743194449.zip
+2025-03-31 04:56:32,226 - INFO - Completed evaluation for discrete_basic_club_0.03_1743194449
+2025-03-31 04:56:32,227 - INFO - Processing 5/48: discrete_basic_club_0.04_1743207734
+2025-03-31 04:56:32,228 - INFO - Evaluating discrete_basic_club_0.04_1743207734: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.04_1743207734.zip
+2025-03-31 04:56:32,774 - INFO - Completed evaluation for discrete_basic_club_0.04_1743207734
+2025-03-31 04:56:32,775 - INFO - Processing 6/48: discrete_basic_club_0.04_1743227822
+2025-03-31 04:56:32,775 - INFO - Evaluating discrete_basic_club_0.04_1743227822: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.04_1743227822.zip
+2025-03-31 04:56:33,359 - INFO - Completed evaluation for discrete_basic_club_0.04_1743227822
+2025-03-31 04:56:33,359 - INFO - Processing 7/48: discrete_basic_club_-0.01_1743245872
+2025-03-31 04:56:33,360 - INFO - Evaluating discrete_basic_club_-0.01_1743245872: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_-0.01_1743245872.zip
+2025-03-31 04:56:33,937 - INFO - Completed evaluation for discrete_basic_club_-0.01_1743245872
+2025-03-31 04:56:33,937 - INFO - Processing 8/48: discrete_basic_club_-0.02_1743258524
+2025-03-31 04:56:33,938 - INFO - Evaluating discrete_basic_club_-0.02_1743258524: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_-0.02_1743258524.zip
+2025-03-31 04:56:34,525 - INFO - Completed evaluation for discrete_basic_club_-0.02_1743258524
+2025-03-31 04:56:34,525 - INFO - Processing 9/48: discrete_basic_club_-0.03_1743271676
+2025-03-31 04:56:34,525 - INFO - Evaluating discrete_basic_club_-0.03_1743271676: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_-0.03_1743271676.zip
+2025-03-31 04:56:35,098 - INFO - Completed evaluation for discrete_basic_club_-0.03_1743271676
+2025-03-31 04:56:35,098 - INFO - Processing 10/48: discrete_basic_club_-0.04_1743284789
+2025-03-31 04:56:35,099 - INFO - Evaluating discrete_basic_club_-0.04_1743284789: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_-0.04_1743284789.zip
+2025-03-31 04:56:35,667 - INFO - Completed evaluation for discrete_basic_club_-0.04_1743284789
+2025-03-31 04:56:35,667 - INFO - Processing 11/48: discrete_bilateral_0.01_1743165610
+2025-03-31 04:56:35,668 - INFO - Evaluating discrete_bilateral_0.01_1743165610: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_0.01_1743165610.zip
+2025-03-31 04:56:36,260 - INFO - Completed evaluation for discrete_bilateral_0.01_1743165610
+2025-03-31 04:56:36,261 - INFO - Processing 12/48: discrete_bilateral_0.02_1743180128
+2025-03-31 04:56:36,261 - INFO - Evaluating discrete_bilateral_0.02_1743180128: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_0.02_1743180128.zip
+2025-03-31 04:56:36,852 - INFO - Completed evaluation for discrete_bilateral_0.02_1743180128
+2025-03-31 04:56:36,852 - INFO - Processing 13/48: discrete_bilateral_0.03_1743194443
+2025-03-31 04:56:36,853 - INFO - Evaluating discrete_bilateral_0.03_1743194443: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_0.03_1743194443.zip
+2025-03-31 04:56:37,442 - INFO - Completed evaluation for discrete_bilateral_0.03_1743194443
+2025-03-31 04:56:37,442 - INFO - Processing 14/48: discrete_bilateral_0.04_1743208398
+2025-03-31 04:56:37,443 - INFO - Evaluating discrete_bilateral_0.04_1743208398: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_0.04_1743208398.zip
+2025-03-31 04:56:37,999 - INFO - Completed evaluation for discrete_bilateral_0.04_1743208398
+2025-03-31 04:56:37,999 - INFO - Processing 15/48: discrete_bilateral_0.04_1743227695
+2025-03-31 04:56:38,000 - INFO - Evaluating discrete_bilateral_0.04_1743227695: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_0.04_1743227695.zip
+2025-03-31 04:56:38,582 - INFO - Completed evaluation for discrete_bilateral_0.04_1743227695
+2025-03-31 04:56:38,583 - INFO - Processing 16/48: discrete_bilateral_-0.01_1743246004
+2025-03-31 04:56:38,584 - INFO - Evaluating discrete_bilateral_-0.01_1743246004: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_-0.01_1743246004.zip
+2025-03-31 04:56:39,168 - INFO - Completed evaluation for discrete_bilateral_-0.01_1743246004
+2025-03-31 04:56:39,168 - INFO - Processing 17/48: discrete_bilateral_-0.02_1743260562
+2025-03-31 04:56:39,169 - INFO - Evaluating discrete_bilateral_-0.02_1743260562: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_-0.02_1743260562.zip
+2025-03-31 04:56:39,760 - INFO - Completed evaluation for discrete_bilateral_-0.02_1743260562
+2025-03-31 04:56:39,760 - INFO - Processing 18/48: discrete_bilateral_-0.03_1743274395
+2025-03-31 04:56:39,761 - INFO - Evaluating discrete_bilateral_-0.03_1743274395: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_-0.03_1743274395.zip
+2025-03-31 04:56:40,346 - INFO - Completed evaluation for discrete_bilateral_-0.03_1743274395
+2025-03-31 04:56:40,346 - INFO - Processing 19/48: discrete_bilateral_-0.04_1743288894
+2025-03-31 04:56:40,347 - INFO - Evaluating discrete_bilateral_-0.04_1743288894: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_-0.04_1743288894.zip
+2025-03-31 04:56:40,929 - INFO - Completed evaluation for discrete_bilateral_-0.04_1743288894
+2025-03-31 04:56:40,929 - INFO - Processing 20/48: discrete_max_mitigation_0.01_1743227921
+2025-03-31 04:56:40,930 - INFO - Evaluating discrete_max_mitigation_0.01_1743227921: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.01_1743227921.zip
+2025-03-31 04:56:41,494 - INFO - Completed evaluation for discrete_max_mitigation_0.01_1743227921
+2025-03-31 04:56:41,494 - INFO - Processing 21/48: discrete_max_mitigation_0.01_1743228688
+2025-03-31 04:56:41,495 - INFO - Evaluating discrete_max_mitigation_0.01_1743228688: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.01_1743228688.zip
+2025-03-31 04:56:42,052 - INFO - Completed evaluation for discrete_max_mitigation_0.01_1743228688
+2025-03-31 04:56:42,053 - INFO - Processing 22/48: discrete_max_mitigation_0.02_1743244138
+2025-03-31 04:56:42,054 - INFO - Evaluating discrete_max_mitigation_0.02_1743244138: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.02_1743244138.zip
+2025-03-31 04:56:42,623 - INFO - Completed evaluation for discrete_max_mitigation_0.02_1743244138
+2025-03-31 04:56:42,623 - INFO - Processing 23/48: discrete_max_mitigation_0.02_1743242970
+2025-03-31 04:56:42,624 - INFO - Evaluating discrete_max_mitigation_0.02_1743242970: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.02_1743242970.zip
+2025-03-31 04:56:43,190 - INFO - Completed evaluation for discrete_max_mitigation_0.02_1743242970
+2025-03-31 04:56:43,190 - INFO - Processing 24/48: discrete_max_mitigation_0.03_1743260011
+2025-03-31 04:56:43,191 - INFO - Evaluating discrete_max_mitigation_0.03_1743260011: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.03_1743260011.zip
+2025-03-31 04:56:43,753 - INFO - Completed evaluation for discrete_max_mitigation_0.03_1743260011
+2025-03-31 04:56:43,753 - INFO - Processing 25/48: discrete_max_mitigation_0.03_1743258608
+2025-03-31 04:56:43,754 - INFO - Evaluating discrete_max_mitigation_0.03_1743258608: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.03_1743258608.zip
+2025-03-31 04:56:44,320 - INFO - Completed evaluation for discrete_max_mitigation_0.03_1743258608
+2025-03-31 04:56:44,320 - INFO - Processing 26/48: discrete_max_mitigation_0.04_1743276682
+2025-03-31 04:56:44,321 - INFO - Evaluating discrete_max_mitigation_0.04_1743276682: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.04_1743276682.zip
+2025-03-31 04:56:44,881 - INFO - Completed evaluation for discrete_max_mitigation_0.04_1743276682
+2025-03-31 04:56:44,882 - INFO - Processing 27/48: discrete_max_mitigation_0.04_1743274101
+2025-03-31 04:56:44,883 - INFO - Evaluating discrete_max_mitigation_0.04_1743274101: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.04_1743274101.zip
+2025-03-31 04:56:45,458 - INFO - Completed evaluation for discrete_max_mitigation_0.04_1743274101
+2025-03-31 04:56:45,458 - INFO - Processing 28/48: discrete_max_mitigation_-0.01_1743275471
+2025-03-31 04:56:45,459 - INFO - Evaluating discrete_max_mitigation_-0.01_1743275471: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_-0.01_1743275471.zip
+2025-03-31 04:56:46,000 - INFO - Completed evaluation for discrete_max_mitigation_-0.01_1743275471
+2025-03-31 04:56:46,001 - INFO - Processing 29/48: discrete_max_mitigation_-0.01_1743342221
+2025-03-31 04:56:46,002 - INFO - Evaluating discrete_max_mitigation_-0.01_1743342221: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_-0.01_1743342221.zip
+2025-03-31 04:56:46,566 - INFO - Completed evaluation for discrete_max_mitigation_-0.01_1743342221
+2025-03-31 04:56:46,566 - INFO - Processing 30/48: discrete_max_mitigation_-0.02_1743354012
+2025-03-31 04:56:46,567 - INFO - Evaluating discrete_max_mitigation_-0.02_1743354012: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_-0.02_1743354012.zip
+2025-03-31 04:56:47,131 - INFO - Completed evaluation for discrete_max_mitigation_-0.02_1743354012
+2025-03-31 04:56:47,131 - INFO - Processing 31/48: discrete_max_mitigation_-0.03_1743365782
+2025-03-31 04:56:47,132 - INFO - Evaluating discrete_max_mitigation_-0.03_1743365782: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_-0.03_1743365782.zip
+2025-03-31 04:56:47,693 - INFO - Completed evaluation for discrete_max_mitigation_-0.03_1743365782
+2025-03-31 04:56:47,693 - INFO - Processing 32/48: discrete_max_mitigation_-0.04_1743377689
+2025-03-31 04:56:47,694 - INFO - Evaluating discrete_max_mitigation_-0.04_1743377689: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_-0.04_1743377689.zip
+2025-03-31 04:56:48,258 - INFO - Completed evaluation for discrete_max_mitigation_-0.04_1743377689
+2025-03-31 04:56:48,259 - INFO - Processing 33/48: discrete_min_mitigation_0.01_1743163170
+2025-03-31 04:56:48,259 - INFO - Evaluating discrete_min_mitigation_0.01_1743163170: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_0.01_1743163170.zip
+2025-03-31 04:56:48,824 - INFO - Completed evaluation for discrete_min_mitigation_0.01_1743163170
+2025-03-31 04:56:48,824 - INFO - Processing 34/48: discrete_min_mitigation_0.02_1743174546
+2025-03-31 04:56:48,825 - INFO - Evaluating discrete_min_mitigation_0.02_1743174546: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_0.02_1743174546.zip
+2025-03-31 04:56:49,397 - INFO - Completed evaluation for discrete_min_mitigation_0.02_1743174546
+2025-03-31 04:56:49,397 - INFO - Processing 35/48: discrete_min_mitigation_0.03_1743186460
+2025-03-31 04:56:49,398 - INFO - Evaluating discrete_min_mitigation_0.03_1743186460: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_0.03_1743186460.zip
+2025-03-31 04:56:49,966 - INFO - Completed evaluation for discrete_min_mitigation_0.03_1743186460
+2025-03-31 04:56:49,967 - INFO - Processing 36/48: discrete_min_mitigation_0.04_1743198474
+2025-03-31 04:56:49,967 - INFO - Evaluating discrete_min_mitigation_0.04_1743198474: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_0.04_1743198474.zip
+2025-03-31 04:56:50,535 - INFO - Completed evaluation for discrete_min_mitigation_0.04_1743198474
+2025-03-31 04:56:50,535 - INFO - Processing 37/48: discrete_min_mitigation_-0.01_1743313555
+2025-03-31 04:56:50,536 - INFO - Evaluating discrete_min_mitigation_-0.01_1743313555: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_-0.01_1743313555.zip
+2025-03-31 04:56:51,113 - INFO - Completed evaluation for discrete_min_mitigation_-0.01_1743313555
+2025-03-31 04:56:51,113 - INFO - Processing 38/48: discrete_min_mitigation_-0.02_1743326768
+2025-03-31 04:56:51,114 - INFO - Evaluating discrete_min_mitigation_-0.02_1743326768: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_-0.02_1743326768.zip
+2025-03-31 04:56:51,687 - INFO - Completed evaluation for discrete_min_mitigation_-0.02_1743326768
+2025-03-31 04:56:51,688 - INFO - Processing 39/48: discrete_min_mitigation_-0.03_1743340337
+2025-03-31 04:56:51,689 - INFO - Evaluating discrete_min_mitigation_-0.03_1743340337: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_-0.03_1743340337.zip
+2025-03-31 04:56:52,257 - INFO - Completed evaluation for discrete_min_mitigation_-0.03_1743340337
+2025-03-31 04:56:52,257 - INFO - Processing 40/48: discrete_min_mitigation_-0.04_1743354169
+2025-03-31 04:56:52,258 - INFO - Evaluating discrete_min_mitigation_-0.04_1743354169: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_-0.04_1743354169.zip
+2025-03-31 04:56:52,819 - INFO - Completed evaluation for discrete_min_mitigation_-0.04_1743354169
+2025-03-31 04:56:52,820 - INFO - Processing 41/48: discrete_no_nego_0.01_1743228584
+2025-03-31 04:56:52,821 - INFO - Evaluating discrete_no_nego_0.01_1743228584: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_0.01_1743228584.zip
+2025-03-31 04:56:53,384 - INFO - Completed evaluation for discrete_no_nego_0.01_1743228584
+2025-03-31 04:56:53,385 - INFO - Processing 42/48: discrete_no_nego_0.02_1743242055
+2025-03-31 04:56:53,386 - INFO - Evaluating discrete_no_nego_0.02_1743242055: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_0.02_1743242055.zip
+2025-03-31 04:56:53,953 - INFO - Completed evaluation for discrete_no_nego_0.02_1743242055
+2025-03-31 04:56:53,953 - INFO - Processing 43/48: discrete_no_nego_0.03_1743255486
+2025-03-31 04:56:53,954 - INFO - Evaluating discrete_no_nego_0.03_1743255486: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_0.03_1743255486.zip
+2025-03-31 04:56:54,523 - INFO - Completed evaluation for discrete_no_nego_0.03_1743255486
+2025-03-31 04:56:54,523 - INFO - Processing 44/48: discrete_no_nego_0.04_1743269353
+2025-03-31 04:56:54,524 - INFO - Evaluating discrete_no_nego_0.04_1743269353: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_0.04_1743269353.zip
+2025-03-31 04:56:55,091 - INFO - Completed evaluation for discrete_no_nego_0.04_1743269353
+2025-03-31 04:56:55,091 - INFO - Processing 45/48: discrete_no_nego_-0.01_1743313244
+2025-03-31 04:56:55,093 - INFO - Evaluating discrete_no_nego_-0.01_1743313244: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_-0.01_1743313244.zip
+2025-03-31 04:56:55,671 - INFO - Completed evaluation for discrete_no_nego_-0.01_1743313244
+2025-03-31 04:56:55,672 - INFO - Processing 46/48: discrete_no_nego_-0.02_1743326655
+2025-03-31 04:56:55,672 - INFO - Evaluating discrete_no_nego_-0.02_1743326655: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_-0.02_1743326655.zip
+2025-03-31 04:56:56,238 - INFO - Completed evaluation for discrete_no_nego_-0.02_1743326655
+2025-03-31 04:56:56,239 - INFO - Processing 47/48: discrete_no_nego_-0.03_1743313284
+2025-03-31 04:56:56,240 - INFO - Evaluating discrete_no_nego_-0.03_1743313284: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_-0.03_1743313284.zip
+2025-03-31 04:56:56,808 - INFO - Completed evaluation for discrete_no_nego_-0.03_1743313284
+2025-03-31 04:56:56,809 - INFO - Processing 48/48: discrete_no_nego_-0.04_1743327039
+2025-03-31 04:56:56,810 - INFO - Evaluating discrete_no_nego_-0.04_1743327039: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_-0.04_1743327039.zip
+2025-03-31 04:56:57,378 - INFO - Completed evaluation for discrete_no_nego_-0.04_1743327039
+2025-03-31 04:56:57,378 - INFO - Completed evaluation of 48/48 experiments
+2025-03-31 04:56:57,378 - INFO - Results saved to /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/evaluation_results.jsonl
+2025-03-31 04:58:05,905 - INFO - Successfully read mapping file with 48 entries
+2025-03-31 04:58:05,905 - INFO - Processing 1/48: discrete_basic_club_0.01_1743164030
+2025-03-31 04:58:05,906 - INFO - Evaluating discrete_basic_club_0.01_1743164030: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.01_1743164030.zip
+2025-03-31 04:58:06,450 - INFO - Completed evaluation for discrete_basic_club_0.01_1743164030
+2025-03-31 04:58:06,450 - INFO - Processing 2/48: discrete_basic_club_0.01_1743165031
+2025-03-31 04:58:06,451 - INFO - Evaluating discrete_basic_club_0.01_1743165031: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.01_1743165031.zip
+2025-03-31 04:58:06,999 - INFO - Completed evaluation for discrete_basic_club_0.01_1743165031
+2025-03-31 04:58:06,999 - INFO - Processing 3/48: discrete_basic_club_0.02_1743180070
+2025-03-31 04:58:07,000 - INFO - Evaluating discrete_basic_club_0.02_1743180070: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.02_1743180070.zip
+2025-03-31 04:58:07,756 - INFO - Completed evaluation for discrete_basic_club_0.02_1743180070
+2025-03-31 04:58:07,756 - INFO - Processing 4/48: discrete_basic_club_0.03_1743194449
+2025-03-31 04:58:07,757 - INFO - Evaluating discrete_basic_club_0.03_1743194449: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.03_1743194449.zip
+2025-03-31 04:58:08,293 - INFO - Completed evaluation for discrete_basic_club_0.03_1743194449
+2025-03-31 04:58:08,293 - INFO - Processing 5/48: discrete_basic_club_0.04_1743207734
+2025-03-31 04:58:08,294 - INFO - Evaluating discrete_basic_club_0.04_1743207734: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.04_1743207734.zip
+2025-03-31 04:58:08,843 - INFO - Completed evaluation for discrete_basic_club_0.04_1743207734
+2025-03-31 04:58:08,843 - INFO - Processing 6/48: discrete_basic_club_0.04_1743227822
+2025-03-31 04:58:08,844 - INFO - Evaluating discrete_basic_club_0.04_1743227822: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.04_1743227822.zip
+2025-03-31 04:58:09,382 - INFO - Completed evaluation for discrete_basic_club_0.04_1743227822
+2025-03-31 04:58:09,382 - INFO - Processing 7/48: discrete_basic_club_-0.01_1743245872
+2025-03-31 04:58:09,383 - INFO - Evaluating discrete_basic_club_-0.01_1743245872: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_-0.01_1743245872.zip
+2025-03-31 04:58:09,931 - INFO - Completed evaluation for discrete_basic_club_-0.01_1743245872
+2025-03-31 04:58:09,931 - INFO - Processing 8/48: discrete_basic_club_-0.02_1743258524
+2025-03-31 04:58:09,932 - INFO - Evaluating discrete_basic_club_-0.02_1743258524: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_-0.02_1743258524.zip
+2025-03-31 04:58:10,476 - INFO - Completed evaluation for discrete_basic_club_-0.02_1743258524
+2025-03-31 04:58:10,476 - INFO - Processing 9/48: discrete_basic_club_-0.03_1743271676
+2025-03-31 04:58:10,477 - INFO - Evaluating discrete_basic_club_-0.03_1743271676: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_-0.03_1743271676.zip
+2025-03-31 04:58:11,015 - INFO - Completed evaluation for discrete_basic_club_-0.03_1743271676
+2025-03-31 04:58:11,015 - INFO - Processing 10/48: discrete_basic_club_-0.04_1743284789
+2025-03-31 04:58:11,016 - INFO - Evaluating discrete_basic_club_-0.04_1743284789: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_-0.04_1743284789.zip
+2025-03-31 04:58:11,554 - INFO - Completed evaluation for discrete_basic_club_-0.04_1743284789
+2025-03-31 04:58:11,554 - INFO - Processing 11/48: discrete_bilateral_0.01_1743165610
+2025-03-31 04:58:11,554 - INFO - Evaluating discrete_bilateral_0.01_1743165610: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_0.01_1743165610.zip
+2025-03-31 04:58:12,099 - INFO - Completed evaluation for discrete_bilateral_0.01_1743165610
+2025-03-31 04:58:12,100 - INFO - Processing 12/48: discrete_bilateral_0.02_1743180128
+2025-03-31 04:58:12,100 - INFO - Evaluating discrete_bilateral_0.02_1743180128: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_0.02_1743180128.zip
+2025-03-31 04:58:12,643 - INFO - Completed evaluation for discrete_bilateral_0.02_1743180128
+2025-03-31 04:58:12,643 - INFO - Processing 13/48: discrete_bilateral_0.03_1743194443
+2025-03-31 04:58:12,644 - INFO - Evaluating discrete_bilateral_0.03_1743194443: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_0.03_1743194443.zip
+2025-03-31 04:58:13,190 - INFO - Completed evaluation for discrete_bilateral_0.03_1743194443
+2025-03-31 04:58:13,190 - INFO - Processing 14/48: discrete_bilateral_0.04_1743208398
+2025-03-31 04:58:13,191 - INFO - Evaluating discrete_bilateral_0.04_1743208398: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_0.04_1743208398.zip
+2025-03-31 04:58:13,715 - INFO - Completed evaluation for discrete_bilateral_0.04_1743208398
+2025-03-31 04:58:13,715 - INFO - Processing 15/48: discrete_bilateral_0.04_1743227695
+2025-03-31 04:58:13,716 - INFO - Evaluating discrete_bilateral_0.04_1743227695: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_0.04_1743227695.zip
+2025-03-31 04:58:14,265 - INFO - Completed evaluation for discrete_bilateral_0.04_1743227695
+2025-03-31 04:58:14,265 - INFO - Processing 16/48: discrete_bilateral_-0.01_1743246004
+2025-03-31 04:58:14,266 - INFO - Evaluating discrete_bilateral_-0.01_1743246004: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_-0.01_1743246004.zip
+2025-03-31 04:58:14,813 - INFO - Completed evaluation for discrete_bilateral_-0.01_1743246004
+2025-03-31 04:58:14,813 - INFO - Processing 17/48: discrete_bilateral_-0.02_1743260562
+2025-03-31 04:58:14,814 - INFO - Evaluating discrete_bilateral_-0.02_1743260562: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_-0.02_1743260562.zip
+2025-03-31 04:58:15,366 - INFO - Completed evaluation for discrete_bilateral_-0.02_1743260562
+2025-03-31 04:58:15,366 - INFO - Processing 18/48: discrete_bilateral_-0.03_1743274395
+2025-03-31 04:58:15,367 - INFO - Evaluating discrete_bilateral_-0.03_1743274395: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_-0.03_1743274395.zip
+2025-03-31 04:58:15,914 - INFO - Completed evaluation for discrete_bilateral_-0.03_1743274395
+2025-03-31 04:58:15,914 - INFO - Processing 19/48: discrete_bilateral_-0.04_1743288894
+2025-03-31 04:58:15,915 - INFO - Evaluating discrete_bilateral_-0.04_1743288894: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_bilateral_-0.04_1743288894.zip
+2025-03-31 04:58:16,459 - INFO - Completed evaluation for discrete_bilateral_-0.04_1743288894
+2025-03-31 04:58:16,459 - INFO - Processing 20/48: discrete_max_mitigation_0.01_1743227921
+2025-03-31 04:58:16,460 - INFO - Evaluating discrete_max_mitigation_0.01_1743227921: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.01_1743227921.zip
+2025-03-31 04:58:16,999 - INFO - Completed evaluation for discrete_max_mitigation_0.01_1743227921
+2025-03-31 04:58:16,999 - INFO - Processing 21/48: discrete_max_mitigation_0.01_1743228688
+2025-03-31 04:58:17,000 - INFO - Evaluating discrete_max_mitigation_0.01_1743228688: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.01_1743228688.zip
+2025-03-31 04:58:17,535 - INFO - Completed evaluation for discrete_max_mitigation_0.01_1743228688
+2025-03-31 04:58:17,535 - INFO - Processing 22/48: discrete_max_mitigation_0.02_1743244138
+2025-03-31 04:58:17,536 - INFO - Evaluating discrete_max_mitigation_0.02_1743244138: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.02_1743244138.zip
+2025-03-31 04:58:18,069 - INFO - Completed evaluation for discrete_max_mitigation_0.02_1743244138
+2025-03-31 04:58:18,069 - INFO - Processing 23/48: discrete_max_mitigation_0.02_1743242970
+2025-03-31 04:58:18,070 - INFO - Evaluating discrete_max_mitigation_0.02_1743242970: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.02_1743242970.zip
+2025-03-31 04:58:18,610 - INFO - Completed evaluation for discrete_max_mitigation_0.02_1743242970
+2025-03-31 04:58:18,611 - INFO - Processing 24/48: discrete_max_mitigation_0.03_1743260011
+2025-03-31 04:58:18,611 - INFO - Evaluating discrete_max_mitigation_0.03_1743260011: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.03_1743260011.zip
+2025-03-31 04:58:19,141 - INFO - Completed evaluation for discrete_max_mitigation_0.03_1743260011
+2025-03-31 04:58:19,141 - INFO - Processing 25/48: discrete_max_mitigation_0.03_1743258608
+2025-03-31 04:58:19,142 - INFO - Evaluating discrete_max_mitigation_0.03_1743258608: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.03_1743258608.zip
+2025-03-31 04:58:19,677 - INFO - Completed evaluation for discrete_max_mitigation_0.03_1743258608
+2025-03-31 04:58:19,677 - INFO - Processing 26/48: discrete_max_mitigation_0.04_1743276682
+2025-03-31 04:58:19,678 - INFO - Evaluating discrete_max_mitigation_0.04_1743276682: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.04_1743276682.zip
+2025-03-31 04:58:20,214 - INFO - Completed evaluation for discrete_max_mitigation_0.04_1743276682
+2025-03-31 04:58:20,214 - INFO - Processing 27/48: discrete_max_mitigation_0.04_1743274101
+2025-03-31 04:58:20,215 - INFO - Evaluating discrete_max_mitigation_0.04_1743274101: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_0.04_1743274101.zip
+2025-03-31 04:58:20,755 - INFO - Completed evaluation for discrete_max_mitigation_0.04_1743274101
+2025-03-31 04:58:20,755 - INFO - Processing 28/48: discrete_max_mitigation_-0.01_1743275471
+2025-03-31 04:58:20,756 - INFO - Evaluating discrete_max_mitigation_-0.01_1743275471: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_-0.01_1743275471.zip
+2025-03-31 04:58:21,283 - INFO - Completed evaluation for discrete_max_mitigation_-0.01_1743275471
+2025-03-31 04:58:21,284 - INFO - Processing 29/48: discrete_max_mitigation_-0.01_1743342221
+2025-03-31 04:58:21,285 - INFO - Evaluating discrete_max_mitigation_-0.01_1743342221: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_-0.01_1743342221.zip
+2025-03-31 04:58:21,820 - INFO - Completed evaluation for discrete_max_mitigation_-0.01_1743342221
+2025-03-31 04:58:21,821 - INFO - Processing 30/48: discrete_max_mitigation_-0.02_1743354012
+2025-03-31 04:58:21,822 - INFO - Evaluating discrete_max_mitigation_-0.02_1743354012: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_-0.02_1743354012.zip
+2025-03-31 04:58:22,359 - INFO - Completed evaluation for discrete_max_mitigation_-0.02_1743354012
+2025-03-31 04:58:22,359 - INFO - Processing 31/48: discrete_max_mitigation_-0.03_1743365782
+2025-03-31 04:58:22,360 - INFO - Evaluating discrete_max_mitigation_-0.03_1743365782: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_-0.03_1743365782.zip
+2025-03-31 04:58:22,902 - INFO - Completed evaluation for discrete_max_mitigation_-0.03_1743365782
+2025-03-31 04:58:22,902 - INFO - Processing 32/48: discrete_max_mitigation_-0.04_1743377689
+2025-03-31 04:58:22,903 - INFO - Evaluating discrete_max_mitigation_-0.04_1743377689: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_max_mitigation_-0.04_1743377689.zip
+2025-03-31 04:58:23,440 - INFO - Completed evaluation for discrete_max_mitigation_-0.04_1743377689
+2025-03-31 04:58:23,440 - INFO - Processing 33/48: discrete_min_mitigation_0.01_1743163170
+2025-03-31 04:58:23,441 - INFO - Evaluating discrete_min_mitigation_0.01_1743163170: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_0.01_1743163170.zip
+2025-03-31 04:58:23,979 - INFO - Completed evaluation for discrete_min_mitigation_0.01_1743163170
+2025-03-31 04:58:23,980 - INFO - Processing 34/48: discrete_min_mitigation_0.02_1743174546
+2025-03-31 04:58:23,981 - INFO - Evaluating discrete_min_mitigation_0.02_1743174546: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_0.02_1743174546.zip
+2025-03-31 04:58:24,728 - INFO - Completed evaluation for discrete_min_mitigation_0.02_1743174546
+2025-03-31 04:58:24,728 - INFO - Processing 35/48: discrete_min_mitigation_0.03_1743186460
+2025-03-31 04:58:24,729 - INFO - Evaluating discrete_min_mitigation_0.03_1743186460: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_0.03_1743186460.zip
+2025-03-31 04:58:25,278 - INFO - Completed evaluation for discrete_min_mitigation_0.03_1743186460
+2025-03-31 04:58:25,278 - INFO - Processing 36/48: discrete_min_mitigation_0.04_1743198474
+2025-03-31 04:58:25,279 - INFO - Evaluating discrete_min_mitigation_0.04_1743198474: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_0.04_1743198474.zip
+2025-03-31 04:58:25,818 - INFO - Completed evaluation for discrete_min_mitigation_0.04_1743198474
+2025-03-31 04:58:25,818 - INFO - Processing 37/48: discrete_min_mitigation_-0.01_1743313555
+2025-03-31 04:58:25,819 - INFO - Evaluating discrete_min_mitigation_-0.01_1743313555: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_-0.01_1743313555.zip
+2025-03-31 04:58:26,354 - INFO - Completed evaluation for discrete_min_mitigation_-0.01_1743313555
+2025-03-31 04:58:26,355 - INFO - Processing 38/48: discrete_min_mitigation_-0.02_1743326768
+2025-03-31 04:58:26,355 - INFO - Evaluating discrete_min_mitigation_-0.02_1743326768: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_-0.02_1743326768.zip
+2025-03-31 04:58:26,897 - INFO - Completed evaluation for discrete_min_mitigation_-0.02_1743326768
+2025-03-31 04:58:26,898 - INFO - Processing 39/48: discrete_min_mitigation_-0.03_1743340337
+2025-03-31 04:58:26,898 - INFO - Evaluating discrete_min_mitigation_-0.03_1743340337: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_-0.03_1743340337.zip
+2025-03-31 04:58:27,439 - INFO - Completed evaluation for discrete_min_mitigation_-0.03_1743340337
+2025-03-31 04:58:27,439 - INFO - Processing 40/48: discrete_min_mitigation_-0.04_1743354169
+2025-03-31 04:58:27,440 - INFO - Evaluating discrete_min_mitigation_-0.04_1743354169: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_min_mitigation_-0.04_1743354169.zip
+2025-03-31 04:58:27,972 - INFO - Completed evaluation for discrete_min_mitigation_-0.04_1743354169
+2025-03-31 04:58:27,972 - INFO - Processing 41/48: discrete_no_nego_0.01_1743228584
+2025-03-31 04:58:27,973 - INFO - Evaluating discrete_no_nego_0.01_1743228584: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_0.01_1743228584.zip
+2025-03-31 04:58:28,507 - INFO - Completed evaluation for discrete_no_nego_0.01_1743228584
+2025-03-31 04:58:28,508 - INFO - Processing 42/48: discrete_no_nego_0.02_1743242055
+2025-03-31 04:58:28,508 - INFO - Evaluating discrete_no_nego_0.02_1743242055: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_0.02_1743242055.zip
+2025-03-31 04:58:29,049 - INFO - Completed evaluation for discrete_no_nego_0.02_1743242055
+2025-03-31 04:58:29,049 - INFO - Processing 43/48: discrete_no_nego_0.03_1743255486
+2025-03-31 04:58:29,050 - INFO - Evaluating discrete_no_nego_0.03_1743255486: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_0.03_1743255486.zip
+2025-03-31 04:58:29,586 - INFO - Completed evaluation for discrete_no_nego_0.03_1743255486
+2025-03-31 04:58:29,586 - INFO - Processing 44/48: discrete_no_nego_0.04_1743269353
+2025-03-31 04:58:29,587 - INFO - Evaluating discrete_no_nego_0.04_1743269353: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_0.04_1743269353.zip
+2025-03-31 04:58:30,128 - INFO - Completed evaluation for discrete_no_nego_0.04_1743269353
+2025-03-31 04:58:30,128 - INFO - Processing 45/48: discrete_no_nego_-0.01_1743313244
+2025-03-31 04:58:30,128 - INFO - Evaluating discrete_no_nego_-0.01_1743313244: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_-0.01_1743313244.zip
+2025-03-31 04:58:30,672 - INFO - Completed evaluation for discrete_no_nego_-0.01_1743313244
+2025-03-31 04:58:30,673 - INFO - Processing 46/48: discrete_no_nego_-0.02_1743326655
+2025-03-31 04:58:30,673 - INFO - Evaluating discrete_no_nego_-0.02_1743326655: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_-0.02_1743326655.zip
+2025-03-31 04:58:31,213 - INFO - Completed evaluation for discrete_no_nego_-0.02_1743326655
+2025-03-31 04:58:31,214 - INFO - Processing 47/48: discrete_no_nego_-0.03_1743313284
+2025-03-31 04:58:31,215 - INFO - Evaluating discrete_no_nego_-0.03_1743313284: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_-0.03_1743313284.zip
+2025-03-31 04:58:31,749 - INFO - Completed evaluation for discrete_no_nego_-0.03_1743313284
+2025-03-31 04:58:31,749 - INFO - Processing 48/48: discrete_no_nego_-0.04_1743327039
+2025-03-31 04:58:31,750 - INFO - Evaluating discrete_no_nego_-0.04_1743327039: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_no_nego_-0.04_1743327039.zip
+2025-03-31 04:58:32,289 - INFO - Completed evaluation for discrete_no_nego_-0.04_1743327039
+2025-03-31 04:58:32,289 - INFO - Completed evaluation of 48/48 experiments
+2025-03-31 04:58:32,289 - INFO - Results saved to /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/evaluation_results.jsonl
+2025-03-31 08:02:26,122 - INFO - Successfully read mapping file with 48 entries
+2025-03-31 08:02:26,122 - INFO - Processing 1/48: discrete_basic_club_0.01_1743164030
+2025-03-31 08:02:26,127 - INFO - Evaluating discrete_basic_club_0.01_1743164030: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.01_1743164030.zip
+2025-03-31 08:02:51,550 - INFO - Completed evaluation for discrete_basic_club_0.01_1743164030
+2025-03-31 08:02:51,550 - INFO - Processing 2/48: discrete_basic_club_0.01_1743165031
+2025-03-31 08:02:51,553 - INFO - Evaluating discrete_basic_club_0.01_1743165031: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.01_1743165031.zip
+2025-03-31 08:03:16,975 - INFO - Completed evaluation for discrete_basic_club_0.01_1743165031
+2025-03-31 08:03:16,976 - INFO - Processing 3/48: discrete_basic_club_0.02_1743180070
+2025-03-31 08:03:16,979 - INFO - Evaluating discrete_basic_club_0.02_1743180070: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.02_1743180070.zip
+2025-03-31 08:03:41,725 - INFO - Completed evaluation for discrete_basic_club_0.02_1743180070
+2025-03-31 08:03:41,725 - INFO - Processing 4/48: discrete_basic_club_0.03_1743194449
+2025-03-31 08:03:41,729 - INFO - Evaluating discrete_basic_club_0.03_1743194449: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.03_1743194449.zip
+2025-03-31 08:04:07,160 - INFO - Completed evaluation for discrete_basic_club_0.03_1743194449
+2025-03-31 08:04:07,161 - INFO - Processing 5/48: discrete_basic_club_0.04_1743207734
+2025-03-31 08:04:07,164 - INFO - Evaluating discrete_basic_club_0.04_1743207734: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.04_1743207734.zip
+2025-03-31 08:04:33,218 - INFO - Completed evaluation for discrete_basic_club_0.04_1743207734
+2025-03-31 08:04:33,218 - INFO - Processing 6/48: discrete_basic_club_0.04_1743227822
+2025-03-31 08:04:33,222 - INFO - Evaluating discrete_basic_club_0.04_1743227822: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_0.04_1743227822.zip
+2025-03-31 08:04:59,389 - INFO - Completed evaluation for discrete_basic_club_0.04_1743227822
+2025-03-31 08:04:59,389 - INFO - Processing 7/48: discrete_basic_club_-0.01_1743245872
+2025-03-31 08:04:59,393 - INFO - Evaluating discrete_basic_club_-0.01_1743245872: /home/ubuntu/ai4gcc-virginia/climate-cooperation-competition/zips/discrete_basic_club_-0.01_1743245872.zip

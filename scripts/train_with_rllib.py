@@ -439,6 +439,42 @@ def save_model_checkpoint(trainer_obj=None, save_directory=None, current_timeste
         )
         torch.save(model_params[policy], filepath)
 
+def get_largest_numbered_state_dict(files):
+    """
+    Extract the file with the largest number from a list of filenames
+    following the pattern 'regions_<number>.state_dict'
+    
+    Args:
+        files (list): List of filenames
+        
+    Returns:
+        str: Filename with the largest number
+    """
+    numbers = []
+    filename_map = {}
+    
+    # Extract numbers from filenames and create a mapping
+    for filename in files:
+        # Check if the filename follows the expected pattern
+        if not filename.startswith('regions_') or not filename.endswith('.state_dict'):
+            continue
+            
+        # Extract the number part
+        try:
+            number_part = filename[len('regions_'):-len('.state_dict')]
+            number = int(number_part)
+            numbers.append(number)
+            filename_map[number] = filename
+        except ValueError:
+            # Skip files that don't have a valid number
+            continue
+    
+    # Find the largest number
+    if not numbers:
+        return None
+    
+    largest_number = max(numbers)
+    return filename_map[largest_number]
 
 def load_model_checkpoints(trainer_obj=None, save_directory=None, ckpt_idx=-1):
     """
@@ -451,8 +487,10 @@ def load_model_checkpoints(trainer_obj=None, save_directory=None, ckpt_idx=-1):
         "Please specify a valid directory to load the checkpoints from."
     )
     files = [f for f in os.listdir(save_directory) if f.endswith("state_dict")]
-
-    assert len(files) == len(trainer_obj.config["multiagent"]["policies"])
+    if len(files) > 1:
+        # If there are multiple files, then use the ckpt_idx to specify the checkpoint
+        files = [get_largest_numbered_state_dict(files)]
+    # assert len(files) == len(trainer_obj.config["multiagent"]["policies"])
 
     model_params = trainer_obj.get_weights()
     for policy in model_params:

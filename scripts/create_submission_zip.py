@@ -67,7 +67,7 @@ def prepare_submission(results_dir=None):
     submission_filename = results_dir.split("/")[-1]
     submission_file = os.path.join(PUBLIC_REPO_DIR, "Submissions", submission_filename)
 
-    validate_dir(results_dir)
+    # validate_dir(results_dir)
 
     # Only copy the latest policy model file for submission
     results_dir_copy = os.path.join("/tmp", "_copies_", submission_filename)

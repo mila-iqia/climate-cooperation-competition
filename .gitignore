@@ -266,3 +266,4 @@ callback_logs/*.json
 scripts/Untitled.ipynb
 jice/saved_models/*.eqx
 terminate_lambda.sh
+zips/*

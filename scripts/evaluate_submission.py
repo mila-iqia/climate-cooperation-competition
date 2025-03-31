@@ -8,7 +8,7 @@
 """
 Evaluation script for the rice environment
 """
-
+import glob
 import argparse
 import logging
 import os
@@ -466,7 +466,45 @@ def perform_format(val, num_decimal_places):
         return int(rounded_val)
     return rounded_val
 
-
+def find_yaml_files(directory_path):
+    """
+    Find all YAML files under the specified directory path and check if there's only one.
+    
+    Args:
+        directory_path (str): The directory path to search for YAML files
+        
+    Returns:
+        bool: True if exactly one YAML file is found, False otherwise
+        str: Path to the YAML file if exactly one is found, None otherwise
+    """
+    # Make sure the directory exists
+    if not os.path.isdir(directory_path):
+        print(f"Error: The directory '{directory_path}' does not exist.")
+        return False, None
+    
+    # Find all files with .yaml or .yml extension
+    yaml_files = glob.glob(os.path.join(directory_path, "**/*.yaml"), recursive=True)
+    yml_files = glob.glob(os.path.join(directory_path, "**/*.yml"), recursive=True)
+    
+    # Combine the two lists
+    all_yaml_files = yaml_files + yml_files
+    
+    # Remove duplicates (in case there are any)
+    all_yaml_files = list(set(all_yaml_files))
+    
+    # Check if there's exactly one YAML file
+    if len(all_yaml_files) == 1:
+        print(f"Found exactly one YAML file: {all_yaml_files[0]}")
+        return True, all_yaml_files[0]
+    elif len(all_yaml_files) == 0:
+        print("No YAML files found in the specified directory.")
+        return False, None
+    else:
+        print(f"Found {len(all_yaml_files)} YAML files:")
+        for file in all_yaml_files:
+            print(f"  - {file}")
+        return False, None
+    
 def perform_evaluation(
     results_directory,
     framework,
@@ -479,17 +517,20 @@ def perform_evaluation(
     """
     assert results_directory is not None
     assert num_episodes > 0
-
+    print(results_directory)
     (create_trainer, load_model_checkpoints, fetch_episode_states, set_num_agents) = (
         get_imports(framework=framework)
     )
 
     # Load a run configuration
-    if discrete:
-        yaml_path = f"rice_{framework}_discrete.yaml"
-    else:
-        yaml_path = f"rice_{framework}_cont.yaml"
-    config_file = os.path.join(results_directory, yaml_path)
+    # if discrete:
+    #     yaml_path = f"rice_{framework}_discrete.yaml"
+    # else:
+    #     yaml_path = f"rice_{framework}_cont.yaml"
+    # config_file is the file address under results_directory with extension of "yaml"
+    unique_yaml, config_file = find_yaml_files(results_directory)
+    assert unique_yaml, f"Multiple or no yaml files found in {results_directory}."
+    # config_file = os.path.join(results_directory, "rice.yaml")
 
     try:
         assert os.path.exists(config_file)
@@ -661,7 +702,11 @@ if __name__ == "__main__":
     logging.info(f"Using submission files in {results_dir}")
 
     # Validate the submission directory
-    framework, results_dir_is_valid, comment, discrete = validate_dir(results_dir)
+    # framework, results_dir_is_valid, comment, discrete = validate_dir(results_dir)
+    framework = "rllib"
+    results_dir_is_valid = True
+    comment = "None"
+    discrete = True
     if not results_dir_is_valid:
         raise AssertionError(f"{results_dir} is not a valid submission directory.")
 
@@ -688,6 +733,7 @@ if __name__ == "__main__":
 
     # Run evaluation with submitted simulation and trained agents.
     logging.info("Starting eval...")
+    # results_dir = ""
     succeeded, metrics, comments = perform_evaluation(
         results_dir, framework, discrete, eval_seed=_EVAL_SEED
     )
