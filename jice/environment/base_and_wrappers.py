@@ -46,8 +46,6 @@ class JaxBaseEnv(eqx.Module):
         obs_reset, state_reset = self.reset_env(key)
 
         # Auto-reset environment based on termination
-        breakpoint()
-        jax.debug.breakpoint()
         state = jax.tree_map(
             lambda x, y: jax.lax.select(done, x, y), state_reset, state_step
         )

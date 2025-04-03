@@ -184,7 +184,7 @@ class Rice(JaxBaseEnv):
     negotiation_on: bool = True
     dmg_function: str = "base"
     temperature_calibration: str = "FaIR" # ["base", "FaIR", "DFaIR"]
-    carbon_model: str = "AR5" # ["base", "FaIR", "DFaIR", "AR5(?)"]
+    carbon_model: str = "FaIR" # ["base", "FaIR", "DFaIR", "AR5(?)"]
     apply_welfloss: bool = True
     apply_welfgain: bool = True
 
@@ -277,11 +277,11 @@ class Rice(JaxBaseEnv):
                 ]
             ).astype(jnp.float32),
             global_exogenous_emissions=0.0,  # NOTE: this is an array in the original (jnp.zeros(1))
-            global_land_emissions=jnp.float32(0.0),  #jnp.zeros(1),
+            global_land_emissions=0.0,  #jnp.zeros(1),
             intensity_all_regions=self.region_params.xsigma_0,
             mitigation_rates_all_regions=self.region_params.xmitigation_0,
             # additional climate states for carbon and temperature model
-            global_alpha=jnp.array(self.region_params.xalpha_0),
+            global_alpha=jnp.array(self.region_params.xalpha_0, dtype=jnp.float32),
             global_carbon_reservoirs=jnp.array(
                 [
                     self.region_params.xM_R1_0,
@@ -290,8 +290,8 @@ class Rice(JaxBaseEnv):
                     self.region_params.xM_R4_0,
                 ]
             ),
-            global_cumulative_emissions=jnp.array(self.region_params.xEcum_0),
-            global_cumulative_land_emissions=jnp.array(self.region_params.xEcumL_0),
+            global_cumulative_emissions=jnp.array(self.region_params.xEcum_0, dtype=jnp.float32),
+            global_cumulative_land_emissions=jnp.array(self.region_params.xEcumL_0, dtype=jnp.float32),
             global_emissions=jnp.array(
                 self.region_params.xEInd_0 + self.region_params.xEL_0
             ),
