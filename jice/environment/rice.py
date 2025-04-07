@@ -151,12 +151,13 @@ def solve_for_alpha(prev_alpha, a, tau, irf0, irC, irT, pert_carb_stock, tempera
            return oneoveralpha_objective_function(x, a, tau, irf0, irC, irT, pert_carb_stock, temperature)
        
        # Use Newton's method
-       solver = optx.Newton(rtol=1e-5, atol=1e-5)
-       result = optx.root_find(fn, solver, initial_guess)
+       # solver = optx.Newton(rtol=1e-5, atol=1e-5)
+       solver = optx.Bisection(rtol=1e-4, atol=1e-4)
+       result = optx.root_find(fn, solver, initial_guess, options=dict(lower=0.01, upper=100))
        
        # Extract and clip alpha to valid range
        alpha = 1.0 / result.value
-       return jnp.clip(alpha, 0.01, 100.0)
+       return alpha
 
 class Rice(JaxBaseEnv):
     """
@@ -183,8 +184,8 @@ class Rice(JaxBaseEnv):
     disable_trading: bool = False # trade actions always 0, actions are not removed from the action space
     negotiation_on: bool = True
     dmg_function: str = "base"
-    temperature_calibration: str = "FaIR" # ["base", "FaIR", "DFaIR"]
-    carbon_model: str = "FaIR" # ["base", "FaIR", "DFaIR", "AR5(?)"]
+    temperature_calibration: str = "base" # ["base", "FaIR", "DFaIR"]
+    carbon_model: str = "base" # ["base", "FaIR", "DFaIR", "AR5(?)"]
     apply_welfloss: bool = True
     apply_welfgain: bool = True
 
@@ -1238,10 +1239,10 @@ class Rice(JaxBaseEnv):
                     1 - jnp.exp(-1 / (global_alpha * carbon_model_params['tau']))
                 )
             elif self.carbon_model == "DFaIR":
-                global_carbon_reservoirs = state.global_carbon_reservoirs * np.exp(
+                global_carbon_reservoirs = state.global_carbon_reservoirs * jnp.exp(
                     -5 / (carbon_model_params['tau'] * global_alpha)
                 ) + carbon_model_params['a'] * sum_aux_m / 5 * carbon_model_params['conv'] * carbon_model_params['tau'] * global_alpha * (
-                    1 - np.exp(-5 / (global_alpha * carbon_model_params['tau']))
+                    1 - jnp.exp(-5 / (global_alpha * carbon_model_params['tau']))
                 )
             carbon_updates["global_carbon_reservoirs"] = global_carbon_reservoirs
 
