@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from dataclasses import replace, asdict
 import numpy as np
 import equinox as eqx
+import optimistix as optx
 
 from jice.environment.base_and_wrappers import JaxBaseEnv, EnvState, MultiDiscrete
 
@@ -83,19 +84,19 @@ class EnvState:
     # climate states
     global_temperature: chex.Array
     global_carbon_mass: chex.Array
-    global_exogenous_emissions: chex.Array
-    global_land_emissions: chex.Array
+    global_exogenous_emissions: float
+    global_land_emissions: float
     intensity_all_regions: chex.Array
     mitigation_rates_all_regions: chex.Array
     global_temperature_boxes: chex.Array
 
     # additional climate states for carbon model
-    global_alpha: int  # or float?
+    global_alpha: float 
     global_carbon_reservoirs: chex.Array
-    global_cumulative_emissions: chex.Array
-    global_cumulative_land_emissions: int  # or float?
-    global_emissions: int  # or float?
-    global_acc_pert_carb_stock: int  # or float?
+    global_cumulative_emissions: float
+    global_cumulative_land_emissions: float
+    global_emissions: float
+    global_acc_pert_carb_stock: float
 
     # economic states
     production_all_regions: chex.Array
@@ -133,6 +134,30 @@ class EnvState:
     requested_mitigation_rate: chex.Array
     proposal_decisions: chex.Array
 
+
+def oneoveralpha_objective_function(oneoveralpha, a, tau, irf0, irC, irT, pert_carb_stock, temperature):
+    """Objective function for finding the right alpha value."""
+    b = a * tau * (1 - jnp.exp(-100 * oneoveralpha / tau))
+    return jnp.sum(b) - oneoveralpha * (
+        irf0 + irC * pert_carb_stock + irT * temperature
+    )
+
+def solve_for_alpha(prev_alpha, a, tau, irf0, irC, irT, pert_carb_stock, temperature):
+       """Use optimistix to find alpha value."""
+       initial_guess = 1.0 / prev_alpha
+       
+       # Define problem for optimistix
+       def fn(x, args):
+           return oneoveralpha_objective_function(x, a, tau, irf0, irC, irT, pert_carb_stock, temperature)
+       
+       # Use Newton's method
+       # solver = optx.Newton(rtol=1e-5, atol=1e-5)
+       solver = optx.Bisection(rtol=1e-4, atol=1e-4)
+       result = optx.root_find(fn, solver, initial_guess, options=dict(lower=0.01, upper=100))
+       
+       # Extract and clip alpha to valid range
+       alpha = 1.0 / result.value
+       return alpha
 
 class Rice(JaxBaseEnv):
     """
@@ -253,11 +278,11 @@ class Rice(JaxBaseEnv):
                 ]
             ).astype(jnp.float32),
             global_exogenous_emissions=0.0,  # NOTE: this is an array in the original (jnp.zeros(1))
-            global_land_emissions=jnp.zeros(1),
+            global_land_emissions=0.0,  #jnp.zeros(1),
             intensity_all_regions=self.region_params.xsigma_0,
             mitigation_rates_all_regions=self.region_params.xmitigation_0,
             # additional climate states for carbon and temperature model
-            global_alpha=jnp.array(self.region_params.xalpha_0),
+            global_alpha=jnp.array(self.region_params.xalpha_0, dtype=jnp.float32),
             global_carbon_reservoirs=jnp.array(
                 [
                     self.region_params.xM_R1_0,
@@ -266,8 +291,8 @@ class Rice(JaxBaseEnv):
                     self.region_params.xM_R4_0,
                 ]
             ),
-            global_cumulative_emissions=jnp.array([self.region_params.xEcum_0]),
-            global_cumulative_land_emissions=jnp.array(self.region_params.xEcumL_0),
+            global_cumulative_emissions=jnp.array(self.region_params.xEcum_0, dtype=jnp.float32),
+            global_cumulative_land_emissions=jnp.array(self.region_params.xEcumL_0, dtype=jnp.float32),
             global_emissions=jnp.array(
                 self.region_params.xEInd_0 + self.region_params.xEL_0
             ),
@@ -373,10 +398,10 @@ class Rice(JaxBaseEnv):
             "global_temperature": state.global_temperature,
             "global_carbon_mass": state.global_carbon_mass,
             "global_exogenous_emissions": jnp.array([state.global_exogenous_emissions]),
-            "global_land_emissions": state.global_land_emissions,
+            "global_land_emissions": jnp.array([state.global_land_emissions]),
             "global_temperature_boxes": state.global_temperature_boxes,
             "global_carbon_reservoirs": state.global_carbon_reservoirs,
-            "global_cumulative_emissions": state.global_cumulative_emissions,
+            "global_cumulative_emissions": jnp.array([state.global_cumulative_emissions]),
             "global_cumulative_land_emissions": jnp.array(
                 [state.global_cumulative_land_emissions]
             ),
@@ -457,6 +482,8 @@ class Rice(JaxBaseEnv):
             for k, v in normalized_features.items()
             if k in {**global_features, **public_features}.keys()
         }
+
+
         global_public_features = jnp.concat(jax.tree.leaves(global_public_features))
         global_public_features_per_agent = jnp.broadcast_to(
             global_public_features, (self.num_regions, global_public_features.shape[0])
@@ -734,11 +761,12 @@ class Rice(JaxBaseEnv):
         )
         carbon_intensities = self.calc_carbon_intensities(state)
 
-        global_carbon_mass = self.calc_global_carbon_mass(
+        global_carbon_mass, carbon_updates = self.calc_global_carbon_mass(
             state, productions, actions.mitigation_rate
         )
+        # TODO: calc_global_temperature should already have the new global_carbon_mass (nameing: prev_global_carbon_mass is also misleading in the function)
         global_temperature, global_exogenous_emissions, global_temperature_boxes = self.calc_global_temperature(
-            state
+            state, global_carbon_mass
         )
 
         current_simulation_year = self.calc_current_simulation_year(state)
@@ -775,6 +803,7 @@ class Rice(JaxBaseEnv):
             global_temperature_boxes=global_temperature_boxes,
             current_simulation_year=current_simulation_year,
             utility_times_welfloss_all_regions=utility_times_welfloss,
+            **carbon_updates,
         )
         return state
 
@@ -1111,7 +1140,9 @@ class Rice(JaxBaseEnv):
 
     def calc_global_carbon_mass(
         self, state: EnvState, productions: chex.Array, mitigation_rates: chex.Array
-    ) -> chex.Array:
+    ) ->  Tuple[chex.Array, dict]:
+        prev_global_carbon_mass = state.global_carbon_mass
+        carbon_updates = {}
 
         def calc_land_emissions():
             """Obtain the amount of land emissions."""
@@ -1135,148 +1166,101 @@ class Rice(JaxBaseEnv):
 
             """Get the carbon mass level."""
             sum_aux_m = np.sum(aux_m_all_regions)
-            prev_global_carbon_mass = state.global_carbon_mass
             global_carbon_mass = jnp.dot(
                 jnp.asarray(self.region_params.xPhi_M), prev_global_carbon_mass
             ) + jnp.dot(jnp.asarray(self.region_params.xB_M), sum_aux_m)
 
         elif self.carbon_model in ["FaIR", "AR5", "DFaIR"]:
-            raise NotImplementedError(
-                f"Carbon model {self.carbon_model} not implemented in jax yet."
-            )
-            prev_global_land_emissions = state.global_land_emissions
-            prev_global_emissions = state.global_emissions
-            prev_global_carbon_reservoirs = state.global_carbon_reservoirs
-            prev_global_cumulative_emissions = state.global_cumulative_emissions
-            prev_global_cumulative_land_emissions = (
-                state.global_cumulative_land_emissions
-            )
-            prev_global_temperature = state.global_temperature
-            prev_global_acc_pert_carb_stock = state.global_acc_pert_carb_stock
-
-            a = np.array(
-                [
+            carbon_model_params = {
+                "a": jnp.array([
                     self.region_params.xM_a0,
                     self.region_params.xM_a1,
                     self.region_params.xM_a2,
                     self.region_params.xM_a3,
-                ]
-            )
-            tau = np.array(
-                [
+                ]),
+                "tau": jnp.array([
                     self.region_params.xM_t0,
                     self.region_params.xM_t1,
                     self.region_params.xM_t2,
                     self.region_params.xM_t3,
-                ]
-            )
-            C0 = self.region_params.xM_AT_1750
-
-            irf0, irC, irT = (
-                self.all_regions_params[0]["irf0"],
-                self.all_regions_params[0]["irC"],
-                self.all_regions_params[0]["irT"],
-            )
+                ]),
+                "C0": self.region_params.xM_AT_1750,
+                "irf0": self.region_params.irf0,
+                "irC": self.region_params.irC,
+                "irT": self.region_params.irT,
+                "conv": jnp.array(1.36388),  # jnp.array(self.region_params),  # conversion 5/3.67 = 1.36388
+            }
 
             # DAE determines given concentrations and temperature how much the reservoirs can absorb
-            if self.carbon_model in ["FaIR", "DFaIR"]:
-                raise NotImplementedError(
-                    "The newton function is not implemented yet. (in jax); hence FaIR carbon model is not implemented yet."
-                )
-                prev_global_alpha = state.global_alpha
-
-                def DAE_(oneoveralpha):
-                    b = a * tau * (1 - np.exp(-100 * oneoveralpha / tau))
-                    return np.sum(b) - oneoveralpha * (
-                        irf0
-                        + irC * prev_global_acc_pert_carb_stock
-                        + irT * prev_global_temperature[0]
-                    )
-
-                global_alpha = 1 / newton(DAE_, x0=1 / prev_global_alpha)
-                assert np.isclose(
-                    0, DAE_(1 / global_alpha), rtol=1e-2
-                ), f"DAE not solved correctly."
-                assert (
-                    0.01 <= global_alpha <= 100
-                ), f"Value out of bounds: {global_alpha} is not within [0.01, 100]"
-
+            if self.carbon_model in ["FaIR", "DFaIR"]:               
+                # TODO: Plot the alpha values for diagnostics (if constantly 0.1 or 100 apparently we fail to solve the DAE). root_find has also throw option.
+                global_alpha = solve_for_alpha(state.global_alpha, carbon_model_params['a'], carbon_model_params['tau'], carbon_model_params['irf0'], carbon_model_params['irC'], carbon_model_params['irT'], state.global_acc_pert_carb_stock, state.global_temperature[0])
             elif self.carbon_model == "AR5":
-                global_alpha = 1
+                global_alpha = 1.0
 
-            if save_state:
-                self.set_state("global_alpha", global_alpha)
+            carbon_updates["global_alpha"] = global_alpha
 
-            # conversion 5/3.67 = 1.36388
-            conv = self.region_params.xB_M
             global_land_emissions = calc_land_emissions()
-            # TODO: fix aux_m treatment
+            carbon_updates["global_land_emissions"] =  global_land_emissions
+            # (original) TODO: fix aux_m treatment
             aux_m_all_regions = (
                 state.intensity_all_regions * (1 - mitigation_rates) * productions
                 + global_land_emissions
-            )  # NOTE: aux_m_all_regions was saved to state, but never used outside this function # Maybe logging?
+            )
 
             """Get the carbon mass level."""
             sum_aux_m = jnp.sum(aux_m_all_regions)
             # In case, we want to prescribe the emissions to investigate the behavior of the temperature and carbon model
             # if self.prescribed_emissions is not None:
             #     sum_aux_m = self.prescribed_emissions[self.activity_timestep]
-            if save_state:
-                self.set_state("global_emissions", np.sum(aux_m_all_regions))
+            carbon_updates["global_emissions"] = sum_aux_m
 
-            global_carbon_reservoirs = np.zeros(4)
             global_cumulative_emissions = (
-                prev_global_cumulative_emissions
-                + (prev_global_emissions - prev_global_land_emissions) * conv
+                state.global_cumulative_emissions
+                + (state.global_emissions - state.global_land_emissions) * carbon_model_params['conv']
             )
 
-            if save_state:
-                self.set_state(
-                    "global_cumulative_emissions", global_cumulative_emissions
-                )
-
+            carbon_updates["global_cumulative_emissions"] =  global_cumulative_emissions
+    
             global_cumulative_land_emissions = (
-                prev_global_cumulative_land_emissions
-                + prev_global_land_emissions * self.num_regions * conv
+                state.global_cumulative_land_emissions
+                + state.global_land_emissions * self.num_regions * carbon_model_params['conv']
             )
-            if save_state:
-                self.set_state(
-                    "global_cumulative_land_emissions", global_cumulative_land_emissions
-                )
+            carbon_updates["global_cumulative_land_emissions"] = global_cumulative_land_emissions
 
             if self.carbon_model in ["AR5", "FaIR"]:
-                global_carbon_reservoirs = prev_global_carbon_reservoirs ** np.exp(
-                    -5 / (global_alpha * tau)
-                ) + a * sum_aux_m / 5 * conv * (
-                    np.exp(-1 / (global_alpha * tau))
-                    - np.exp(-6 / (global_alpha * tau))
+                # Roll out of 5 intermediate steps reformulated with partial geometric series identity. Exponential as exponential is not a mistake.
+                global_carbon_reservoirs = state.global_carbon_reservoirs ** jnp.exp(
+                    -5 / (global_alpha * carbon_model_params['tau'])
+                ) + carbon_model_params['a'] * sum_aux_m / 5 * carbon_model_params['conv'] * (
+                    jnp.exp(-1 / (global_alpha * carbon_model_params['tau']))
+                    - jnp.exp(-6 / (global_alpha * carbon_model_params['tau']))
                 ) / (
-                    1 - np.exp(-1 / (global_alpha * tau))
+                    1 - jnp.exp(-1 / (global_alpha * carbon_model_params['tau']))
                 )
             elif self.carbon_model == "DFaIR":
-                global_carbon_reservoirs = prev_global_carbon_reservoirs * np.exp(
-                    -5 / (tau * global_alpha)
-                ) + a * sum_aux_m / 5 * conv * tau * global_alpha * (
-                    1 - np.exp(-5 / (global_alpha * tau))
+                global_carbon_reservoirs = state.global_carbon_reservoirs * jnp.exp(
+                    -5 / (carbon_model_params['tau'] * global_alpha)
+                ) + carbon_model_params['a'] * sum_aux_m / 5 * carbon_model_params['conv'] * carbon_model_params['tau'] * global_alpha * (
+                    1 - jnp.exp(-5 / (global_alpha * carbon_model_params['tau']))
                 )
-            if save_state:
-                self.set_state("global_carbon_reservoirs", global_carbon_reservoirs)
+            carbon_updates["global_carbon_reservoirs"] = global_carbon_reservoirs
 
             global_acc_pert_carb_stock = (
                 global_cumulative_emissions + global_cumulative_land_emissions
             ) - jnp.sum(global_carbon_reservoirs)
-            if save_state:
-                self.set_state("global_acc_pert_carb_stock", global_acc_pert_carb_stock)
+            carbon_updates["global_acc_pert_carb_stock"] = global_acc_pert_carb_stock
 
-            global_carbon_mass = C0 + sum((global_carbon_reservoirs))
+            atmospheric_carbon_mass = carbon_model_params['C0'] + jnp.sum(global_carbon_reservoirs)
+            global_carbon_mass = prev_global_carbon_mass.at[0].set(atmospheric_carbon_mass)
         else:
             raise NotImplementedError(
                 f"Carbon model {self.carbon_model} not implemented."
             )
 
-        return global_carbon_mass
+        return global_carbon_mass, carbon_updates
 
-    def calc_global_temperature(self, state: EnvState) -> chex.Array:
+    def calc_global_temperature(self, state: EnvState, global_carbon_mass: chex.Array) -> chex.Array:
 
         global_temperature_boxes = state.global_temperature_boxes # only changed in DFaIR
 
@@ -1294,12 +1278,11 @@ class Rice(JaxBaseEnv):
         if self.temperature_calibration == "base":
             global_exogenous_emissions = (
                 calc_exogenous_emissions()
-            )  # also exogenous forcings
-            prev_carbon_mass = state.global_carbon_mass
+            )
             prev_global_temperature = state.global_temperature
             # (original) TODO: why the zero index?
             # (original) global_exogenous_emissions = global_exogenous_emissions[0]
-            prev_atmospheric_carbon_mass = prev_carbon_mass[0]
+            prev_atmospheric_carbon_mass = global_carbon_mass.at[0].get()
             phi_t = jnp.asarray(self.region_params.xPhi_T)
             b_t = jnp.asarray(self.region_params.xB_T)
             f_2x = jnp.asarray(self.region_params.xF_2x)
@@ -1317,12 +1300,11 @@ class Rice(JaxBaseEnv):
 
         elif self.temperature_calibration == "FaIR":
             global_exogenous_emissions = calc_exogenous_emissions()
-            prev_carbon_mass = state.global_carbon_mass
             prev_global_temperature = state.global_temperature
             # (original) TODO: why the zero index?
             # (original) global_exogenous_emissions = global_exogenous_emissions[0]
-            prev_atmospheric_carbon_mass = prev_carbon_mass[0]
-            atmospheric_carbon_mass = np.array(self.region_params.xM_AT_1750)
+            prev_atmospheric_carbon_mass =  global_carbon_mass.at[0].get()
+            atmospheric_carbon_mass = jnp.array(self.region_params.xM_AT_1750)
 
             t_2x = self.region_params.xT_2x
             f_2x = self.region_params.xF_2x
@@ -1340,20 +1322,20 @@ class Rice(JaxBaseEnv):
             )
 
             # update global atmospheric temperature in 4 smaller steps
-            global_temperature_short = prev_global_temperature[0]
+            global_temperature_short = prev_global_temperature.at[0].get()
             for _ in range(4):  # TODO: this might be doable in one go?
                 global_temperature_short = global_temperature_short + 1 / xT_1 * (
                     (forcings - xT_2 * global_temperature_short)
-                    - xT_3 * (global_temperature_short - prev_global_temperature[1])
+                    - xT_3 * (global_temperature_short - prev_global_temperature.at[1].get())
                 )
             global_temperature = jnp.array(
                 [
                     global_temperature_short,
-                    prev_global_temperature[1]
+                    prev_global_temperature.at[1].get()
                     + 5
                     * xT_3
                     / xT_4
-                    * (prev_global_temperature[0] - prev_global_temperature[1]),
+                    * (prev_global_temperature.at[0].get() - prev_global_temperature.at[1].get()),
                 ]
             )
 
@@ -1361,23 +1343,22 @@ class Rice(JaxBaseEnv):
 
         elif self.temperature_calibration == "DFaIR":
             global_exogenous_emissions = calc_exogenous_emissions()
-            prev_carbon_mass = state.global_carbon_mass
             prev_global_temperature = state.global_temperature
             prev_global_temperature_boxes = state.global_temperature_boxes
 
             # (original) TODO: why the zero index?
             # (original) global_exogenous_emissions = global_exogenous_emissions[0]
-            prev_atmospheric_carbon_mass = prev_carbon_mass[0]
-            atmospheric_carbon_mass = np.array(self.region_params.xM_AT_1750)
+            prev_atmospheric_carbon_mass = global_carbon_mass.at[0].get()
+            atmospheric_carbon_mass = jnp.array(self.region_params.xM_AT_1750)
 
             f_2x = self.region_params.xF_2x
-            d = np.array(
+            d = jnp.array(
                 [
                     self.region_params.xT_LO_rt,
                     self.region_params.xT_UO_rt
                 ]
             )
-            teq = np.array(
+            teq = jnp.array(
                 [
                     self.region_params.xT_LO_tq,
                     self.region_params.xT_UO_tq,

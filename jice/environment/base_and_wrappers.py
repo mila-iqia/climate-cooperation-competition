@@ -61,6 +61,7 @@ class JaxBaseEnv(eqx.Module):
                 "terminal_observation": obs_step,
             })
 
+
         return TimeStep(obs, reward, done, discount, info), state
 
     def reset(self, key: chex.PRNGKey) -> Tuple[chex.Array, EnvState]:
