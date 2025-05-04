@@ -1,0 +1,38 @@
+# This is a configuration file for the rice_jax package.
+seed: 0
+
+env_settings:
+  num_regions: 7
+  scenario: "default"
+  diff_reward_mode: true
+  relative_reward_mode: false
+  num_discrete_action_levels: 10
+  action_window_size: 2
+  disable_trading: false # trade actions always 0, actions are not removed from the action space
+  negotiation_on: false
+  dmg_function: "base"
+  temperature_calibration: "base"  # ["base", "FaIR", "DFaIR"]
+  carbon_model: "base" # ["base", "FaIR", "DFaIR", "AR5(?)"]
+  apply_welfloss: true
+  apply_welfgain: true
+  init_capital_multiplier: 10.0
+  balance_interest_rate: 0.1
+  consumption_substitution_rate: 0.5
+  preference_for_domestic: 0.5
+  init_gamma: 0.99 # default discount factor, variable gamma can be returned from "generate_terminated_truncated_discount" function
+
+trainer_settings:
+  total_timesteps: 1000000
+  learning_rate: 2.5e-4
+  gamma: 0.99
+  gae_lambda: 0.95
+  max_grad_norm: 1.0
+  clip_coef: 0.2
+  clip_coef_vf: 0.5 # Depends on reward scaling. I.e. are rewards normalized?
+  vf_coef: 0.5
+  ent_coef: 2.0 # main currently anneals this linearly to 0.01
+  num_steps: 100
+  num_minibatches: 4
+  update_epochs: 4
+  num_envs: 4
+
