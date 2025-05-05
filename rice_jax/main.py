@@ -6,6 +6,7 @@ from typing import Any, Dict
 
 import equinox as eqx
 import jax
+import jax.numpy as jnp
 import jymkit as jym
 import numpy as np
 import optax
@@ -76,15 +77,17 @@ def build_rice_scenario(yaml_file: Dict[str, Any]) -> Rice:
 
 
 def train_new_agent(seed: PRNGKeyArray, yaml_file: Dict[str, Any], env: Rice) -> PPO:
-    import wandb
+    ENABLE_WANDB = False
+    if ENABLE_WANDB:
+        import wandb
 
-    wandb.init(
-        project="jice",
-        # config=config,
-        # entity="ai4gcc-gaia",
-        # reinit=True,
-        # tags=["eval_run"],
-    )
+        wandb.init(
+            project="jice",
+            # config=config,
+            # entity="ai4gcc-gaia",
+            # reinit=True,
+            # tags=["eval_run"],
+        )
 
     def log_training_to_wandb_fn(data, iteration):
         num_envs = data["timestep"].shape[-1]
@@ -99,7 +102,8 @@ def train_new_agent(seed: PRNGKeyArray, yaml_file: Dict[str, Any], env: Rice) ->
                     f"agent_{i}": avg_return_values_per_agent[i]
                     for i in range(len(avg_return_values_per_agent))
                 },
-                "total_avg_return": np.sum(avg_return_values),
+                "sum_of_returns": np.sum(avg_return_values),
+                "avg_returns": np.mean(avg_return_values),
                 "training timestep": timesteps[-1],
             }
         )
@@ -108,7 +112,11 @@ def train_new_agent(seed: PRNGKeyArray, yaml_file: Dict[str, Any], env: Rice) ->
     if not os.path.exists(SAVE_MODEL_PATH):
         os.makedirs(SAVE_MODEL_PATH)
 
-    agent = PPO(log_function=log_training_to_wandb_fn, **args["trainer_settings"])
+    agent = PPO(
+        log_function=log_training_to_wandb_fn if ENABLE_WANDB else "tqdm",
+        log_interval=10,
+        **args["trainer_settings"],
+    )
 
     # Set up Learning Rate & Entropy Schedule
     NUM_UPDATES = agent.num_iterations * agent.num_minibatches * agent.update_epochs
@@ -131,12 +139,30 @@ def train_new_agent(seed: PRNGKeyArray, yaml_file: Dict[str, Any], env: Rice) ->
     return agent
 
 
+class DebugAgent:
+    """
+    A debug agent that takes a fixed action for all regions."""
+
+    def __init__(self, env: Rice):
+        self.env = env
+        self.default_actions = jnp.zeros((env.action_nvec.shape[0]))
+        self.default_actions = self.default_actions.at[0].set(2.5)  # savings
+        self.default_actions = self.default_actions.at[1].set(0.0)  # mitigation
+        self.default_actions = {
+            str(i): self.default_actions for i in range(env.num_regions)
+        }
+
+    def get_action(self, key: PRNGKeyArray, obs: Any) -> jnp.ndarray:
+        return self.default_actions
+
+
 if __name__ == "__main__":
     ### Parsing Arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", help="Overwrite yaml train steps", default=1e6, type=int)
     parser.add_argument("-y", "--yaml", help="Yaml settings file", default="default")
     parser.add_argument("-l", "--load_model", help="Path to model file", default=None)
+    parser.add_argument("-d", "--debug", help="Use debug model", action="store_true")
     command_line_args = parser.parse_args()
 
     yaml_file_path = os.path.join(SETTINGS_YAML_PATH, f"{command_line_args.yaml}.yml")
@@ -155,6 +181,9 @@ if __name__ == "__main__":
     if args["load_model"]:
         print(f"Loading model from {args['load_model']}")
         agent = PPO.load(args["load_model"], env)
+    elif command_line_args.debug:
+        print("Using debug agent...")
+        agent = DebugAgent(env)
     else:
         print("Training new agent...")
         agent = train_new_agent(seed, args, env)

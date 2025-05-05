@@ -80,8 +80,6 @@ def log_episode_stats_to_wandb(episode_stats, config, wandb_group=None):
     """
     import wandb
 
-    breakpoint()
-
     dummy_key = "current_timestep"  # any key that exists and contains scalars per timestep (not per region arrays)
     num_envs = len(episode_stats[dummy_key])
     num_steps = len(episode_stats[dummy_key][0])

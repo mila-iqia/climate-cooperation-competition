@@ -178,7 +178,7 @@ class Rice(jym.Environment):
     relative_reward_mode: bool = False
     # action_type: str = "discrete" # NOTE: continuous not implemented
     num_discrete_action_levels: int = 10
-    log_state_in_info: bool = False  # if True, the environment will not create extensive "info" dicts on each step
+    log_state_in_info: bool = False  # if True, log the state in the info dict on step
     reduce_action_space_size: bool = False  # removes irrelevant actions from the action space (i.e. tarriff on itself). #NOTE: not sure if this confuses learning, so made this optional
     action_window_size: int = 0  # 0 = No action windows
 
@@ -203,11 +203,11 @@ class Rice(jym.Environment):
     # "generate_terminated_truncated_discount" function
     init_gamma: float = 0.99  # discount factor
 
-    @property
-    def STEP_STAGES(self):
-        if self.negotiation_on:
-            return 3  # step_climate_and_economy, step_propose, step_evaluate_proposals
-        return 1
+    # @property
+    # def STEP_STAGES(self):
+    #     if self.negotiation_on:
+    #         return 3  # step_climate_and_economy, step_propose, step_evaluate_proposals
+    #     return 1
 
     @property
     def start_year(self):
@@ -220,7 +220,11 @@ class Rice(jym.Environment):
     @property
     def episode_length(self):
         simulation_timesteps = self.region_params.xN
-        return simulation_timesteps * self.STEP_STAGES
+        if self.negotiation_on:
+            simulation_timesteps = (
+                simulation_timesteps * 3
+            )  # 2 extra steps for negotiation
+        return simulation_timesteps
 
     def __check_init__(self):
         # eqx module function, may use to assert some things
@@ -229,18 +233,18 @@ class Rice(jym.Environment):
     def __post_init__(self):
         # Baseline rewards:
         key = jax.random.PRNGKey(0)
-        default_actions = jnp.zeros((self.num_regions, self.action_nvec.shape[0]))
-        default_actions = default_actions.at[:, 0].set(2.5)  # savings
-        default_actions = default_actions.at[:, 1].set(0.0)  # mitigation
+        default_actions = jnp.zeros((self.action_nvec.shape[0]))
+        default_actions = default_actions.at[0].set(2.5)  # savings
+        default_actions = default_actions.at[1].set(0.0)  # mitigation
+        default_actions = {str(i): default_actions for i in range(self.num_regions)}
         _, state = self.reset_env(key)
         rewards = []
         while True and self.relative_reward_mode:
-            for stage in range(self.STEP_STAGES):
-                stage = (stage + 1) % self.STEP_STAGES
-                (_, reward, done, _, _), state = self.step_env(
-                    key, state, default_actions, stage
-                )
-                rewards.append(reward)
+            (_, reward, terminated, truncated, _), state = self.step_env(
+                key, state, default_actions
+            )
+            done = terminated or truncated
+            rewards.append(reward)
             if done:
                 break
 
@@ -357,26 +361,19 @@ class Rice(jym.Environment):
         return obs_dict, state
 
     def step_env(
-        self,
-        key: chex.PRNGKey,
-        prev_state: EnvState,
-        raw_actions: chex.Array,
-        # negotiation_stage: int,
-    ) -> Tuple[chex.PyTreeDef, EnvState, float, bool, dict]:
+        self, key: chex.PRNGKey, prev_state: EnvState, raw_actions: chex.Array
+    ) -> jym.TimeStep:
         state = replace(
             prev_state,
             current_timestep=prev_state.current_timestep + 1,
         )
-
         actions = self.process_actions(raw_actions, state)
-
         if not self.negotiation_on:
             state = self.step_climate_and_economy(state, actions)
-
         else:
-            negatiation_stage = state.activity_timestep % 3
+            negotiation_stage = state.current_timestep % 3
             state = jax.lax.switch(
-                negatiation_stage,
+                negotiation_stage,
                 [
                     lambda: self.step_climate_and_economy(state, actions),
                     lambda: self.step_propose(state, actions),
@@ -545,7 +542,7 @@ class Rice(jym.Environment):
 
         observations = jnp.concatenate(observations, axis=1)
 
-        # convert to dict (observations is now 7, 41) --> convert to {"0": (41,), "1": (41,)...}
+        # convert to dict (observations is now n, 41) --> convert to {"0": (41,), "1": (41,)...}
         observations = {str(i): observations[i] for i in range(observations.shape[0])}
 
         return observations
@@ -608,7 +605,7 @@ class Rice(jym.Environment):
 
     def generate_terminated_truncated_discount(
         self, state: EnvState
-    ) -> Tuple[bool, bool]:
+    ) -> Tuple[bool, bool, float | PyTree[float]]:
         """Generate a done flag"""
         terminated = False  # termination only happens due to timesteps
         truncated = state.current_timestep >= self.episode_length
@@ -803,9 +800,7 @@ class Rice(jym.Environment):
                 >= (self.num_discrete_action_levels / 2),  # TODO
             )
 
-    def step_climate_and_economy(
-        self, state: EnvState, actions: Actions
-    ) -> Tuple[chex.Array, EnvState]:
+    def step_climate_and_economy(self, state: EnvState, actions: Actions) -> EnvState:
         damages = self.calc_damages(state)
         abatement_costs = self.calc_abatement_costs(state, actions)  #
         productions = self.calc_productions(state)
@@ -888,9 +883,7 @@ class Rice(jym.Environment):
         )
         return state
 
-    def step_propose(
-        self, state: EnvState, actions: Actions
-    ) -> Tuple[chex.Array, EnvState]:
+    def step_propose(self, state: EnvState, actions: Actions) -> EnvState:
         if not self.negotiation_on:
             raise ValueError("Negotiation is not enabled")
         promised_mitigation_rate = actions.promised_mitigation_rate
@@ -902,9 +895,7 @@ class Rice(jym.Environment):
             requested_mitigation_rate=requested_mitigation_rate,
         )
 
-    def step_evaluate_proposals(
-        self, state: EnvState, actions: Actions
-    ) -> Tuple[chex.Array, EnvState]:
+    def step_evaluate_proposals(self, state: EnvState, actions: Actions) -> EnvState:
         if not self.negotiation_on:
             raise ValueError("Negotiation is not enabled")
 

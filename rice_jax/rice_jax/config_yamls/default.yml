@@ -2,7 +2,7 @@
 seed: 0
 
 env_settings:
-  num_regions: 7
+  num_regions: 3 # 3, 7, 20
   scenario: "default"
   diff_reward_mode: true
   relative_reward_mode: false
@@ -30,7 +30,7 @@ trainer_settings:
   clip_coef: 0.2
   clip_coef_vf: 0.5 # Depends on reward scaling. I.e. are rewards normalized?
   vf_coef: 0.5
-  ent_coef: 2.0 # main currently anneals this linearly to 0.01
+  ent_coef: 2.0 # main.py currently anneals this linearly to 0.01
   num_steps: 100
   num_minibatches: 4
   update_epochs: 4
