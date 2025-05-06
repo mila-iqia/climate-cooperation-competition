@@ -82,9 +82,9 @@ python main.py \
 
 ### 1. Training a new agent
 
-When the `debug` and `load_model` flag are *not* set. A new PPO agent will be trained from scratch based on the settings of the provided YAML file. 
+When the `debug` and `load_model` flag are *not* set. A new PPO agent will be trained from scratch based on the settings of the provided YAML file.
 
-The training loop is defined in [`rice_jax/main.py`](rice_jax/main.py). Models are saved to `saved_models/{scenario}_{num_regions}_{timestamp}.eqx`.
+The training loop is defined in [`rice_jax/main.py`](rice_jax/main.py). Models are saved to `saved_models/{scenario}_{num_regions}_{timestamp}.eqx`. Training should, when CUDA is enabled, take roughly 1-3 minutes. Note that when starting training, the training function is first compiled. It may then appear as if nothing is happening for the first 30-60 minutes. Additionally, when wandb is enabled, no feedback in the terminal is given until training finishes.
 
 if `num_simultaneous_training_runs` > 1, multiple agents will be trained simultaneously on different seeds. Wandb is disabled during training in this mode.
 

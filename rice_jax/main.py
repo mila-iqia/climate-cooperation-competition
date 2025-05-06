@@ -110,8 +110,7 @@ def train_agent_batched(
 
 
 def train_single_agent(seed: PRNGKeyArray, yaml_file: Dict[str, Any], env: Rice) -> PPO:
-    ENABLE_WANDB = True
-    if ENABLE_WANDB:
+    if args["wandb"]:
         import wandb
 
         wandb.init(
@@ -126,7 +125,7 @@ def train_single_agent(seed: PRNGKeyArray, yaml_file: Dict[str, Any], env: Rice)
         os.makedirs(SAVE_MODEL_PATH)
 
     agent = _train_new_agent(
-        seed, yaml_file, env, log_training_to_wandb_fn if ENABLE_WANDB else "tqdm"
+        seed, yaml_file, env, log_training_to_wandb_fn if args["wandb"] else "tqdm"
     )
 
     # Saving the agent
@@ -174,6 +173,7 @@ if __name__ == "__main__":
     # merge the yaml file with the command line arguments
     args["trainer_settings"]["total_timesteps"] = command_line_args.t
     args["load_model"] = command_line_args.load_model
+    args["wandb"] = command_line_args.wandb
 
     #### ---- #####
 
