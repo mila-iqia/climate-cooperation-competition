@@ -1,5 +1,6 @@
 # This is a configuration file for the rice_jax package.
 seed: 0
+num_simultaneous_training_runs: 1
 
 env_settings:
   num_regions: 3 # 3, 7, 20

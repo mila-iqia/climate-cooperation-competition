@@ -2,13 +2,12 @@ import argparse
 import os
 import time
 from dataclasses import replace
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jymkit as jym
-import numpy as np
 import optax
 import yaml
 from jaxtyping import PRNGKeyArray
@@ -18,6 +17,7 @@ from rice_jax import BasicClub, OptimalMitigation, Rice
 from rice_jax.util import (  # noqa: F401
     load_region_yamls,
     log_episode_stats_to_wandb,
+    log_training_to_wandb_fn,
     plot_data,
 )
 
@@ -76,44 +76,9 @@ def build_rice_scenario(yaml_file: Dict[str, Any]) -> Rice:
     return jym.LogWrapper(env)
 
 
-def train_new_agent(seed: PRNGKeyArray, yaml_file: Dict[str, Any], env: Rice) -> PPO:
-    ENABLE_WANDB = False
-    if ENABLE_WANDB:
-        import wandb
-
-        wandb.init(
-            project="jice",
-            # config=config,
-            # entity="ai4gcc-gaia",
-            # reinit=True,
-            # tags=["eval_run"],
-        )
-
-    def log_training_to_wandb_fn(data, iteration):
-        num_envs = data["timestep"].shape[-1]
-        return_values = data["returned_episode_returns"][data["returned_episode"]]
-        timesteps = data["timestep"][data["returned_episode"]] * num_envs
-
-        avg_return_values = np.mean(np.array(return_values), axis=0)
-        avg_return_values_per_agent = list(avg_return_values)
-        wandb.log(
-            {
-                "avg_return_per_agent": {
-                    f"agent_{i}": avg_return_values_per_agent[i]
-                    for i in range(len(avg_return_values_per_agent))
-                },
-                "sum_of_returns": np.sum(avg_return_values),
-                "avg_returns": np.mean(avg_return_values),
-                "training timestep": timesteps[-1],
-            }
-        )
-
-    SAVE_MODEL_PATH = "saved_models/"
-    if not os.path.exists(SAVE_MODEL_PATH):
-        os.makedirs(SAVE_MODEL_PATH)
-
+def _train_new_agent(seed, yaml_file, env, log_fn):
     agent = PPO(
-        log_function=log_training_to_wandb_fn if ENABLE_WANDB else "tqdm",
+        log_function=log_fn,
         log_interval=10,
         **args["trainer_settings"],
     )
@@ -129,9 +94,44 @@ def train_new_agent(seed: PRNGKeyArray, yaml_file: Dict[str, Any], env: Rice) ->
     agent: PPO = replace(agent, learning_rate=learning_rate, ent_coef=ent_coef)
     agent = agent.train(seed, env)
 
+    return agent
+
+
+def train_agent_batched(
+    seed: PRNGKeyArray, yaml_file: Dict[str, Any], env: Rice, number_of_agents: int
+) -> List[PPO]:
+    agents = jax.vmap(
+        _train_new_agent,
+        in_axes=(0, None, None, None),
+    )(jax.random.split(seed, number_of_agents), yaml_file, env, None)
+    # Converting the agents to a list of agents
+    agents = [jax.tree.map(lambda x: x[i], agents) for i in range(number_of_agents)]
+    return agents
+
+
+def train_single_agent(seed: PRNGKeyArray, yaml_file: Dict[str, Any], env: Rice) -> PPO:
+    ENABLE_WANDB = True
+    if ENABLE_WANDB:
+        import wandb
+
+        wandb.init(
+            project="jice",
+            config=yaml_file,
+            tags=["train_run"],
+            # entity="ai4gcc-gaia",
+        )
+
+    SAVE_MODEL_PATH = "saved_models/"
+    if not os.path.exists(SAVE_MODEL_PATH):
+        os.makedirs(SAVE_MODEL_PATH)
+
+    agent = _train_new_agent(
+        seed, yaml_file, env, log_training_to_wandb_fn if ENABLE_WANDB else "tqdm"
+    )
+
     # Saving the agent
     t = time.time()
-    name = f"{args['env_settings']['scenario']}_{args['env_settings']['num_regions']}"
+    name = f"{yaml_file['env_settings']['scenario']}_{yaml_file['env_settings']['num_regions']}"
     model_name = f"{name}_{int(t)}"
     print(f"saving model to {SAVE_MODEL_PATH}{model_name}")
     agent.save(f"{SAVE_MODEL_PATH}{model_name}.eqx")
@@ -141,7 +141,9 @@ def train_new_agent(seed: PRNGKeyArray, yaml_file: Dict[str, Any], env: Rice) ->
 
 class DebugAgent:
     """
-    A debug agent that takes a fixed action for all regions."""
+    A debug agent that takes a fixed action for all regions.
+    Essentially just requires a `get_action` method.
+    """
 
     def __init__(self, env: Rice):
         self.env = env
@@ -163,6 +165,7 @@ if __name__ == "__main__":
     parser.add_argument("-y", "--yaml", help="Yaml settings file", default="default")
     parser.add_argument("-l", "--load_model", help="Path to model file", default=None)
     parser.add_argument("-d", "--debug", help="Use debug model", action="store_true")
+    parser.add_argument("-w", "--wandb", help="Log eval to wandb", action="store_true")
     command_line_args = parser.parse_args()
 
     yaml_file_path = os.path.join(SETTINGS_YAML_PATH, f"{command_line_args.yaml}.yml")
@@ -186,14 +189,21 @@ if __name__ == "__main__":
         agent = DebugAgent(env)
     else:
         print("Training new agent...")
-        agent = train_new_agent(seed, args, env)
+        if args["num_simultaneous_training_runs"] > 1:
+            agents = train_agent_batched(
+                seed, args, env, args["num_simultaneous_training_runs"]
+            )
+        else:
+            agents = [train_single_agent(seed, args, env)]
 
     ## Evaluate the agent -> this function only retrieves final (avg) episode rewards
     # avg_rewards = agent.evaluate(seed, env, num_eval_episodes=20)
 
     # Play a couple of episodes and obtain the states throughout
-    NUM_EPISODES = 3
-    episode_logs = jax.vmap(play_single_episode, in_axes=(0, None, None))(
-        jax.random.split(seed, NUM_EPISODES), env, agent
-    )
-    log_episode_stats_to_wandb(episode_logs, args)
+    for agent in agents:
+        NUM_EPISODES = 3
+        episode_logs = jax.vmap(play_single_episode, in_axes=(0, None, None))(
+            jax.random.split(seed, NUM_EPISODES), env, agent
+        )
+        if command_line_args.wandb:
+            log_episode_stats_to_wandb(episode_logs, args)

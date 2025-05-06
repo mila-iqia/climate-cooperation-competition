@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "jymkit[algs]>=0.0a1",
+    "jymkit[algs]>=0.0b1",
     "matplotlib>=3.10.1",
     "optimistix>=0.0.10",
     "pyyaml>=6.0.2",

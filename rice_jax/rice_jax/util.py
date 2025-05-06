@@ -72,6 +72,26 @@ def logwrapper_callback(metric, num_envs: int, debug: bool, counter: int | None 
         )
 
 
+def log_training_to_wandb_fn(data, iteration):
+    num_envs = data["timestep"].shape[-1]
+    return_values = data["returned_episode_returns"][data["returned_episode"]]
+    timesteps = data["timestep"][data["returned_episode"]] * num_envs
+
+    avg_return_values = np.mean(np.array(return_values), axis=0)
+    avg_return_values_per_agent = list(avg_return_values)
+    wandb.log(
+        {
+            "avg_return_per_agent": {
+                f"agent_{i}": avg_return_values_per_agent[i]
+                for i in range(len(avg_return_values_per_agent))
+            },
+            "sum_of_returns": np.sum(avg_return_values),
+            "avg_returns": np.mean(avg_return_values),
+            "training timestep": timesteps[-1],
+        }
+    )
+
+
 def log_episode_stats_to_wandb(episode_stats, config, wandb_group=None):
     """
     Expects the log to be a stack of environment logs

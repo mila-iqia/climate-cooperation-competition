@@ -232,6 +232,8 @@ class Rice(jym.Environment):
 
     def __post_init__(self):
         # Baseline rewards:
+        if not self.relative_reward_mode:
+            return
         key = jax.random.PRNGKey(0)
         default_actions = jnp.zeros((self.action_nvec.shape[0]))
         default_actions = default_actions.at[0].set(2.5)  # savings
