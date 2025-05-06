@@ -1,22 +1,18 @@
 import chex
-import numpy as np
 import jax.numpy as jnp
+import numpy as np
 
-from jice.environment import Rice
-from jice.environment.base_and_wrappers import EnvState
-from jice.environment.rice import EnvState
-
+from rice_jax import Rice, RiceEnvState
 
 MITIGATION_RATE_ACTION_INDEX = 1
 
 
 class OptimalMitigation(Rice):
-
     # Both are inclusive:
     minimum_mitigation_rate: int = 9
     maximum_mitigation_rate: int = 9
 
-    def generate_action_masks(self, state: EnvState) -> chex.Array:
+    def generate_action_masks(self, state: RiceEnvState) -> chex.Array:
         action_mask = super().generate_action_masks(state)  # get default
 
         action_mask = action_mask.at[
@@ -55,7 +51,7 @@ class BasicClub(Rice):
             ]
         )
 
-    def generate_action_masks(self, state: EnvState) -> chex.Array:
+    def generate_action_masks(self, state: RiceEnvState) -> chex.Array:
         action_mask = super().generate_action_masks(state)  # get default
 
         ### First the mitigation rate actions for the club members
@@ -105,7 +101,7 @@ class BasicClub(Rice):
 
         return action_mask
 
-    def generate_observation(self, state: EnvState) -> chex.Array:
+    def generate_observation(self, state: RiceEnvState) -> chex.Array:
         """Add a club membership indicator to the observation"""
         obs = super().generate_observation(state)
         club_member_indicator = jnp.isin(

@@ -240,3 +240,5 @@ scripts/eval_by_logs.py
 *Zone.Identifier
 wandb
 dev.py
+
+*/saved_models

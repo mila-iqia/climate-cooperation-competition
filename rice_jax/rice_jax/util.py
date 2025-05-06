@@ -1,14 +1,43 @@
 import os
-import yaml
-import jax.numpy as jnp
-import wandb
-import jax
-from types import SimpleNamespace
 import time
-import wandb
-import numpy as np
+from types import SimpleNamespace
 
-def logwrapper_callback(metric, num_envs: int, debug: bool,  counter: int | None = None):
+import jax
+import jax.numpy as jnp
+import matplotlib.pyplot as plt
+import numpy as np
+import yaml
+
+import wandb
+
+
+def plot_data(data, ylabel="Atmospheric Temperature", title="Global Temperature"):
+    """
+    Data is expected to be a batch of multiple episodes, with the first dimension being the episode.
+    i.e. data is an array of global_temperature of shape (num_episodes, 20)
+    """
+
+    mean = np.mean(data, axis=0)
+    std = np.std(data, axis=0)
+    fig, ax = plt.subplots()
+    ax.plot(mean, label="Mean")
+    ax.fill_between(
+        np.arange(len(mean)),
+        mean - std,
+        mean + std,
+        alpha=0.2,
+        label="Std",
+    )
+    ax.legend()
+    ax.grid()
+    ax.set_xlabel("Time")
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    plt.tight_layout()
+    plt.savefig(f"{title}{time.time()}.png", dpi=300)
+
+
+def logwrapper_callback(metric, num_envs: int, debug: bool, counter: int | None = None):
     if (
         counter is not None and np.random.rand() < 0.9
     ):  # prevent too much logging in random agent
@@ -43,7 +72,34 @@ def logwrapper_callback(metric, num_envs: int, debug: bool,  counter: int | None
         )
 
 
+def log_training_to_wandb_fn(data, iteration):
+    num_envs = data["timestep"].shape[-1]
+    return_values = data["returned_episode_returns"][data["returned_episode"]]
+    timesteps = data["timestep"][data["returned_episode"]] * num_envs
+
+    avg_return_values = np.mean(np.array(return_values), axis=0)
+    avg_return_values_per_agent = list(avg_return_values)
+    wandb.log(
+        {
+            "avg_return_per_agent": {
+                f"agent_{i}": avg_return_values_per_agent[i]
+                for i in range(len(avg_return_values_per_agent))
+            },
+            "sum_of_returns": np.sum(avg_return_values),
+            "avg_returns": np.mean(avg_return_values),
+            "training timestep": timesteps[-1],
+        }
+    )
+
+
 def log_episode_stats_to_wandb(episode_stats, config, wandb_group=None):
+    """
+    Expects the log to be a stack of environment logs
+    i.e. episode_stats is a pytree of arrays, where the first dimension is the number of environments
+    and the second dimension is the number of timesteps.
+    """
+    import wandb
+
     dummy_key = "current_timestep"  # any key that exists and contains scalars per timestep (not per region arrays)
     num_envs = len(episode_stats[dummy_key])
     num_steps = len(episode_stats[dummy_key][0])
@@ -64,7 +120,7 @@ def log_episode_stats_to_wandb(episode_stats, config, wandb_group=None):
 
 def load_region_yamls(num_regions: int):
     assert num_regions in [3, 7, 20], "Supported number of regions are 3, 7, 20"
-    yaml_file_directory = f"jice/region_yamls/"
+    yaml_file_directory = "rice_jax/region_yamls/"
     region_yamls = []
     for file in sorted(os.listdir(f"{yaml_file_directory}{num_regions}_regions")):
         if file.endswith(".yml"):
