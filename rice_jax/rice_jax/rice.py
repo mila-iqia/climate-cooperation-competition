@@ -676,7 +676,7 @@ class Rice(jym.Environment):
         self, actions: PyTree[Int[Array, "..."]], state: EnvState
     ) -> Actions:
         # actions is a dict, we further process as arrays
-        actions = jnp.stack(actions.values(), axis=1)  # (num_actions, num_regions)
+        actions = jnp.stack([*actions.values()], axis=1)  # (num_actions, num_regions)
 
         def add_diagonal_of_zeros(x: chex.Array):
             """
