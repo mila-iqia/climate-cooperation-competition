@@ -1,5 +1,6 @@
 from dataclasses import asdict, replace
 from types import SimpleNamespace
+from copy import copy
 from typing import Tuple
 
 import chex
@@ -54,6 +55,35 @@ NORMALIZATION_FACTORS = {
 }
 
 
+class DotDict(dict):
+    def __getattr__(self, attr):
+        try:
+            return self[attr]
+        except KeyError:
+            raise AttributeError(f"'DotDict' object has no attribute '{attr}'")
+
+    def __setattr__(self, attr, value):
+        self[attr] = value
+
+    # Register DotDict as a PyTree by flattening its items.
+    def __tree_flatten__(self):
+        children = list(self.values())
+        aux_data = list(self.keys())
+        return children, aux_data
+
+    @classmethod
+    def __tree_unflatten__(cls, aux_data, children):
+        return cls(dict(zip(aux_data, children)))
+
+
+# Register DotDict with JAX
+jax.tree_util.register_pytree_node(
+    DotDict,
+    lambda d: (list(d.values()), list(d.keys())),
+    lambda aux, children: DotDict(dict(zip(aux, children)))
+)
+
+
 # jax.config.update("jax_disable_jit", True)
 @chex.dataclass(frozen=True)
 class Actions:
@@ -72,64 +102,64 @@ class Actions:
     proposal_decisions: chex.Array = None
 
 
-@chex.dataclass
-class EnvState:
-    current_timestep: int  # The RL timestep
-    activity_timestep: int  # The timestep in the simulation (can be different from RL timestep if negotiation is on)
-    current_simulation_year: int
+# @chex.dataclass
+# class DotDict:
+#     current_timestep: int  # The RL timestep
+#     activity_timestep: int  # The timestep in the simulation (can be different from RL timestep if negotiation is on)
+#     current_simulation_year: int
 
-    # climate states
-    global_temperature: chex.Array
-    global_carbon_mass: chex.Array
-    global_exogenous_emissions: float
-    global_land_emissions: float
-    intensity_all_regions: chex.Array
-    mitigation_rates_all_regions: chex.Array
-    global_temperature_boxes: chex.Array
+#     # climate states
+#     global_temperature: chex.Array
+#     global_carbon_mass: chex.Array
+#     global_exogenous_emissions: float
+#     global_land_emissions: float
+#     intensity_all_regions: chex.Array
+#     mitigation_rates_all_regions: chex.Array
+#     global_temperature_boxes: chex.Array
 
-    # additional climate states for carbon model
-    global_alpha: float
-    global_carbon_reservoirs: chex.Array
-    global_cumulative_emissions: float
-    global_cumulative_land_emissions: float
-    global_emissions: float
-    global_acc_pert_carb_stock: float
+#     # additional climate states for carbon model
+#     global_alpha: float
+#     global_carbon_reservoirs: chex.Array
+#     global_cumulative_emissions: float
+#     global_cumulative_land_emissions: float
+#     global_emissions: float
+#     global_acc_pert_carb_stock: float
 
-    # economic states
-    production_all_regions: chex.Array
-    gross_output_all_regions: chex.Array
-    aggregate_consumption: chex.Array
-    investment_all_regions: chex.Array
-    capital_all_regions: chex.Array
-    capital_depreciation_all_regions: chex.Array
-    labor_all_regions: chex.Array
-    production_factor_all_regions: chex.Array
-    current_balance_all_regions: chex.Array
-    abatement_cost_all_regions: chex.Array
-    # mitigation_cost_all_regions: chex.Array
-    damages_all_regions: chex.Array
-    utility_all_regions: chex.Array
-    # social_welfare_all_regions: chex.Array
+#     # economic states
+#     production_all_regions: chex.Array
+#     gross_output_all_regions: chex.Array
+#     aggregate_consumption: chex.Array
+#     investment_all_regions: chex.Array
+#     capital_all_regions: chex.Array
+#     capital_depreciation_all_regions: chex.Array
+#     labor_all_regions: chex.Array
+#     production_factor_all_regions: chex.Array
+#     current_balance_all_regions: chex.Array
+#     abatement_cost_all_regions: chex.Array
+#     # mitigation_cost_all_regions: chex.Array
+#     damages_all_regions: chex.Array
+#     utility_all_regions: chex.Array
+#     # social_welfare_all_regions: chex.Array
 
-    # trade states
-    # tariffs: chex.Array
-    import_tariffs: chex.Array
-    normalized_import_bids_all_regions: chex.Array
-    import_bids_all_regions: chex.Array
-    imports_minus_tariffs: chex.Array
-    export_limit_all_regions: chex.Array
+#     # trade states
+#     # tariffs: chex.Array
+#     import_tariffs: chex.Array
+#     normalized_import_bids_all_regions: chex.Array
+#     import_bids_all_regions: chex.Array
+#     imports_minus_tariffs: chex.Array
+#     export_limit_all_regions: chex.Array
 
-    savings_all_regions: chex.Array
-    utility_times_welfloss_all_regions: (
-        chex.Array
-    )  # this is basically what used to be "rewards_all_regions"
+#     savings_all_regions: chex.Array
+#     utility_times_welfloss_all_regions: (
+#         chex.Array
+#     )  # this is basically what used to be "rewards_all_regions"
 
-    # # negotiation states
-    negotiation_stage: chex.Array
-    minimum_mitigation_rate_all_regions: chex.Array
-    promised_mitigation_rate: chex.Array
-    requested_mitigation_rate: chex.Array
-    proposal_decisions: chex.Array
+#     # # negotiation states
+#     negotiation_stage: chex.Array
+#     minimum_mitigation_rate_all_regions: chex.Array
+#     promised_mitigation_rate: chex.Array
+#     requested_mitigation_rate: chex.Array
+#     proposal_decisions: chex.Array
 
 
 def oneoveralpha_objective_function(
@@ -252,7 +282,7 @@ class Rice(jym.Environment):
 
         object.__setattr__(self, "baseline_rewards", jnp.array(rewards))
 
-    def reset_env(self, key: chex.PRNGKey) -> Tuple[chex.Array, EnvState]:
+    def reset_env(self, key: chex.PRNGKey) -> Tuple[chex.Array, DotDict]:
         if self.temperature_calibration == "base":
             global_temperature = jnp.array(
                 [self.region_params.xT_AT_0, self.region_params.xT_LO_0]
@@ -273,102 +303,83 @@ class Rice(jym.Environment):
                 f"Unknown temperature calibration: {self.temperature_calibration}"
             )
 
-        state = EnvState(
-            current_timestep=0,
-            activity_timestep=0,
-            current_simulation_year=self.start_year,
+        state = DotDict({
+            "current_timestep": 0,
+            "activity_timestep": 0,
+            "current_simulation_year": self.start_year,
             # Climate states
-            global_temperature=global_temperature,
-            global_carbon_mass=jnp.array(
-                [
-                    self.region_params.xM_AT_0,
-                    self.region_params.xM_UP_0,
-                    self.region_params.xM_LO_0,
-                ]
-            ).astype(jnp.float32),
-            global_exogenous_emissions=0.0,  # NOTE: this is an array in the original (jnp.zeros(1))
-            global_land_emissions=0.0,  # jnp.zeros(1),
-            intensity_all_regions=self.region_params.xsigma_0,
-            mitigation_rates_all_regions=self.region_params.xmitigation_0,
-            # additional climate states for carbon and temperature model
-            global_alpha=jnp.array(self.region_params.xalpha_0, dtype=jnp.float32),
-            global_carbon_reservoirs=jnp.array(
-                [
-                    self.region_params.xM_R1_0,
-                    self.region_params.xM_R2_0,
-                    self.region_params.xM_R3_0,
-                    self.region_params.xM_R4_0,
-                ]
+            "global_temperature": global_temperature,
+            "global_carbon_mass": jnp.array([
+                self.region_params.xM_AT_0,
+                self.region_params.xM_UP_0,
+                self.region_params.xM_LO_0,
+            ]).astype(jnp.float32),
+            "global_exogenous_emissions": 0.0,  # Originally an array (jnp.zeros(1))
+            "global_land_emissions": 0.0,         # jnp.zeros(1)
+            "intensity_all_regions": self.region_params.xsigma_0,
+            "mitigation_rates_all_regions": self.region_params.xmitigation_0,
+            # Additional climate states
+            "global_alpha": jnp.array(self.region_params.xalpha_0, dtype=jnp.float32),
+            "global_carbon_reservoirs": jnp.array([
+                self.region_params.xM_R1_0,
+                self.region_params.xM_R2_0,
+                self.region_params.xM_R3_0,
+                self.region_params.xM_R4_0,
+            ]),
+            "global_cumulative_emissions": jnp.array(self.region_params.xEcum_0, dtype=jnp.float32),
+            "global_cumulative_land_emissions": jnp.array(self.region_params.xEcumL_0, dtype=jnp.float32),
+            "global_emissions": jnp.array(self.region_params.xEInd_0 + self.region_params.xEL_0),
+            "global_acc_pert_carb_stock": jnp.array(
+                self.region_params.xEcum_0 +
+                self.region_params.xEcumL_0 -
+                (self.region_params.xM_R1_0 +
+                self.region_params.xM_R2_0 +
+                self.region_params.xM_R3_0 +
+                self.region_params.xM_R4_0)
             ),
-            global_cumulative_emissions=jnp.array(
-                self.region_params.xEcum_0, dtype=jnp.float32
-            ),
-            global_cumulative_land_emissions=jnp.array(
-                self.region_params.xEcumL_0, dtype=jnp.float32
-            ),
-            global_emissions=jnp.array(
-                self.region_params.xEInd_0 + self.region_params.xEL_0
-            ),
-            global_acc_pert_carb_stock=jnp.array(
-                self.region_params.xEcum_0
-                + self.region_params.xEcumL_0
-                - (
-                    self.region_params.xM_R1_0
-                    + self.region_params.xM_R2_0
-                    + self.region_params.xM_R3_0
-                    + self.region_params.xM_R4_0
-                )
-            ),
-            global_temperature_boxes=jnp.array(
-                [self.region_params.xT_LO_0, self.region_params.xT_UO_0]
-            ),
-            # economic states
-            production_all_regions=jnp.zeros(self.num_regions),
-            gross_output_all_regions=jnp.zeros(self.num_regions),
-            aggregate_consumption=jnp.zeros(self.num_regions),
-            investment_all_regions=jnp.zeros(self.num_regions),
-            capital_all_regions=self.region_params.xK_0,
-            capital_depreciation_all_regions=jnp.zeros(self.num_regions),
-            labor_all_regions=self.region_params.xL_0,
-            production_factor_all_regions=self.region_params.xA_0,
-            current_balance_all_regions=jnp.zeros(self.num_regions),
-            abatement_cost_all_regions=jnp.zeros(self.num_regions),
-            # mitigation_cost_all_regions=jnp.zeros(self.num_regions),
-            damages_all_regions=jnp.zeros(self.num_regions),
-            utility_all_regions=jnp.zeros(self.num_regions),
-            # social_welfare_all_regions=jnp.zeros(self.num_regions),
-            utility_times_welfloss_all_regions=jnp.zeros(
-                self.num_regions
-            ),  # this is basically what used to be "rewards_all_regions"
-            # trade states
-            import_tariffs=jnp.zeros((self.num_regions, self.num_regions)),
-            normalized_import_bids_all_regions=jnp.zeros(
-                (self.num_regions, self.num_regions)
-            ),
-            import_bids_all_regions=self.region_params.ximport,
-            imports_minus_tariffs=jnp.zeros((self.num_regions, self.num_regions)),
-            export_limit_all_regions=self.region_params.xexport,
-            savings_all_regions=self.region_params.xsaving_0,
-            # negotiation states
-            negotiation_stage=0,
-            minimum_mitigation_rate_all_regions=jnp.zeros(self.num_regions),
-            promised_mitigation_rate=jnp.zeros((self.num_regions, self.num_regions)),
-            requested_mitigation_rate=jnp.zeros((self.num_regions, self.num_regions)),
-            proposal_decisions=jnp.zeros(
-                (self.num_regions, self.num_regions), dtype=jnp.bool
-            ),
-        )
+            "global_temperature_boxes": jnp.array([
+                self.region_params.xT_LO_0,
+                self.region_params.xT_UO_0
+            ]),
+            # Economic states
+            "production_all_regions": jnp.zeros(self.num_regions),
+            "gross_output_all_regions": jnp.zeros(self.num_regions),
+            "aggregate_consumption": jnp.zeros(self.num_regions),
+            "investment_all_regions": jnp.zeros(self.num_regions),
+            "capital_all_regions": self.region_params.xK_0,
+            "capital_depreciation_all_regions": jnp.zeros(self.num_regions),
+            "labor_all_regions": self.region_params.xL_0,
+            "production_factor_all_regions": self.region_params.xA_0,
+            "current_balance_all_regions": jnp.zeros(self.num_regions),
+            "abatement_cost_all_regions": jnp.zeros(self.num_regions),
+            "damages_all_regions": jnp.zeros(self.num_regions),
+            "utility_all_regions": jnp.zeros(self.num_regions),
+            "utility_times_welfloss_all_regions": jnp.zeros(self.num_regions),
+            # Trade states
+            "import_tariffs": jnp.zeros((self.num_regions, self.num_regions)),
+            "normalized_import_bids_all_regions": jnp.zeros((self.num_regions, self.num_regions)),
+            "import_bids_all_regions": self.region_params.ximport,
+            "imports_minus_tariffs": jnp.zeros((self.num_regions, self.num_regions)),
+            "export_limit_all_regions": self.region_params.xexport,
+            "savings_all_regions": self.region_params.xsaving_0,
+            # Negotiation states
+            "negotiation_stage": 0,
+            "minimum_mitigation_rate_all_regions": jnp.zeros(self.num_regions),
+            "promised_mitigation_rate": jnp.zeros((self.num_regions, self.num_regions)),
+            "requested_mitigation_rate": jnp.zeros((self.num_regions, self.num_regions)),
+            "proposal_decisions": jnp.zeros((self.num_regions, self.num_regions), dtype=jnp.bool),
+        })
 
         obs_dict = self.generate_observation_and_action_mask(state)
         return obs_dict, state
 
     def step_env(
-        self, key: chex.PRNGKey, prev_state: EnvState, raw_actions: chex.Array
+        self, key: chex.PRNGKey, prev_state: DotDict, raw_actions: chex.Array
     ) -> jym.TimeStep:
-        state = replace(
-            prev_state,
-            current_timestep=prev_state.current_timestep + 1,
+        state = DotDict(
+            **prev_state  
         )
+        state.current_timestep = prev_state.current_timestep + 1
         actions = self.process_actions(raw_actions, state)
         if not self.negotiation_on:
             state = self.step_climate_and_economy(state, actions)
@@ -395,7 +406,7 @@ class Rice(jym.Environment):
 
         return (obs_dict, reward, terminated, truncated, info), state
 
-    def generate_observation_and_action_mask(self, state: EnvState) -> chex.Array:
+    def generate_observation_and_action_mask(self, state: DotDict) -> chex.Array:
         observations = self.generate_observation(state)
         action_masks = self.generate_action_masks(state)
 
@@ -407,7 +418,7 @@ class Rice(jym.Environment):
             is_leaf=lambda x: x is not observations,
         )
 
-    def generate_observation(self, state: EnvState) -> chex.Array:
+    def generate_observation(self, state: DotDict) -> chex.Array:
         """
         Format observations for each agent by concatenating global, public
         and private features.
@@ -549,7 +560,7 @@ class Rice(jym.Environment):
 
         return observations
 
-    def generate_action_masks(self, state: EnvState) -> chex.Array:
+    def generate_action_masks(self, state: DotDict) -> chex.Array:
         """This function is typically overwritten by a scenario"""
         default_action_mask = jnp.ones(  # allow everything
             (
@@ -593,7 +604,7 @@ class Rice(jym.Environment):
 
         return action_mask
 
-    def generate_rewards(self, new_state: EnvState, old_state: EnvState) -> chex.Array:
+    def generate_rewards(self, new_state: DotDict, old_state: DotDict) -> chex.Array:
         reward = new_state.utility_times_welfloss_all_regions
 
         if self.diff_reward_mode:
@@ -606,7 +617,7 @@ class Rice(jym.Environment):
         return {str(i): reward[i] for i in range(reward.shape[0])}
 
     def generate_terminated_truncated_discount(
-        self, state: EnvState
+        self, state: DotDict
     ) -> Tuple[bool, bool, float | PyTree[float]]:
         """Generate a done flag"""
         terminated = False  # termination only happens due to timesteps
@@ -617,11 +628,11 @@ class Rice(jym.Environment):
         discount = jnp.power(discount, self.years_per_step)
         return terminated, truncated, discount
 
-    def generate_info(self, state: EnvState, actions: Actions) -> dict:
+    def generate_info(self, state: DotDict, actions: Actions) -> dict:
         if not self.log_state_in_info:
             return {}  # Saving some computation during training
 
-        info = asdict(state)
+        info = copy(state)
         keys = [key for key in info.keys()]
         per_region_keys = [key for key in keys if key.endswith("_all_regions")]
         per_region_keys += ["aggregate_consumption"]
@@ -673,7 +684,7 @@ class Rice(jym.Environment):
         return info
 
     def process_actions(
-        self, actions: PyTree[Int[Array, "..."]], state: EnvState
+        self, actions: PyTree[Int[Array, "..."]], state: DotDict
     ) -> Actions:
         # actions is a dict, we further process as arrays
         actions = jnp.stack([*actions.values()], axis=1)  # (num_actions, num_regions)
@@ -802,7 +813,7 @@ class Rice(jym.Environment):
                 >= (self.num_discrete_action_levels / 2),  # TODO
             )
 
-    def step_climate_and_economy(self, state: EnvState, actions: Actions) -> EnvState:
+    def step_climate_and_economy(self, state: DotDict, actions: Actions) -> DotDict:
         damages = self.calc_damages(state)
         abatement_costs = self.calc_abatement_costs(state, actions)  #
         productions = self.calc_productions(state)
@@ -851,53 +862,53 @@ class Rice(jym.Environment):
 
         utility_times_welfloss = utilities * welfloss_multipliers
 
-        state: EnvState = replace(
-            state,
-            activity_timestep=state.activity_timestep + 1,
-            # actions
-            savings_all_regions=actions.savings_rate,
-            import_tariffs=actions.import_tariff,
-            export_limit_all_regions=actions.export_limit,
-            import_bids_all_regions=actions.import_bids,
-            mitigation_rates_all_regions=actions.mitigation_rate,
-            # others
-            damages_all_regions=damages,
-            aggregate_consumption=consumptions,
-            abatement_cost_all_regions=abatement_costs,
-            production_all_regions=productions,
-            gross_output_all_regions=gross_outputs,
-            investment_all_regions=investments,
-            current_balance_all_regions=gov_balances_post_trade,
-            imports_minus_tariffs=net_imports,
-            utility_all_regions=utilities,
-            # social_welfare_all_regions=social_welfare,
-            labor_all_regions=labors,
-            capital_all_regions=capitals,
-            production_factor_all_regions=production_factors,
-            intensity_all_regions=carbon_intensities,
-            global_carbon_mass=global_carbon_mass,
-            global_temperature=global_temperature,
-            global_exogenous_emissions=global_exogenous_emissions,
-            global_temperature_boxes=global_temperature_boxes,
-            current_simulation_year=current_simulation_year,
-            utility_times_welfloss_all_regions=utility_times_welfloss,
-            **carbon_updates,
-        )
+        state = DotDict(
+            **state
+        )  # make a copy of the state to avoid mutating it
+        state.activity_timestep=state.activity_timestep + 1
+        # actions
+        state.savings_all_regions=actions.savings_rate
+        state.import_tariffs=actions.import_tariff
+        state.export_limit_all_regions=actions.export_limit
+        state.import_bids_all_regions=actions.import_bids
+        state.mitigation_rates_all_regions=actions.mitigation_rate
+        # others
+        state.damages_all_regions=damages
+        state.aggregate_consumption=consumptions
+        state.abatement_cost_all_regions=abatement_costs
+        state.production_all_regions=productions
+        state.gross_output_all_regions=gross_outputs
+        state.investment_all_regions=investments
+        state.current_balance_all_regions=gov_balances_post_trade
+        state.imports_minus_tariffs=net_imports
+        state.utility_all_regions=utilities
+        # social_welfare_all_regions=social_welfare
+        state.labor_all_regions=labors
+        state.capital_all_regions=capitals
+        state.production_factor_all_regions=production_factors
+        state.intensity_all_regions=carbon_intensities
+        state.global_carbon_mass=global_carbon_mass
+        state.global_temperature=global_temperature
+        state.global_exogenous_emissions=global_exogenous_emissions
+        state.global_temperature_boxes=global_temperature_boxes
+        state.current_simulation_year=current_simulation_year
+        state.utility_times_welfloss_all_regions=utility_times_welfloss
+        for k, v in carbon_updates.items():
+            state[k] = v
+
         return state
 
-    def step_propose(self, state: EnvState, actions: Actions) -> EnvState:
+    def step_propose(self, state: DotDict, actions: Actions) -> DotDict:
         if not self.negotiation_on:
             raise ValueError("Negotiation is not enabled")
         promised_mitigation_rate = actions.promised_mitigation_rate
         requested_mitigation_rate = actions.requested_mitigation_rate
 
-        return replace(
-            state,
-            promised_mitigation_rate=promised_mitigation_rate,
-            requested_mitigation_rate=requested_mitigation_rate,
-        )
+        state.promised_mitigation_rate = promised_mitigation_rate
+        state.requested_mitigation_rate = requested_mitigation_rate
+        return state
 
-    def step_evaluate_proposals(self, state: EnvState, actions: Actions) -> EnvState:
+    def step_evaluate_proposals(self, state: DotDict, actions: Actions) -> DotDict:
         if not self.negotiation_on:
             raise ValueError("Negotiation is not enabled")
 
@@ -919,16 +930,14 @@ class Rice(jym.Environment):
             combined_max_accepted_mitigation_rates, axis=1
         )
 
-        return replace(
-            state,
-            proposal_decisions=proposal_decisions,
-            minimum_mitigation_rate_all_regions=lower_bound_mitigation_rates,
-        )
+        state.proposal_decisions = proposal_decisions
+        state.minimum_mitigation_rate_all_regions = lower_bound_mitigation_rates
+        return state
 
     ### Rice specific functions
     ## Part of step_climate_and_economy()
     ###
-    def calc_damages(self, state: EnvState) -> chex.Array:
+    def calc_damages(self, state: DotDict) -> chex.Array:
         prev_atmospheric_temperature = state.global_temperature[0]
 
         # NOTE: this function returns the (1 - damages) as a percentage of production?
@@ -951,7 +960,7 @@ class Rice(jym.Environment):
 
         return damages
 
-    def calc_abatement_costs(self, state: EnvState, actions: Actions) -> chex.Array:
+    def calc_abatement_costs(self, state: DotDict, actions: Actions) -> chex.Array:
         def calc_mitigation_costs():
             mitigation_costs = (
                 self.region_params.xp_b
@@ -973,7 +982,7 @@ class Rice(jym.Environment):
 
         return abatement_costs
 
-    def calc_productions(self, state: EnvState) -> chex.Array:
+    def calc_productions(self, state: DotDict) -> chex.Array:
         productions = (
             state.production_factor_all_regions
             * jnp.power(state.capital_all_regions, self.region_params.xgamma)
@@ -993,7 +1002,7 @@ class Rice(jym.Environment):
         investments = actions.savings_rate * gross_outputs
         return investments
 
-    def calc_gov_balances_post_interest(self, state: EnvState) -> chex.Array:
+    def calc_gov_balances_post_interest(self, state: DotDict) -> chex.Array:
         gov_balances_post_interest = state.current_balance_all_regions * (
             1 + self.balance_interest_rate
         )
@@ -1011,7 +1020,7 @@ class Rice(jym.Environment):
 
     def calc_gross_imports(
         self,
-        state: EnvState,
+        state: DotDict,
         actions: Actions,
         gross_outputs: chex.Array,
         investments: chex.Array,
@@ -1070,7 +1079,7 @@ class Rice(jym.Environment):
         return normalized_import_bids_all_regions
 
     def calc_trade_sanctions(
-        self, state: EnvState, gross_imports: chex.Array, actions: Actions
+        self, state: DotDict, gross_imports: chex.Array, actions: Actions
     ) -> Tuple[chex.Array, chex.Array]:
         # NOTE: Original used: self.get_prev_state("import_tariffs_all_regions")
         # this delays the action one step? here, this is changed to current action
@@ -1084,7 +1093,7 @@ class Rice(jym.Environment):
 
     def calc_welfloss_multiplier(
         self,
-        state: EnvState,
+        state: DotDict,
         gross_outputs: chex.Array,
         gross_imports: chex.Array,
         net_imports: chex.Array,
@@ -1144,7 +1153,7 @@ class Rice(jym.Environment):
 
         return consumptions
 
-    def calc_utilities(self, state: EnvState, consumptions: chex.Array) -> chex.Array:
+    def calc_utilities(self, state: DotDict, consumptions: chex.Array) -> chex.Array:
         scaled_labor_all_regions = state.labor_all_regions / 1000.0
         utilities = (
             scaled_labor_all_regions
@@ -1159,9 +1168,7 @@ class Rice(jym.Environment):
         )
         return utilities
 
-    def calc_social_welfares(
-        self, state: EnvState, utilities: chex.Array
-    ) -> chex.Array:
+    def calc_social_welfares(self, state: DotDict, utilities: chex.Array) -> chex.Array:
         social_welfares = utilities / (
             jnp.power(
                 1 + self.region_params.xrho,
@@ -1170,7 +1177,7 @@ class Rice(jym.Environment):
         )
         return social_welfares
 
-    def calc_capitals(self, state: EnvState, investments: chex.Array) -> chex.Array:
+    def calc_capitals(self, state: DotDict, investments: chex.Array) -> chex.Array:
         capital_depreciation = jnp.power(
             1 - self.region_params.xdelta_K, self.region_params.xDelta
         )
@@ -1179,14 +1186,14 @@ class Rice(jym.Environment):
         )
         return capitals
 
-    def calc_labors(self, state: EnvState) -> chex.Array:
+    def calc_labors(self, state: DotDict) -> chex.Array:
         labors = state.labor_all_regions * jnp.power(
             (1 + self.region_params.xL_a) / (1 + state.labor_all_regions),
             self.region_params.xl_g,
         )
         return labors
 
-    def calc_production_factors(self, state: EnvState) -> chex.Array:
+    def calc_production_factors(self, state: DotDict) -> chex.Array:
         production_factors = state.production_factor_all_regions * (
             jnp.exp(0.0033)
             + self.region_params.xg_A
@@ -1207,7 +1214,7 @@ class Rice(jym.Environment):
         gov_balances_post_trade = gov_balances_post_interest + trade_balance
         return gov_balances_post_trade
 
-    def calc_carbon_intensities(self, state: EnvState) -> chex.Array:
+    def calc_carbon_intensities(self, state: DotDict) -> chex.Array:
         carbon_intensity = state.intensity_all_regions * jnp.exp(
             -self.region_params.xg_sigma
             * jnp.power(
@@ -1219,7 +1226,7 @@ class Rice(jym.Environment):
         return carbon_intensity
 
     def calc_global_carbon_mass(
-        self, state: EnvState, productions: chex.Array, mitigation_rates: chex.Array
+        self, state: DotDict, productions: chex.Array, mitigation_rates: chex.Array
     ) -> Tuple[chex.Array, dict]:
         prev_global_carbon_mass = state.global_carbon_mass
         carbon_updates = {}
@@ -1367,7 +1374,7 @@ class Rice(jym.Environment):
         return global_carbon_mass, carbon_updates
 
     def calc_global_temperature(
-        self, state: EnvState, global_carbon_mass: chex.Array
+        self, state: DotDict, global_carbon_mass: chex.Array
     ) -> chex.Array:
         global_temperature_boxes = (
             state.global_temperature_boxes
@@ -1501,7 +1508,7 @@ class Rice(jym.Environment):
                 f"Unknown temperature calibration: {self.temperature_calibration}"
             )
 
-    def calc_current_simulation_year(self, state: EnvState) -> chex.Array:
+    def calc_current_simulation_year(self, state: DotDict) -> chex.Array:
         return state.current_simulation_year + self.region_params.xDelta
 
     ###

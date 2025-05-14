@@ -75,19 +75,25 @@ def logwrapper_callback(metric, num_envs: int, debug: bool, counter: int | None 
 
 def log_training_to_wandb_fn(data, iteration):
     num_envs = data["timestep"].shape[-1]
-    return_values = data["returned_episode_returns"][data["returned_episode"]]
     timesteps = data["timestep"][data["returned_episode"]] * num_envs
 
-    avg_return_values = np.mean(np.array(return_values), axis=0)
-    avg_return_values_per_agent = list(avg_return_values)
+    return_values_per_agent = jax.tree.map(
+        lambda x: x[data["returned_episode"]], data["returned_episode_returns"]
+    )
+    avg_return_values_per_agent = jax.tree.map(
+        lambda x: np.mean(np.array(x), axis=0), return_values_per_agent
+    )
+    sum_of_returns = np.sum(np.array(jax.tree.leaves(avg_return_values_per_agent)))
+    avg_return = np.mean(np.array(jax.tree.leaves(avg_return_values_per_agent)))
     wandb.log(
         {
-            "avg_return_per_agent": {
-                f"agent_{i}": avg_return_values_per_agent[i]
-                for i in range(len(avg_return_values_per_agent))
-            },
-            "sum_of_returns": np.sum(avg_return_values),
-            "avg_returns": np.mean(avg_return_values),
+            **avg_return_values_per_agent,
+            # "avg_return_per_agent": {
+            #     f"agent_{i}": avg_return_values_per_agent[i]
+            #     for i in range(len(avg_return_values_per_agent))
+            # },
+            "sum_of_returns": sum_of_returns,
+            "avg_returns": avg_return,
             "training timestep": timesteps[-1],
         }
     )
