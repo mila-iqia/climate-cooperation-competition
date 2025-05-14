@@ -1,5 +1,5 @@
 [project]
-name = "Rice-n-JAX"
+name = "Rice_JAX"
 version = "0.1.0"
 description = "A high-performance implementation of the Rice-N climate-economy model in JAX"
 readme = "README.md"
