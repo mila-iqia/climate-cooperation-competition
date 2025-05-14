@@ -433,14 +433,14 @@ wheels = [
 
 [[package]]
 name = "jymkit"
-version = "0.0b1"
+version = "0.0.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "equinox" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/31/a4/b7cfd861f741465b486808b93f3f123638bf31f80650fa28e5b47bfd5103/jymkit-0.0b1.tar.gz", hash = "sha256:b8f12ffd3890b09accf622aab826eb31650455bc247e8c82c70853cd1dba8e4e", size = 27805 }
+sdist = { url = "https://files.pythonhosted.org/packages/8c/9f/101bc9a686f766036ee4009d1a082eb807e4fd33f67768f7edac42cee4d5/jymkit-0.0.7.tar.gz", hash = "sha256:10a26facb4c0fe19618868f81e7a846d93eb44d6b24e778898d8b9c29c9c6233", size = 24998 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/82/ff/d5385836ab6436244881650c16ebd22481f8f336d76bedf5bf94253daa4f/jymkit-0.0b1-py3-none-any.whl", hash = "sha256:104d1ada513b59e9dcb82f718486a8373e98ce47eea2d2b969fe055055478215", size = 35184 },
+    { url = "https://files.pythonhosted.org/packages/a5/1d/84cbb55b2f5c0c07b7110ebf8f1e8e5f79c7feaf31a857ee05fed9f67230/jymkit-0.0.7-py3-none-any.whl", hash = "sha256:777bbdddec35ac50909e6e10ee58109395652905fb1e1f0cf547b0e7f7ac92af", size = 33584 },
 ]
 
 [package.optional-dependencies]
@@ -947,9 +947,9 @@ wheels = [
 ]
 
 [[package]]
-name = "rice-n-jax"
+name = "rice-jax"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "jymkit", extra = ["algs"] },
     { name = "matplotlib" },
@@ -961,7 +961,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "jymkit", extras = ["algs"], specifier = ">=0.0b1" },
+    { name = "jymkit", extras = ["algs"], specifier = ">=0.0.7" },
     { name = "matplotlib", specifier = ">=3.10.1" },
     { name = "optimistix", specifier = ">=0.0.10" },
     { name = "pyyaml", specifier = ">=6.0.2" },

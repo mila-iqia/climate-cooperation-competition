@@ -1,9 +1,11 @@
 import argparse
+import importlib.resources
 import os
 import time
 from dataclasses import replace
 from typing import Any, Dict, List
 
+import cloudpickle
 import equinox as eqx
 import jax
 import jax.numpy as jnp
@@ -21,7 +23,7 @@ from rice_jax.util import (  # noqa: F401
     plot_data,
 )
 
-SETTINGS_YAML_PATH = "./rice_jax/config_yamls/"
+SETTINGS_YAML_PATH = importlib.resources.files("rice_jax").joinpath("./config_yamls/")
 
 
 def play_single_episode(key: PRNGKeyArray, env: Rice, agent: PPO) -> None:
@@ -84,7 +86,7 @@ def _train_new_agent(seed, yaml_file, env, log_fn):
     )
 
     # Set up Learning Rate & Entropy Schedule
-    NUM_UPDATES = agent.num_iterations * agent.num_minibatches * agent.update_epochs
+    NUM_UPDATES = agent.num_iterations * agent.num_minibatches * agent.num_epochs
     learning_rate = optax.linear_schedule(
         init_value=agent.learning_rate, end_value=0.0, transition_steps=NUM_UPDATES
     )
@@ -132,8 +134,10 @@ def train_single_agent(seed: PRNGKeyArray, yaml_file: Dict[str, Any], env: Rice)
     t = time.time()
     name = f"{yaml_file['env_settings']['scenario']}_{yaml_file['env_settings']['num_regions']}"
     model_name = f"{name}_{int(t)}"
-    print(f"saving model to {SAVE_MODEL_PATH}{model_name}")
-    agent.save(f"{SAVE_MODEL_PATH}{model_name}.eqx")
+    print(f"saving model to {SAVE_MODEL_PATH}{model_name}.pkl")
+    with open(f"{SAVE_MODEL_PATH}{model_name}.pkl", "wb") as f:
+        cloudpickle.dump(agent, f)
+    # agent.save(f"{SAVE_MODEL_PATH}{model_name}.eqx")
 
     return agent
 
@@ -183,10 +187,10 @@ if __name__ == "__main__":
     # Load or train an agent
     if args["load_model"]:
         print(f"Loading model from {args['load_model']}")
-        agent = PPO.load(args["load_model"], env)
+        agents = cloudpickle.load(open(args["load_model"], "rb"))
     elif command_line_args.debug:
         print("Using debug agent...")
-        agent = DebugAgent(env)
+        agents = DebugAgent(env)
     else:
         print("Training new agent...")
         if args["num_simultaneous_training_runs"] > 1:
@@ -194,13 +198,15 @@ if __name__ == "__main__":
                 seed, args, env, args["num_simultaneous_training_runs"]
             )
         else:
-            agents = [train_single_agent(seed, args, env)]
-
-    ## Evaluate the agent -> this function only retrieves final (avg) episode rewards
-    # avg_rewards = agent.evaluate(seed, env, num_eval_episodes=20)
+            agents = train_single_agent(seed, args, env)
 
     # Play a couple of episodes and obtain the states throughout
+    if type(agents) is not list:
+        agents = [agents]
     for agent in agents:
+        # # Evaluate the agent -> this function only retrieves final (avg) episode rewards
+        # avg_rewards = agent.evaluate(seed, env, num_eval_episodes=20)
+        # print(avg_rewards)
         NUM_EPISODES = 3
         episode_logs = jax.vmap(play_single_episode, in_axes=(0, None, None))(
             jax.random.split(seed, NUM_EPISODES), env, agent

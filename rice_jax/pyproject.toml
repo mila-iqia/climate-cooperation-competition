@@ -5,13 +5,25 @@ description = "A high-performance implementation of the Rice-N climate-economy m
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "jymkit[algs]>=0.0b1",
+    "jymkit[algs]>=0.0.7",
     "matplotlib>=3.10.1",
     "optimistix>=0.0.10",
     "pyyaml>=6.0.2",
     "tqdm>=4.67.1",
     "wandb>=0.19.10",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+include = ["rice_jax"]
+include-package-data = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["rice_jax"]
+package-data = {"rice_jax" = ["config_yamls/*.yaml", "config_yamls/*.yml", "region_yamls/**/*.yml", "region_yamls/**/*.yaml"]}
 
 [tool.ruff.lint]
 extend-select = ["I"]

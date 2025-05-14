@@ -34,6 +34,6 @@ trainer_settings:
   ent_coef: 2.0 # main.py currently anneals this linearly to 0.01
   num_steps: 100
   num_minibatches: 4
-  update_epochs: 4
+  num_epochs: 2
   num_envs: 4
 

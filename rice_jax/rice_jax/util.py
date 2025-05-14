@@ -1,3 +1,4 @@
+import importlib.resources
 import os
 import time
 from types import SimpleNamespace
@@ -120,11 +121,13 @@ def log_episode_stats_to_wandb(episode_stats, config, wandb_group=None):
 
 def load_region_yamls(num_regions: int):
     assert num_regions in [3, 7, 20], "Supported number of regions are 3, 7, 20"
-    yaml_file_directory = "rice_jax/region_yamls/"
+    yaml_file_directory = importlib.resources.files("rice_jax").joinpath(
+        "./region_yamls/"
+    )
     region_yamls = []
-    for file in sorted(os.listdir(f"{yaml_file_directory}{num_regions}_regions")):
+    for file in sorted(os.listdir(f"{yaml_file_directory}/{num_regions}_regions")):
         if file.endswith(".yml"):
-            with open(f"{yaml_file_directory}{num_regions}_regions/{file}", "r") as f:
+            with open(f"{yaml_file_directory}/{num_regions}_regions/{file}", "r") as f:
                 region = yaml.safe_load(f)
                 region = region["_RICE_CONSTANT"]  # remove redundant key
                 region_yamls.append(region)
