@@ -3,7 +3,7 @@ name = "Rice_JAX"
 version = "0.1.0"
 description = "A high-performance implementation of the Rice-N climate-economy model in JAX"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "jymkit[algs]>=0.0.7",
     "matplotlib>=3.10.1",
