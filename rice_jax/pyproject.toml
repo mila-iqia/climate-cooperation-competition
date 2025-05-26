@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "jymkit[algs]>=0.0.7",
-    "matplotlib>=3.10.1",
+    "matplotlib>=3.7.4",
     "optimistix>=0.0.10",
     "pyyaml>=6.0.2",
     "tqdm>=4.67.1",
