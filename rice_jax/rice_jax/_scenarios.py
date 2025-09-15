@@ -1,26 +1,36 @@
+from typing import Any
+
 import chex
 import jax.numpy as jnp
 import numpy as np
 
-from rice_jax import Rice, RiceEnvState
+from rice_jax import Rice
+from rice_jax.utils import i_to_agent_str
 
 MITIGATION_RATE_ACTION_INDEX = 1
 
 
 class OptimalMitigation(Rice):
+    """Sets a mimum and maximum mitigation rate for all agents through the action mask
+
+    env = OptimalMitigation(minimum_mitigation_rate=y, maximum_mitigation_rate=x)
+    """
+
     # Both are inclusive:
     minimum_mitigation_rate: int = 9
     maximum_mitigation_rate: int = 9
 
-    def generate_action_masks(self, state: RiceEnvState) -> chex.Array:
+    def generate_action_masks(self, state: dict[str, Any]) -> dict[str, Any]:
         action_mask = super().generate_action_masks(state)  # get default
 
-        action_mask = action_mask.at[
-            :, MITIGATION_RATE_ACTION_INDEX, self.maximum_mitigation_rate + 1 :
-        ].set(False)
-        action_mask = action_mask.at[
-            :, MITIGATION_RATE_ACTION_INDEX, : self.minimum_mitigation_rate
-        ].set(False)
+        actions = jnp.arange(self.num_discrete_action_levels)
+        min_mask = actions >= self.minimum_mitigation_rate
+        max_mask = actions <= self.maximum_mitigation_rate
+        min_max_mask = min_mask * max_mask
+
+        for agent_id in range(self.num_regions):
+            mitigation_mask = action_mask[i_to_agent_str(agent_id)]["mitigation_rate"]
+            mitigation_mask = mitigation_mask * min_max_mask
 
         return action_mask
 
@@ -30,6 +40,9 @@ class BasicClub(Rice):
     promote_free_trade_among_club_members: bool = True
     # NOTE: this will be updated later with more targeted region_ids
     club_members_ = [0, 1, 2, 4, 5, 6, 7, 15, 8, 12]
+
+    def __check_init__(self):
+        assert False, "This scenario is not implemented"
 
     @property
     def club_members(self) -> np.ndarray:
@@ -51,7 +64,7 @@ class BasicClub(Rice):
             ]
         )
 
-    def generate_action_masks(self, state: RiceEnvState) -> chex.Array:
+    def generate_action_masks(self, state: dict) -> chex.Array:
         action_mask = super().generate_action_masks(state)  # get default
 
         ### First the mitigation rate actions for the club members
@@ -101,7 +114,7 @@ class BasicClub(Rice):
 
         return action_mask
 
-    def generate_observation(self, state: RiceEnvState) -> chex.Array:
+    def generate_observation(self, state: dict) -> chex.Array:
         """Add a club membership indicator to the observation"""
         obs = super().generate_observation(state)
         club_member_indicator = jnp.isin(

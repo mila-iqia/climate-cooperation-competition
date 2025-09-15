@@ -1,76 +1,110 @@
-import argparse
 import importlib.resources
+import logging
 import os
-import time
-from dataclasses import replace
-from typing import Any, Dict, List
+from dataclasses import dataclass, field, replace
+from typing import Annotated, Literal
 
-import cloudpickle
-import equinox as eqx
 import jax
-import jax.numpy as jnp
-import jymkit as jym
-import optax
-import yaml
-from jaxtyping import PRNGKeyArray
-from jymkit.algorithms import PPO
+import jaxnasium as jym
+import tyro
+from jaxnasium.algorithms import PPO
 
+from _experiment_util import FixedActionAgent, load_agent, run_single_episode
 from rice_jax import BasicClub, OptimalMitigation, Rice
-from rice_jax.util import (  # noqa: F401
+from rice_jax.utils import (  # noqa: F401
+    create_plots,
+    full_state_info_log_fn,
     load_region_yamls,
-    log_episode_stats_to_wandb,
-    log_training_to_wandb_fn,
-    plot_data,
+    log_episode_to_json,
 )
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+
+logger = logging.getLogger(__name__)
 
 SETTINGS_YAML_PATH = importlib.resources.files("rice_jax").joinpath("./config_yamls/")
 
 
-def play_single_episode(key: PRNGKeyArray, env: Rice, agent: PPO) -> None:
-    """
-    Play an episode in the environment using the agent.
-    """
+@dataclass
+class EnvSettings:
+    """The Rice environment settings."""
 
-    # log_state_keys = []
-    log_exclude_keys = [
-        "returned_episode_returns",
-        "returned_episode_lengths",
-        "returned_episode",
-        "_TERMINAL_OBSERVATION",
-        "DISCOUNT",
-    ]
+    num_regions: Literal[3, 7, 20] = 3
+    diff_reward_mode: bool = True
+    relative_reward_mode: bool = False
+    num_discrete_action_levels: int = 10
+    action_window_size: int = 0  # 0 = No action windows
+    disable_trading: bool = False
+    negotiation_on: bool = False
 
-    def do_step(carry, _):
-        key, obs, state = carry
-        keys = jax.random.split(key, 3)
-        action = agent.get_action(keys[0], obs)
-        (obs, reward, _, _, info), state = env.step(keys[1], state, action)
-        info = {k: v for k, v in info.items() if k not in log_exclude_keys}
-        return (keys[2], obs, state), info
+    dmg_function: Literal["base", "updated"] = "base"
+    temperature_calibration: Literal["base", "FaIR", "DFaIR"] = "base"
+    carbon_model: Literal["base", "FaIR", "DFaIR", "AR5"] = "base"
+    apply_welfloss: bool = True
+    apply_welfgain: bool = True
 
-    env = eqx.tree_at(lambda x: x.log_state_in_info, env, True)
-    obs, state = env.reset(key)
-    _, info_stack = jax.lax.scan(
-        do_step,
-        (key, obs, state),
-        None,
-        length=env.episode_length,
-    )
-    return info_stack
+    # trade params
+    init_capital_multiplier: float = 10.0
+    balance_interest_rate: float = 0.1
+    consumption_substitution_rate: float = 0.5
+    preference_for_domestic: float = 0.5
+
+    init_gamma: float = 0.99  # discount factor
 
 
-def build_rice_scenario(yaml_file: Dict[str, Any]) -> Rice:
-    region_params = load_region_yamls(yaml_file["env_settings"]["num_regions"])
+@dataclass
+class TrainerSettings:
+    """The settings for the PPO trainer to be used."""
+
+    total_timesteps: Annotated[
+        int, tyro.conf.arg(aliases=("-t", "--total_timesteps"))
+    ] = 1000000
+    learning_rate: float = 2.5e-4
+    anneal_learning_rate: bool | float = False
+    ent_coef: float = 2.0
+    anneal_ent_coef: bool | float = 0.05  # anneal to 0.05 over traing
+    gamma: float = 0.99
+    gae_lambda: float = 0.95
+    max_grad_norm: float = 1.0
+    clip_coef: float = 0.2
+    clip_coef_vf: float = 0.5
+    vf_coef: float = 0.5
+    num_steps: int = 100
+    num_minibatches: int = 4
+    num_epochs: int = 4
+    num_envs: int = 4
+    normalize_observations: bool = True
+    normalize_rewards: bool = False
+    log_function: str = "tqdm"
+
+
+@dataclass
+class Config:
+    """Main configuration for the rice_jax package."""
+
+    seed: int = 0
+    env_settings: EnvSettings = field(default_factory=lambda: EnvSettings())
+    trainer_settings: TrainerSettings = field(default_factory=lambda: TrainerSettings())
+    load_model: str | None = None
+    scenario: Literal["default", "optimal_mitigation", "basic_club"] = "default"
+    agent: Literal["fixed_action", "ppo"] = "ppo"
+    # PQN, DQN, SAC also possible (although, TrainerSettings needs to be updated so not listed here (yet))
+
+
+def build_rice_scenario(config: Config) -> Rice:
+    region_params = load_region_yamls(config.env_settings.num_regions)
     env_settings = {
+        **config.env_settings.__dict__,
         "region_params": region_params,
-        **yaml_file["env_settings"],
     }
 
-    if env_settings["scenario"] == "default":
+    if config.scenario == "default":
         env = Rice(**env_settings)
-    elif env_settings["scenario"] == "optimal_mitigation":
+    elif config.scenario == "optimal_mitigation":
         env = OptimalMitigation(**env_settings)
-    elif env_settings["scenario"] == "basic_club":
+    elif config.scenario == "basic_club":
         env = BasicClub(**env_settings)
     else:
         raise ValueError(f"Scenario {env_settings['scenario']} not recognized")
@@ -78,138 +112,66 @@ def build_rice_scenario(yaml_file: Dict[str, Any]) -> Rice:
     return jym.LogWrapper(env)
 
 
-def _train_new_agent(seed, yaml_file, env, log_fn):
-    agent = PPO(
-        log_function=log_fn,
-        log_interval=10,
-        **args["trainer_settings"],
-    )
-
-    # Set up Learning Rate & Entropy Schedule
-    NUM_UPDATES = agent.num_iterations * agent.num_minibatches * agent.num_epochs
-    learning_rate = optax.linear_schedule(
-        init_value=agent.learning_rate, end_value=0.0, transition_steps=NUM_UPDATES
-    )
-    ent_coef = optax.linear_schedule(
-        init_value=agent.ent_coef, end_value=0.01, transition_steps=NUM_UPDATES
-    )
-    agent: PPO = replace(agent, learning_rate=learning_rate, ent_coef=ent_coef)
-    agent = agent.train(seed, env)
-
-    return agent
-
-
-def train_agent_batched(
-    seed: PRNGKeyArray, yaml_file: Dict[str, Any], env: Rice, number_of_agents: int
-) -> List[PPO]:
-    agents = jax.vmap(
-        _train_new_agent,
-        in_axes=(0, None, None, None),
-    )(jax.random.split(seed, number_of_agents), yaml_file, env, None)
-    # Converting the agents to a list of agents
-    agents = [jax.tree.map(lambda x: x[i], agents) for i in range(number_of_agents)]
-    return agents
-
-
-def train_single_agent(seed: PRNGKeyArray, yaml_file: Dict[str, Any], env: Rice) -> PPO:
-    if args["wandb"]:
-        import wandb
-
-        wandb.init(
-            project="jice",
-            config=yaml_file,
-            tags=["train_run"],
-            # entity="ai4gcc-gaia",
-        )
-
-    SAVE_MODEL_PATH = "saved_models/"
-    if not os.path.exists(SAVE_MODEL_PATH):
-        os.makedirs(SAVE_MODEL_PATH)
-
-    agent = _train_new_agent(
-        seed, yaml_file, env, log_training_to_wandb_fn if args["wandb"] else "tqdm"
-    )
-
-    # Saving the agent
-    t = time.time()
-    name = f"{yaml_file['env_settings']['scenario']}_{yaml_file['env_settings']['num_regions']}"
-    model_name = f"{name}_{int(t)}"
-    print(f"saving model to {SAVE_MODEL_PATH}{model_name}.pkl")
-    with open(f"{SAVE_MODEL_PATH}{model_name}.pkl", "wb") as f:
-        cloudpickle.dump(agent, f)
-    # agent.save(f"{SAVE_MODEL_PATH}{model_name}.eqx")
-
-    return agent
-
-
-class DebugAgent:
-    """
-    A debug agent that takes a fixed action for all regions.
-    Essentially just requires a `get_action` method.
-    """
-
-    def __init__(self, env: Rice):
-        self.env = env
-        self.default_actions = jnp.zeros((env.action_nvec.shape[0]))
-        self.default_actions = self.default_actions.at[0].set(2.5)  # savings
-        self.default_actions = self.default_actions.at[1].set(0.0)  # mitigation
-        self.default_actions = {
-            str(i): self.default_actions for i in range(env.num_regions)
-        }
-
-    def get_action(self, key: PRNGKeyArray, obs: Any) -> jnp.ndarray:
-        return self.default_actions
-
-
 if __name__ == "__main__":
-    ### Parsing Arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-t", help="Overwrite yaml train steps", default=1e6, type=int)
-    parser.add_argument("-y", "--yaml", help="Yaml settings file", default="default")
-    parser.add_argument("-l", "--load_model", help="Path to model file", default=None)
-    parser.add_argument("-d", "--debug", help="Use debug model", action="store_true")
-    parser.add_argument("-w", "--wandb", help="Log eval to wandb", action="store_true")
-    command_line_args = parser.parse_args()
-
-    yaml_file_path = os.path.join(SETTINGS_YAML_PATH, f"{command_line_args.yaml}.yml")
-    args = yaml.safe_load(open(yaml_file_path, "r"))
-
-    # merge the yaml file with the command line arguments
-    args["trainer_settings"]["total_timesteps"] = command_line_args.t
-    args["load_model"] = command_line_args.load_model
-    args["wandb"] = command_line_args.wandb
-
-    #### ---- #####
+    # Parses command line arguments
+    args = tyro.cli(Config)
 
     env = build_rice_scenario(args)
-    seed = jax.random.PRNGKey(args["seed"])
+    seed = jax.random.PRNGKey(args.seed)
 
     # Load or train an agent
-    if args["load_model"]:
-        print(f"Loading model from {args['load_model']}")
-        agents = cloudpickle.load(open(args["load_model"], "rb"))
-    elif command_line_args.debug:
-        print("Using debug agent...")
-        agents = DebugAgent(env)
-    else:
-        print("Training new agent...")
-        if args["num_simultaneous_training_runs"] > 1:
-            agents = train_agent_batched(
-                seed, args, env, args["num_simultaneous_training_runs"]
-            )
-        else:
-            agents = train_single_agent(seed, args, env)
+    if args.load_model:
+        agent = load_agent(args.load_model)
 
-    # Play a couple of episodes and obtain the states throughout
-    if type(agents) is not list:
-        agents = [agents]
-    for agent in agents:
-        # # Evaluate the agent -> this function only retrieves final (avg) episode rewards
-        # avg_rewards = agent.evaluate(seed, env, num_eval_episodes=20)
-        # print(avg_rewards)
-        NUM_EPISODES = 3
-        episode_logs = jax.vmap(play_single_episode, in_axes=(0, None, None))(
-            jax.random.split(seed, NUM_EPISODES), env, agent
+    elif args.agent == "fixed_action":
+        logger.info("Using fixed action agent...")
+        agent = FixedActionAgent(env)
+    elif args.agent == "ppo":
+        logger.info("Using PPO agent...")
+        agent = PPO(**args.trainer_settings.__dict__)
+        agent = agent.train(seed, env)
+
+        logger.info("Evaluating agent (only rewards)... ")
+        avg_reward = agent.evaluate(seed, env, num_eval_episodes=10)
+        logger.info(f"Average reward over 10 episodes: {avg_reward}")
+
+    NUM_EPISODES = 3
+    OUTPUT_DIR = "episode_logs"
+    env = replace(env._env, log_info_fn=full_state_info_log_fn)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    logger.info(
+        f"Running {NUM_EPISODES} episodes to collect state logs per step. Logging to {OUTPUT_DIR}"
+    )
+
+    for episode_id in range(NUM_EPISODES):
+        episode_logs = run_single_episode(seed, env, agent)
+
+        # Log episode to JSON file
+        log_filepath = log_episode_to_json(
+            episode_logs,
+            output_folder=OUTPUT_DIR,
+            agent=agent,
+            env=env,
+            episode_id=episode_id,
+            additional_metadata={"seed": int(seed[0])},  # Add seed for reproducibility
         )
-        if command_line_args.wandb:
-            log_episode_stats_to_wandb(episode_logs, args)
+
+        logger.info(f"Episode {episode_id} logs saved to: {log_filepath}")
+
+        # # OPTIONALLY: Create the plots immediately:
+        # # Create plots with default parameters (now creates a single combined plot)
+        # plot_files = create_plots(
+        #     json_log_path=log_filepath,
+        #     output_dir="plots",
+        #     parameter_keys=[
+        #         "global_temperature",  # Combined temperature plot
+        #         "production_all_regions",
+        #         "utility_all_regions",
+        #         "actions.savings_rate",
+        #         "actions.mitigation_rate",
+        #         "gross_output_all_regions",
+        #         "damages_all_regions",
+        #     ],
+        #     figsize=(12, 8),
+        #     dpi=300,
+        # )

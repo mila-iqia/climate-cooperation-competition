@@ -1,16 +1,18 @@
 [project]
 name = "Rice_JAX"
-version = "0.1.0"
+version = "0.1.1"
 description = "A high-performance implementation of the Rice-N climate-economy model in JAX"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
-    "jymkit[algs]>=0.0.7",
+    "jaxnasium[algs]>=0.0.20",
     "matplotlib>=3.7.4",
     "optimistix>=0.0.10",
     "pyyaml>=6.0.2",
     "tqdm>=4.67.1",
     "wandb>=0.19.10",
+    "tyro",
+    "jax[cuda]==0.6.0"
 ]
 
 [build-system]
