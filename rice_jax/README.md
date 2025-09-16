@@ -1,6 +1,6 @@
 # rice_jax: JAX-Based RICE-N Multi-Agent Environment
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
 
 This subfolder contains a high-performance implementation of the Rice-N climate-economy model based on Jax and JymKit.
 
@@ -30,66 +30,60 @@ for CUDA support, additionally run `pip install jax[cuda]`.
 
 ---
 
-## ⚙️ Configuration
-
-All environment and agent settings live in the [`config_yamls`](rice_jax/rice_jax/config_yamls) folder. By default you can start from:
-
-[rice_jax/rice_jax/config_yamls/default.yml](rice_jax/rice_jax/config_yamls/default.yml)
-
-```yaml
-seed: 0
-num_simultaneous_training_runs: 2
-
-trainer_settings:
-  ...
-
-env_settings:
-  num_regions: 3             # 3, 7, or 20
-  scenario: "default"   
-  ...
-```
-
----
-
 ## 🚀 Usage
 
-The main entrypoint is [`rice_jax/main.py`](rice_jax/main.py).
+The main entrypoint for an example run + logging is in [`rice_jax/main.py`](rice_jax/main.py).
 
+### Basic Training
 ```bash
 cd rice_jax
-python main.py \
-  -t 1e6 \
-  --yaml default \
-  [--load_model path/to/checkpoint.eqx] \
-  [--debug] \
-  [--wandb]
+python main.py -t 1000000  # Train for 1M timesteps
 ```
 
-- `-t`  
-  convenience parameter to override `trainer_settings.total_timesteps` (defaults to 1e6)
 
-- `--yaml, -y`  
-  selects a config in [`config_yamls/{yaml}.yml`](rice_jax/rice_jax/config_yamls) (defaults to "default")
+## ⚙️ Configuration
 
-- `--load_model, -l`  
-  path to a saved Equinox model (`.eqx`) or evaluate
+Configuration is handled through command-line arguments using `tyro`. Key settings include:
 
-- `--debug, -d`  
-  run in debug mode. Uses the agent specified in main as "DebugAgent". This agent uses predefined actions at every step.
+- **Environment Settings**: Number of regions (3, 7, or 20), reward modes, action discretization
+- **Trainer Settings**: PPO hyperparameters, learning rates, training steps
+- **Scenarios**: `default`, `optimal_mitigation`, or `basic_club`
+- **Agent Types**: `ppo` (default) or `fixed_action` for debugging
 
-- `--wandb, -w`  
-  enable Weights & Biases logging
+### Key Arguments
+- `-t, --total_timesteps` - Number of training timesteps (default: 1M)
+- `--load_model` - Path to saved model for evaluation
+- `--agent` - Agent type: `ppo` (default) or `fixed_action` 
+- `--scenario` - Environment scenario: `default`, `optimal_mitigation`, or `basic_club`
+- `--seed` - Random seed (default: 0)
 
-### 1. Training a new agent
+### Environment Settings
+- `--env_settings.num_regions` - Number of regions: 3, 7, or 20
+- `--env_settings.diff_reward_mode` - Use differential rewards
+- `--env_settings.negotiation_on` - Enable negotiation between regions
 
-When the `debug` and `load_model` flag are *not* set. A new PPO agent will be trained from scratch based on the settings of the provided YAML file.
+### Training Settings  
+- `--trainer_settings.learning_rate` - Learning rate (default: 2.5e-4)
+- `--trainer_settings.num_envs` - Number of parallel environments (default: 4)
+- `--trainer_settings.num_steps` - Steps per update (default: 100)
 
-The training loop is defined in [`rice_jax/main.py`](rice_jax/main.py). Models are saved to `saved_models/{scenario}_{num_regions}_{timestamp}.eqx`. Training should, when CUDA is enabled, take roughly 1-3 minutes. Note that when starting training, the training function is first compiled. It may then appear as if nothing is happening for the first 30-60 minutes. Additionally, when wandb is enabled, no feedback in the terminal is given until training finishes.
+All settings can be overridden via command-line arguments. See usage the main file for exact parameters or run `python main.py --help` for all options.
 
-if `num_simultaneous_training_runs` > 1, multiple agents will be trained simultaneously on different seeds. Wandb is disabled during training in this mode.
+## 📊 Logging & Visualization
 
-After training, all will play a few additional episodes as evaluation. See the next section.
+The included main file automatically runs a few episodes after training. The episode logs of these episodes
+are saved and visualizations can be created (see plotting_example.ipynb) for an example to create plots from the episode logs.
 
-### 2. Evaluation
+## 🌍 Scenarios
 
-After training, when loading a pre-trained model, or when using the debug agent, the agent will perform a few evaluation runs. During these runs, the environment state at every step will be logged and returned. If the `wandb` flag is set, these state logs will be logged to wandb where each environment run can be inspected.
+Three different environment scenarios are available:
+
+- **`default`** - Standard RICE-N climate-economy model
+- **`optimal_mitigation`** - Environment with optimal mitigation strategies
+- **`basic_club`** - Basic climate club formation scenario
+
+Select scenario with `--scenario` argument.
+
+## Wandb
+
+No wandb config is included for now.
