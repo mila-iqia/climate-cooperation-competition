@@ -1155,10 +1155,9 @@ class Rice(jym.Environment):
     def action_space(self) -> dict[str, jym.Space]:
         N_REGIONS = self.num_regions
         N_DISCRETIZATION = self.num_discrete_action_levels
-        ACTION_PER_REGION = np.array([N_DISCRETIZATION] * N_REGIONS, dtype=np.int32)
         actions = {
-            "import_bid": MultiDiscrete(ACTION_PER_REGION),
-            "import_tariff": MultiDiscrete(ACTION_PER_REGION),
+            "import_bid": MultiDiscrete([N_DISCRETIZATION] * N_REGIONS),
+            "import_tariff": MultiDiscrete([N_DISCRETIZATION] * N_REGIONS),
             #
             "savings_rate": Discrete(N_DISCRETIZATION),
             "mitigation_rate": Discrete(N_DISCRETIZATION),
@@ -1166,11 +1165,9 @@ class Rice(jym.Environment):
         }
         if self.negotiation_on:
             # 2 actions per region (accept/reject)
-            actions["proposal_ask"] = MultiDiscrete(ACTION_PER_REGION)
-            actions["proposal_promise"] = MultiDiscrete(ACTION_PER_REGION)
-            actions["proposal_decision"] = MultiDiscrete(
-                np.array([2] * N_REGIONS, dtype=np.int32)
-            )  # Yes /No
+            actions["proposal_ask"] = MultiDiscrete([N_DISCRETIZATION] * N_REGIONS)
+            actions["proposal_promise"] = MultiDiscrete([N_DISCRETIZATION] * N_REGIONS)
+            actions["proposal_decision"] = MultiDiscrete([2] * N_REGIONS)  # Yes /No
 
         # Return the actions for each region
         return {i_to_agent_str(i): actions for i in range(N_REGIONS)}

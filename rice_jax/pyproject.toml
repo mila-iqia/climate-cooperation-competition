@@ -5,14 +5,13 @@ description = "A high-performance implementation of the Rice-N climate-economy m
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "jaxnasium[algs]>=0.0.20",
+    "jaxnasium[algs]>=0.0.21",
     "matplotlib>=3.7.4",
     "optimistix>=0.0.10",
     "pyyaml>=6.0.2",
     "tqdm>=4.67.1",
     "wandb>=0.19.10",
-    "tyro",
-    "jax[cuda]==0.6.0"
+    "tyro"
 ]
 
 [build-system]
