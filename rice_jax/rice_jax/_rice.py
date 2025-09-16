@@ -226,6 +226,20 @@ class Rice(jym.Environment):
         self, state: dict[str, Any]
     ) -> dict[str, jym.AgentObservation]:
         observations = self.generate_observation(state)
+
+        # Make sure everything is 1d and flat
+        # because accidental 2d observations will be trained via a CNN
+        observations = jax.tree.map(
+            lambda o: jnp.reshape(jnp.atleast_1d(o), (-1)), observations
+        )
+
+        # Concatenate each agent's observations into a single array
+        # map_one_level essentially applies a function to each agent('s observation in this case)
+        # NOTE: this isn't strictly neccesary, as the algorithm can also deal with this; but it cleans up the network.
+        observations = jym.tree.map_one_level(
+            lambda o: jnp.concatenate(jax.tree.leaves(o)), observations
+        )
+
         action_masks = self.generate_action_masks(state)
 
         # Return as a AgentObservation such that algorithms properly deal with the action masks
@@ -319,15 +333,7 @@ class Rice(jym.Environment):
                     [incoming_feature, outgoing_feature]
                 )
 
-        # Make sure everything is 1d and flat
-        # because accidental 2d observations will be trained via a CNN
-        obs = jax.tree.map(lambda o: jnp.reshape(jnp.atleast_1d(o), (-1)), obs)
-
-        # Concatenate each agent's observations into a single array
-        # map_one_level essentially applies a function to each agent('s observation in this case)
-        # NOTE: this isn't strictly neccesary, as the algorithm can also deal with this; but it cleans up the network.
-        obs = jym.tree.map_one_level(lambda o: jnp.concatenate(jax.tree.leaves(o)), obs)
-
+        # We flatten and concat everything (per agent) in the `generate_observation_and_action_mask` function
         return obs
 
         # NOTE: We skip normalization, as it can be done via a wrapper or in the algorithm itself

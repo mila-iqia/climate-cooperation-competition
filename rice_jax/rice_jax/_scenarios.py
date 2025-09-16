@@ -98,8 +98,7 @@ class BasicClub(Rice):
         for agent_id in range(self.num_regions):
             agent_str = i_to_agent_str(agent_id)
             is_club_member = agent_id in self.club_members
-            obs[agent_str] = jnp.concatenate(
-                [obs[agent_str], jnp.array([is_club_member])]
-            )
+            # Simply add a feature to each agent observation
+            obs[agent_str]["is_club_member"] = is_club_member
 
         return obs
