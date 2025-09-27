@@ -315,23 +315,20 @@ class Rice(jym.Environment):
                 "proposal_decisions",
             ]
 
-        obs = {}
-        for agent_id in range(self.num_regions):
-            agent_obs = {}
-            obs[i_to_agent_str(agent_id)] = agent_obs
-
-            for feature in global_features:
-                agent_obs[feature] = state[feature]
-            for feature in public_features:
-                agent_obs[feature] = state[feature]
-            for feature in private_features:
-                agent_obs[feature] = state[feature][agent_id]
-            for feature in bilateral_features:
-                incoming_feature = state[feature][agent_id]
-                outgoing_feature = state[feature].T[agent_id]
-                agent_obs[feature] = jnp.concatenate(
-                    [incoming_feature, outgoing_feature]
-                )
+        obs = {
+            i_to_agent_str(agent_id): {
+                **{feature: state[feature] for feature in global_features},
+                **{feature: state[feature] for feature in public_features},
+                **{feature: state[feature][agent_id] for feature in private_features},
+                **{
+                    feature: jnp.concatenate(
+                        [state[feature][agent_id], state[feature].T[agent_id]]
+                    )
+                    for feature in bilateral_features
+                },
+            }
+            for agent_id in range(self.num_regions)
+        }
 
         # We flatten and concat everything (per agent) in the `generate_observation_and_action_mask` function
         return obs
@@ -363,15 +360,13 @@ class Rice(jym.Environment):
 
         # Disallow actions on own region "self"
         for a_id in range(NUM_REGIONS):
-            import_bid_mask = mask[i_to_agent_str(a_id)]["import_bid"]
-            import_bid_mask[a_id][1:] = 0  # only a 0 import on own region
-            import_tariff_mask = mask[i_to_agent_str(a_id)]["import_tariff"]
-            import_tariff_mask[a_id][1:] = 0  # only a 0 tarrif on own region
+            agent_str = i_to_agent_str(a_id)
+            # Set diagonal elements to 0 for import actions (except first element)
+            mask[agent_str]["import_bid"][a_id][1:] = 0
+            mask[agent_str]["import_tariff"][a_id][1:] = 0
             if self.negotiation_on:
-                proposal_ask_mask = mask[i_to_agent_str(a_id)]["proposal_ask"]
-                proposal_ask_mask[a_id][1:] = 0  # only a 0 proposal on own region
-                proposal_promise_mask = mask[i_to_agent_str(a_id)]["proposal_promise"]
-                proposal_promise_mask[a_id][1:] = 0  # only a 0 proposal on own region
+                mask[agent_str]["proposal_ask"][a_id][1:] = 0
+                mask[agent_str]["proposal_promise"][a_id][1:] = 0
 
         # Minimum mitigation rate masking
         minimum_mitigation_rate_all = state["minimum_mitigation_rate_all_regions"]
@@ -542,8 +537,7 @@ class Rice(jym.Environment):
             }
         )
         # carbon updates
-        for k, v in carbon_updates.items():
-            state[k] = v
+        state.update(carbon_updates)
 
         return state
 
