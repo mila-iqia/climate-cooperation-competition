@@ -394,15 +394,17 @@ class Rice(jym.Environment):
                 state["mitigation_rates_all_regions"] * DISCRETE_ACTION_LEVELS
             )
             for agent_id in range(NUM_REGIONS):
-                savings_mask = mask[i_to_agent_str(agent_id)]["savings_rate"]
                 _savings_mask = create_windowed_mask(prev_savings_actions[agent_id])
-                savings_mask = savings_mask * _savings_mask  # Multiply to not overwrite
+                mask[i_to_agent_str(agent_id)]["savings_rate"] = (
+                    mask[i_to_agent_str(agent_id)]["savings_rate"] * _savings_mask
+                )  # Multiply with existing mask to not overwrite
 
-                mitigation_mask = mask[i_to_agent_str(agent_id)]["mitigation_rate"]
                 _mitigation_mask = create_windowed_mask(
                     prev_mitigation_actions[agent_id]
                 )
-                mitigation_mask = mitigation_mask * _mitigation_mask  # ""
+                mask[i_to_agent_str(agent_id)]["mitigation_rate"] = (
+                    mask[i_to_agent_str(agent_id)]["mitigation_rate"] * _mitigation_mask
+                )  # Multiply with existing mask to not overwrite
 
         return mask
 
@@ -454,7 +456,17 @@ class Rice(jym.Environment):
             actions["import_tariff"] = optax.tree.zeros_like(actions["import_tariff"])
 
         # Div each action by the number of discrete action levels
-        actions = jax.tree.map(lambda x: x / self.num_discrete_action_levels, actions)
+        # actions["proposal_decision"] is just 0 / 1, so gets special treatment here
+        if "proposal_decision" in actions:
+            _proposal_decisions = actions["proposal_decision"].copy()
+            actions = jax.tree.map(
+                lambda x: x / self.num_discrete_action_levels, actions
+            )
+            actions["proposal_decision"] = _proposal_decisions
+        else:
+            actions = jax.tree.map(
+                lambda x: x / self.num_discrete_action_levels, actions
+            )
 
         # Subsequently, we convert each action to a array:
         # {action_name:{agent1: action_value, agent2: action_value, ...}, ...} --> {action_name: Array([action_value, action_value, ...])}
@@ -560,8 +572,7 @@ class Rice(jym.Environment):
 
         promised_mitigation_rates = state["promised_mitigation_rate"]
         requested_mitigation_rates = state["requested_mitigation_rate"]
-        #breakpoint()
-        proposal_decisions = actions["proposal_decisions"].T
+        proposal_decisions = actions["proposal_decision"].T
 
         outgoing_accepted_mitigation_rates = (
             promised_mitigation_rates * proposal_decisions
@@ -577,7 +588,7 @@ class Rice(jym.Environment):
             combined_max_accepted_mitigation_rates, axis=1
         )
 
-        state["proposal_decisions"] = proposal_decisions
+        state["proposal_decisions"] = proposal_decisions.astype(jnp.bool)
         state["minimum_mitigation_rate_all_regions"] = lower_bound_mitigation_rates
         return state
     
