@@ -1,12 +1,13 @@
 from typing import Any
 
 import chex
+import jax
 import jax.numpy as jnp
 import numpy as np
 
 from rice_jax import Rice
 from rice_jax.utils import i_to_agent_str
-
+from jaxnasium import Discrete, MultiDiscrete
 
 class OptimalMitigation(Rice):
     """Sets a mimum and maximum mitigation rate for all agents through the action mask
@@ -102,3 +103,300 @@ class BasicClub(Rice):
             obs[agent_str]["is_club_member"] = is_club_member
 
         return obs
+    
+
+class BasicClubTariffAmbition(Rice):
+    
+    @property
+    def action_space(self):
+
+        N_REGIONS = self.num_regions
+        N_DISCRETIZATION = self.num_discrete_action_levels
+
+        action_space = super().action_space
+
+        for agent_id in range(self.num_regions):
+            agent_key = i_to_agent_str(agent_id)
+            #remove standard propose 
+            action_space[agent_key].pop("proposal_ask", None)
+            action_space[agent_key].pop("proposal_promise", None)
+            #add new propose 
+            action_space[agent_key]["proposal"] = Discrete(N_DISCRETIZATION)
+
+        return action_space
+    
+    def step_propose(self, state: dict, actions: dict) -> dict:
+        if not self.negotiation_on:
+            raise ValueError("Negotiation is not enabled")
+        proposals = actions["proposal"]
+
+        state["proposals"] = proposals
+        return state
+
+    def step_evaluate_proposals(self, state: dict, actions: dict) -> dict:
+        if not self.negotiation_on:
+            raise ValueError("Negotiation is not enabled")
+
+        proposals = state["proposals"]
+        #breakpoint()
+        proposal_decisions = actions["proposal_decisions"].T
+
+        proposal_decisions_ = (proposal_decisions > 0).astype(jnp.bool_)
+
+        accepted_mitigation_rates = proposals * proposal_decisions_.astype(jnp.int_)
+
+        lower_bound_mitigation_rates = jnp.max(accepted_mitigation_rates, axis=1)
+        state["proposal_decisions"] = proposal_decisions_
+        state["minimum_mitigation_rate_all_regions"] = lower_bound_mitigation_rates
+        return state
+    
+    def reset_env(self, key):
+        if self.temperature_calibration == "base":
+            global_temperature = jnp.array(
+                [self.region_params.xT_AT_0, self.region_params.xT_LO_0]
+            )
+        elif self.temperature_calibration == "FaIR":
+            global_temperature = jnp.array(
+                [self.region_params.xT_AT_0_FaIR, self.region_params.xT_LO_0_FaIR]
+            )
+        elif self.temperature_calibration == "DFaIR":
+            global_temperature = jnp.array(
+                [
+                    self.region_params.xT_LO_0 + self.region_params.xT_UO_0,
+                    self.region_params.xT_LO_0,
+                ]
+            )
+        else:
+            raise ValueError(
+                f"Unknown temperature calibration: {self.temperature_calibration}"
+            )
+
+        # fmt: off
+        state = {
+            "current_timestep": 0,
+            "activity_timestep": 0,
+            "current_simulation_year": self.start_year,
+            # Climate states
+            "global_temperature": global_temperature,
+            "global_carbon_mass": jnp.array(
+                [
+                    self.region_params.xM_AT_0,
+                    self.region_params.xM_UP_0,
+                    self.region_params.xM_LO_0,
+                ]
+            ).astype(jnp.float32),
+            "global_exogenous_emissions": 0.0,  # Originally an array (jnp.zeros(1))
+            "global_land_emissions": 0.0,  # jnp.zeros(1)
+            "intensity_all_regions": self.region_params.xsigma_0,
+            "mitigation_rates_all_regions": self.region_params.xmitigation_0,
+            # Additional climate states
+            "global_alpha": jnp.array(self.region_params.xalpha_0, dtype=jnp.float32),
+            "global_carbon_reservoirs": jnp.array(
+                [
+                    self.region_params.xM_R1_0,
+                    self.region_params.xM_R2_0,
+                    self.region_params.xM_R3_0,
+                    self.region_params.xM_R4_0,
+                ]
+            ),
+            "global_cumulative_emissions": jnp.array(self.region_params.xEcum_0, dtype=jnp.float32),
+            "global_cumulative_land_emissions": jnp.array(self.region_params.xEcumL_0, dtype=jnp.float32),
+            "global_emissions": jnp.array(self.region_params.xEInd_0 + self.region_params.xEL_0),
+            "global_acc_pert_carb_stock": jnp.array(
+                self.region_params.xEcum_0
+                + self.region_params.xEcumL_0
+                - (
+                    self.region_params.xM_R1_0
+                    + self.region_params.xM_R2_0
+                    + self.region_params.xM_R3_0
+                    + self.region_params.xM_R4_0
+                )
+            ),
+            "global_temperature_boxes": jnp.array([self.region_params.xT_LO_0, self.region_params.xT_UO_0]),
+            # Economic states
+            "production_all_regions": jnp.zeros(self.num_regions),
+            "gross_output_all_regions": jnp.zeros(self.num_regions),
+            "aggregate_consumption": jnp.zeros(self.num_regions),
+            "investment_all_regions": jnp.zeros(self.num_regions),
+            "capital_all_regions": self.region_params.xK_0,
+            "capital_depreciation_all_regions": jnp.zeros(self.num_regions),
+            "labor_all_regions": self.region_params.xL_0,
+            "production_factor_all_regions": self.region_params.xA_0,
+            "current_balance_all_regions": jnp.zeros(self.num_regions),
+            "abatement_cost_all_regions": jnp.zeros(self.num_regions),
+            "damages_all_regions": jnp.zeros(self.num_regions),
+            "utility_all_regions": jnp.zeros(self.num_regions),
+            "utility_times_welfloss_all_regions": jnp.zeros(self.num_regions),
+            # Trade states
+            "import_tariffs": jnp.zeros((self.num_regions, self.num_regions)),
+            "normalized_import_bids_all_regions": jnp.zeros((self.num_regions, self.num_regions)),
+            "import_bids_all_regions": self.region_params.ximport,
+            "import_tariffs_all_regions": jnp.zeros((self.num_regions, self.num_regions)),
+            "imports_minus_tariffs": jnp.zeros((self.num_regions, self.num_regions)),
+            "export_limit_all_regions": self.region_params.xexport,
+            "savings_all_regions": self.region_params.xsaving_0,
+            # Negotiation states
+            "negotiation_stage": 0,
+            "minimum_mitigation_rate_all_regions": jnp.zeros(self.num_regions),
+            # "promised_mitigation_rate": jnp.zeros((self.num_regions, self.num_regions)), #REMOVED FOR SCENARIO
+            # "requested_mitigation_rate": jnp.zeros((self.num_regions, self.num_regions)), #REMOVED FOR SCENARIO
+            "proposal_decisions": jnp.zeros((self.num_regions, self.num_regions), dtype=jnp.bool),
+        }
+        # fmt: on
+
+        #SCENARIO SPECIFIC STATEs
+        state["proposals"] = jnp.zeros((self.num_regions))
+
+        obs_dict = self.generate_observation_and_action_mask(state)
+
+        
+        return obs_dict, state
+
+    def generate_observation(self, state: dict[str, Any]) -> dict[str, Any]:
+        """Format observations for each agent by concatenating global, public and private features."""
+
+        global_features = [
+            # World values observed by all regions
+            "activity_timestep",
+            "global_temperature",
+            "global_carbon_mass",
+            "global_exogenous_emissions",
+            "global_land_emissions",
+            "global_temperature_boxes",
+            "global_carbon_reservoirs",
+            "global_cumulative_emissions",
+            "global_cumulative_land_emissions",
+            "global_alpha",
+            "global_emissions",
+            "global_acc_pert_carb_stock",
+        ]
+
+        public_features = [  # NOTE: commented some things out here and (partly) moved to private
+            # Per agent values observed by all regions
+            "mitigation_rates_all_regions",
+            # "capital_all_regions",
+            # "capital_depreciation_all_regions",
+            # "labor_all_regions",
+            # "gross_output_all_regions",
+            # "investment_all_regions",
+            # "aggregate_consumption",
+            # "savings_all_regions",
+            # "export_limit_all_regions",
+            # "current_balance_all_regions",
+            # "import_tariffs",
+            "proposals"
+        ]
+
+        private_features = [
+            # Per agent values whereby each agent only observes its own values
+            "production_factor_all_regions",
+            "intensity_all_regions",
+            # "mitigation_cost_all_regions",
+            "damages_all_regions",
+            "abatement_cost_all_regions",
+            "production_all_regions",
+            "utility_all_regions",
+            # "social_welfare_all_regions",
+            # "reward_all_regions",
+            "capital_all_regions",
+            "capital_depreciation_all_regions",
+            "labor_all_regions",
+            "gross_output_all_regions",
+            "investment_all_regions",
+            "aggregate_consumption",
+            # "savings_all_regions",
+            # "export_limit_all_regions",
+            # "current_balance_all_regions",
+            # "import_tariffs",
+        ]
+        bilateral_features = []  # Bilateral features are only observed by two regions
+        if self.negotiation_on:
+            global_features.append("negotiation_stage")
+            private_features.append("minimum_mitigation_rate_all_regions")
+            bilateral_features = [
+
+                "proposal_decisions"
+            ]
+
+        obs = {
+            i_to_agent_str(agent_id): {
+                **{feature: state[feature] for feature in global_features},
+                **{feature: state[feature] for feature in public_features},
+                **{feature: state[feature][agent_id] for feature in private_features},
+                **{
+                    feature: jnp.concatenate(
+                        [state[feature][agent_id], state[feature].T[agent_id]]
+                    )
+                    for feature in bilateral_features
+                },
+            }
+            for agent_id in range(self.num_regions)
+        }
+
+        # We flatten and concat everything (per agent) in the `generate_observation_and_action_mask` function
+        return obs
+    
+    def generate_action_masks(self, state: dict[str, Any]) -> dict[str, Any]:
+        """Should output the same structure as `self.action_space`
+        1: Allowed action, 0: disallowed action
+        """
+
+        NUM_REGIONS = self.num_regions
+        DISCRETE_ACTION_LEVELS = self.num_discrete_action_levels
+
+        def allow_all_actions_in_action_space(action_space):
+            if isinstance(action_space, MultiDiscrete):
+                num_actions = np.array(action_space.nvec).shape[0]
+                num_discrete_actions = np.array(action_space.nvec)[0]
+                return np.ones((num_actions, num_discrete_actions))
+            elif isinstance(action_space, Discrete):
+                num_discrete_actions = int(action_space.n)
+                return np.ones((num_discrete_actions,))
+            else:
+                raise ValueError(f"Unknown action space: {action_space}")
+
+        # Allow each action as a base
+        mask = jax.tree.map(allow_all_actions_in_action_space, self.action_space)
+
+        # Disallow actions on own region "self"
+        for a_id in range(NUM_REGIONS):
+            agent_str = i_to_agent_str(a_id)
+            # Set diagonal elements to 0 for import actions (except first element)
+            mask[agent_str]["import_bid"][a_id][1:] = 0
+            mask[agent_str]["import_tariff"][a_id][1:] = 0
+
+
+        # Minimum mitigation rate masking
+        minimum_mitigation_rate_all = state["minimum_mitigation_rate_all_regions"]
+        for agent_id in range(self.num_regions):
+            min_mitigation_rate_agent = minimum_mitigation_rate_all[agent_id]
+            mask[i_to_agent_str(agent_id)]["mitigation_rate"] = (
+                jnp.arange(self.num_discrete_action_levels) >= min_mitigation_rate_agent
+            )
+
+        if self.action_window_size > 0:
+
+            def create_windowed_mask(prev_actions):
+                MAX_DIFF = self.action_window_size
+                POSSIBLE_ACTIONS = jnp.arange(DISCRETE_ACTION_LEVELS)
+                return jnp.abs(POSSIBLE_ACTIONS - prev_actions) <= MAX_DIFF
+
+            # Only allow actions around the previous action for `savings` and `mitigation` rate actions
+            prev_savings_actions = jnp.round(
+                state["savings_all_regions"] * DISCRETE_ACTION_LEVELS
+            )
+            prev_mitigation_actions = jnp.round(
+                state["mitigation_rates_all_regions"] * DISCRETE_ACTION_LEVELS
+            )
+            for agent_id in range(NUM_REGIONS):
+                savings_mask = mask[i_to_agent_str(agent_id)]["savings_rate"]
+                _savings_mask = create_windowed_mask(prev_savings_actions[agent_id])
+                savings_mask = savings_mask * _savings_mask  # Multiply to not overwrite
+
+                mitigation_mask = mask[i_to_agent_str(agent_id)]["mitigation_rate"]
+                _mitigation_mask = create_windowed_mask(
+                    prev_mitigation_actions[agent_id]
+                )
+                mitigation_mask = mitigation_mask * _mitigation_mask  # ""
+
+        return mask

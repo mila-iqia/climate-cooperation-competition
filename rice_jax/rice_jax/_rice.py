@@ -204,7 +204,7 @@ class Rice(jym.Environment):
         if not self.negotiation_on:
             state = self.step_climate_and_economy(state, actions)
         else:
-            negotiation_stage = state.current_timestep % 3
+            negotiation_stage = state["current_timestep"] % 3
             state = jax.lax.switch(
                 negotiation_stage,
                 [
@@ -551,13 +551,13 @@ class Rice(jym.Environment):
         state["requested_mitigation_rate"] = requested_mitigation_rate
         return state
 
-    def step_evaluate_proposals(self, state: dict, actions: dict) -> dict:
+    def step_evaluate_proposals_(self, state: dict, actions: dict) -> dict:
         if not self.negotiation_on:
             raise ValueError("Negotiation is not enabled")
 
         promised_mitigation_rates = state["promised_mitigation_rate"]
         requested_mitigation_rates = state["requested_mitigation_rate"]
-        breakpoint()
+        #breakpoint()
         proposal_decisions = actions["proposal_decisions"].T
 
         outgoing_accepted_mitigation_rates = (
@@ -575,6 +575,35 @@ class Rice(jym.Environment):
         )
 
         state["proposal_decisions"] = proposal_decisions
+        state["minimum_mitigation_rate_all_regions"] = lower_bound_mitigation_rates
+        return state
+    
+    def step_evaluate_proposals(self, state: dict, actions: dict) -> dict:
+        if not self.negotiation_on:
+            raise ValueError("Negotiation is not enabled")
+
+        promised_mitigation_rates = state["promised_mitigation_rate"]
+        requested_mitigation_rates = state["requested_mitigation_rate"]
+        proposal_decisions_raw = actions["proposal_decisions"].T
+
+        proposal_decisions_bool = (proposal_decisions_raw>0).astype(jnp.bool_) #process_action potential but sets 1's->.1's. 
+        proposal_decisions_int = proposal_decisions_bool.astype(jnp.int_)
+
+        outgoing_accepted_mitigation_rates = (
+            promised_mitigation_rates * proposal_decisions_int
+        )
+        incoming_accepted_mitigation_rates = (
+            requested_mitigation_rates * proposal_decisions_int
+        )
+        # NOTE: The original Rice-N adds the two arrays?
+        combined_max_accepted_mitigation_rates = jnp.maximum(
+            outgoing_accepted_mitigation_rates, incoming_accepted_mitigation_rates.T
+        )
+        lower_bound_mitigation_rates = jnp.max(
+            combined_max_accepted_mitigation_rates, axis=1
+        )
+
+        state["proposal_decisions"] = proposal_decisions_bool
         state["minimum_mitigation_rate_all_regions"] = lower_bound_mitigation_rates
         return state
 
@@ -1167,7 +1196,7 @@ class Rice(jym.Environment):
             # 2 actions per region (accept/reject)
             actions["proposal_ask"] = MultiDiscrete([N_DISCRETIZATION] * N_REGIONS)
             actions["proposal_promise"] = MultiDiscrete([N_DISCRETIZATION] * N_REGIONS)
-            actions["proposal_decision"] = MultiDiscrete([2] * N_REGIONS)  # Yes /No
+            actions["proposal_decisions"] = MultiDiscrete([2] * N_REGIONS)  # Yes /No
 
         # Return the actions for each region
         return {i_to_agent_str(i): actions for i in range(N_REGIONS)}
