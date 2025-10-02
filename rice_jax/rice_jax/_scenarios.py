@@ -355,8 +355,17 @@ class BasicClubTariffAmbition(Rice):
             else:
                 raise ValueError(f"Unknown action space: {action_space}")
 
+        def get_tariff_mask_value(agent_mmr, other_agent_mmr):
+            if other_agent_mmr < agent_mmr:
+                return agent_mmr - other_agent_mmr
+            else:
+                return 0
+        
         # Allow each action as a base
         mask = jax.tree.map(allow_all_actions_in_action_space, self.action_space)
+
+        # Minimum mitigation rate masking
+        minimum_mitigation_rate_all = state["minimum_mitigation_rate_all_regions"]
 
         # Disallow actions on own region "self"
         for a_id in range(NUM_REGIONS):
@@ -365,14 +374,60 @@ class BasicClubTariffAmbition(Rice):
             mask[agent_str]["import_bid"][a_id][1:] = 0
             mask[agent_str]["import_tariff"][a_id][1:] = 0
 
-
-        # Minimum mitigation rate masking
-        minimum_mitigation_rate_all = state["minimum_mitigation_rate_all_regions"]
-        for agent_id in range(self.num_regions):
-            min_mitigation_rate_agent = minimum_mitigation_rate_all[agent_id]
-            mask[i_to_agent_str(agent_id)]["mitigation_rate"] = (
+            #mask mitigation rate
+            min_mitigation_rate_agent = minimum_mitigation_rate_all[a_id] * self.num_discrete_action_levels
+            mask[agent_str]["mitigation_rate"] = (
                 jnp.arange(self.num_discrete_action_levels) >= min_mitigation_rate_agent
             )
+
+            # #mask tariff rates
+            # for other_id in range(NUM_REGIONS):
+            #     if a_id == other_id:
+            #         pass
+            #     else:
+            #         #check if agent in club
+            #         other_agent_mmr = minimum_mitigation_rate_all[other_id] * self.num_discrete_action_levels
+            #         #if agent not in club tariff the difference
+                    
+            #         if other_agent_mmr < min_mitigation_rate_agent:
+            #             difference = min_mitigation_rate_agent - other_agent_mmr
+            #             mask[agent_str]["import_tariff"][other_id] = [0] * difference + [1]*(self.num_discrete_action_levels-difference)
+            #         #free trade
+            #         else:
+            #             mask[agent_str]["import_tariff"][other_id][1:] = 0
+
+            # inside: for a_id in range(NUM_REGIONS):
+            agent_str = i_to_agent_str(a_id)
+            minimum_mitigation_rate_all = state["minimum_mitigation_rate_all_regions"]
+
+            # Convert fractional minima to discrete indices (same semantics as your commented multiplication)
+            min_mit_agent_idx = jnp.floor(minimum_mitigation_rate_all[a_id] * DISCRETE_ACTION_LEVELS).astype(jnp.int32)  # scalar
+            other_agent_mmr_idx = jnp.floor(minimum_mitigation_rate_all * DISCRETE_ACTION_LEVELS).astype(jnp.int32)     # shape (NUM_REGIONS,)
+
+            # Compute difference = max(0, min_agent_idx - other_agent_mmr_idx) for each other agent
+            diff_vec = jnp.clip(min_mit_agent_idx - other_agent_mmr_idx, 0, DISCRETE_ACTION_LEVELS)  # shape (NUM_REGIONS,)
+
+            # Per-index vector for building masks
+            indices = jnp.arange(DISCRETE_ACTION_LEVELS)  # shape (N,)
+            # If other_agent_mmr < min_mit_agent: mask = [0]*diff + [1]*(N-diff)  -> indices >= diff
+            masks_if_tariff = indices[None, :] >= diff_vec[:, None]  # shape (NUM_REGIONS, N), bool
+            # Else (free trade): only allow index 0 (same as mask[...][1:] = 0)
+            masks_if_free = (indices == 0)[None, :].repeat(NUM_REGIONS, axis=0)  # shape (NUM_REGIONS, N), bool
+
+            # Condition per other agent
+            condition = other_agent_mmr_idx < min_mit_agent_idx  # shape (NUM_REGIONS,), bool
+            final_masks = jnp.where(condition[:, None], masks_if_tariff, masks_if_free)  # shape (NUM_REGIONS, N)
+
+            # Preserve the already-set diagonal behaviour (do not overwrite the self -> self row)
+            # earlier in generate_action_masks you set mask[agent_str]["import_tariff"][a_id][1:] = 0
+            # so keep that row as-is:
+            final_masks = final_masks.at[a_id].set(mask[agent_str]["import_tariff"][a_id])
+
+            # Assign back
+            mask[agent_str]["import_tariff"] = final_masks
+                    
+
+
 
         if self.action_window_size > 0:
 
