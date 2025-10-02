@@ -694,7 +694,10 @@ class Rice(jym.Environment):
                 )
 
             max_export_all_regions = calc_max_exports()
-            desired_exports_from_each_region = jnp.sum(potential_import_bids, axis=0)
+            desired_exports_from_each_region = (
+                jnp.sum(potential_import_bids, axis=0)
+                + 1e-8  # Small epsilon to prevent division by zero
+            )
             # NOTE: this is the original. But it seems like region export is set to 0
             # if max_export > desired_export. https://github.com/mila-iqia/climate-cooperation-competition/issues/46
             # return jnp.where(
@@ -718,7 +721,7 @@ class Rice(jym.Environment):
 
         # NOTE: original contains some writeable bugfix and empties the bid to itself
         ## We instead deal with this in the action masking / process actions  function
-        total_import_bids = jnp.sum(import_bids_all_regions, axis=1)
+        total_import_bids = jnp.sum(import_bids_all_regions, axis=1) + 1e-8
         potential_import_bids = jnp.where(
             total_import_bids * gross_outputs > gross_outputs,
             import_bids_all_regions / total_import_bids * gross_outputs,
@@ -780,7 +783,7 @@ class Rice(jym.Environment):
         total_exports = gross_imports.sum(axis=0)
 
         domestic_consumption = jnp.maximum(  # Consumption cannot be negative
-            gross_outputs - investments - total_exports, 0
+            gross_outputs - investments - total_exports, 1e-8
         )
 
         c_dom_pref = self.preference_for_domestic * (
@@ -795,7 +798,9 @@ class Rice(jym.Environment):
 
         c_for_pref = jnp.sum(
             preference_for_imported
-            * jnp.pow(net_imports.sum(axis=1), self.consumption_substitution_rate)
+            * jnp.pow(
+                net_imports.sum(axis=1) + 1e-8, self.consumption_substitution_rate
+            )
         )
 
         consumptions = (c_dom_pref + c_for_pref) ** (
