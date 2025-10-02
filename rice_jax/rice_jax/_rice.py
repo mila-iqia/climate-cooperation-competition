@@ -371,10 +371,13 @@ class Rice(jym.Environment):
         # Minimum mitigation rate masking
         minimum_mitigation_rate_all = state["minimum_mitigation_rate_all_regions"]
         for agent_id in range(self.num_regions):
-            min_mitigation_rate_agent = minimum_mitigation_rate_all[agent_id]
+            #min_mitigation_rate_agent = minimum_mitigation_rate_all[agent_id] * self.num_discrete_action_levels
+            min_mitigation_rate_agent = 8
             mask[i_to_agent_str(agent_id)]["mitigation_rate"] = (
                 jnp.arange(self.num_discrete_action_levels) >= min_mitigation_rate_agent
             )
+
+        
 
         if self.action_window_size > 0:
 
