@@ -97,6 +97,14 @@ class Rice(jym.Environment):
         object.__setattr__(self, "baseline_rewards", jnp.array(rewards))
 
     def reset_env(self, key: chex.PRNGKey) -> Tuple[dict, dict]:
+        state = self._get_initial_state(key)
+        obs_dict = self.generate_observation_and_action_mask(state)
+        return obs_dict, state
+
+    def _get_initial_state(self, key):
+        """Get the initial state of the environment (for `reset_env`)
+        We make this a separate function for scenarios to override easily without
+        worrying about the observation/action mask generation."""
         if self.temperature_calibration == "base":
             global_temperature = jnp.array(
                 [self.region_params.xT_AT_0, self.region_params.xT_LO_0]
@@ -190,8 +198,7 @@ class Rice(jym.Environment):
         }
         # fmt: on
 
-        obs_dict = self.generate_observation_and_action_mask(state)
-        return obs_dict, state
+        return state
 
     def step_env(
         self, key: chex.PRNGKey, prev_state: dict, actions: dict
