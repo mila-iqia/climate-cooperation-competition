@@ -587,7 +587,7 @@ class Rice(jym.Environment):
             combined_max_accepted_mitigation_rates, axis=1
         )
 
-        state["proposal_decisions"] = proposal_decisions
+        state["proposal_decisions"] = proposal_decisions.astype(jnp.bool)
         state["minimum_mitigation_rate_all_regions"] = lower_bound_mitigation_rates
         return state
 
