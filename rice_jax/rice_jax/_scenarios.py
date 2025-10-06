@@ -77,7 +77,11 @@ class BasicClub(Rice):
             # Now we put a minimum tariff on everyone below the club mitigation rate
             # (for club members the minimum should be 0 since they always mitigate the club rate)
             min_tariff_amount_per_region = (
-                self.club_mitigation_rate - state["mitigation_rates_all_regions"]
+                self.club_mitigation_rate
+                - (
+                    state["mitigation_rates_all_regions"]
+                    * self.num_discrete_action_levels
+                )
             ).clip(min=0)
             min_tariff_amount_per_region_mask = (
                 jnp.arange(self.num_discrete_action_levels)
