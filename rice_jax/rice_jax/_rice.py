@@ -97,6 +97,14 @@ class Rice(jym.Environment):
         object.__setattr__(self, "baseline_rewards", jnp.array(rewards))
 
     def reset_env(self, key: chex.PRNGKey) -> Tuple[dict, dict]:
+        state = self._get_initial_state(key)
+        obs_dict = self.generate_observation_and_action_mask(state)
+        return obs_dict, state
+
+    def _get_initial_state(self, key):
+        """Get the initial state of the environment (for `reset_env`)
+        We make this a separate function for scenarios to override easily without
+        worrying about the observation/action mask generation."""
         if self.temperature_calibration == "base":
             global_temperature = jnp.array(
                 [self.region_params.xT_AT_0, self.region_params.xT_LO_0]
@@ -190,8 +198,7 @@ class Rice(jym.Environment):
         }
         # fmt: on
 
-        obs_dict = self.generate_observation_and_action_mask(state)
-        return obs_dict, state
+        return state
 
     def step_env(
         self, key: chex.PRNGKey, prev_state: dict, actions: dict
@@ -364,14 +371,16 @@ class Rice(jym.Environment):
             # Set diagonal elements to 0 for import actions (except first element)
             mask[agent_str]["import_bid"][a_id][1:] = 0
             mask[agent_str]["import_tariff"][a_id][1:] = 0
-            if self.negotiation_on:
+            if self.negotiation_on and "proposal_ask" in mask[agent_str]:
                 mask[agent_str]["proposal_ask"][a_id][1:] = 0
                 mask[agent_str]["proposal_promise"][a_id][1:] = 0
 
         # Minimum mitigation rate masking
         minimum_mitigation_rate_all = state["minimum_mitigation_rate_all_regions"]
         for agent_id in range(self.num_regions):
-            min_mitigation_rate_agent = minimum_mitigation_rate_all[agent_id]
+            min_mitigation_rate_agent = (
+                minimum_mitigation_rate_all[agent_id] * self.num_discrete_action_levels
+            )
             mask[i_to_agent_str(agent_id)]["mitigation_rate"] = (
                 jnp.arange(self.num_discrete_action_levels) >= min_mitigation_rate_agent
             )
@@ -399,9 +408,23 @@ class Rice(jym.Environment):
                 _mitigation_mask = create_windowed_mask(
                     prev_mitigation_actions[agent_id]
                 )
-                mask[i_to_agent_str(agent_id)]["mitigation_rate"] = (
+                agent_mitigation_mask = (
                     mask[i_to_agent_str(agent_id)]["mitigation_rate"] * _mitigation_mask
                 )  # Multiply with existing mask to not overwrite
+
+                # If the mitigation rate mask is now all 0s, that means the minimum mitigation rate is outside the window
+                # in that case, the mitigation rate should still MOVE to the minimum mitigation rate
+                # i.e. the upper half of the _mitigation_mask should be
+                is_action_available = jnp.any(agent_mitigation_mask)
+                move_to_minimum_within_window = (
+                    prev_mitigation_actions[agent_id]
+                    < jnp.arange(DISCRETE_ACTION_LEVELS)
+                ) * _mitigation_mask
+                mask[i_to_agent_str(agent_id)]["mitigation_rate"] = jax.lax.select(
+                    is_action_available,
+                    agent_mitigation_mask,
+                    move_to_minimum_within_window,
+                )
 
         return mask
 
@@ -569,7 +592,7 @@ class Rice(jym.Environment):
 
         promised_mitigation_rates = state["promised_mitigation_rate"]
         requested_mitigation_rates = state["requested_mitigation_rate"]
-        proposal_decisions = actions["proposal_decision"].T
+        proposal_decisions = (actions["proposal_decisions"].T).astype(jnp.bool_)
 
         outgoing_accepted_mitigation_rates = (
             promised_mitigation_rates * proposal_decisions
@@ -1183,7 +1206,7 @@ class Rice(jym.Environment):
             # 2 actions per region (accept/reject)
             actions["proposal_ask"] = MultiDiscrete([N_DISCRETIZATION] * N_REGIONS)
             actions["proposal_promise"] = MultiDiscrete([N_DISCRETIZATION] * N_REGIONS)
-            actions["proposal_decision"] = MultiDiscrete([2] * N_REGIONS)  # Yes /No
+            actions["proposal_decisions"] = MultiDiscrete([2] * N_REGIONS)  # Yes /No
 
         # Return the actions for each region
         return {i_to_agent_str(i): actions for i in range(N_REGIONS)}
