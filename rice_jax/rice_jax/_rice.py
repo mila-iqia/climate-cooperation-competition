@@ -371,7 +371,7 @@ class Rice(jym.Environment):
             # Set diagonal elements to 0 for import actions (except first element)
             mask[agent_str]["import_bid"][a_id][1:] = 0
             mask[agent_str]["import_tariff"][a_id][1:] = 0
-            if self.negotiation_on:
+            if self.negotiation_on and "proposal_ask" in mask[agent_str]:
                 mask[agent_str]["proposal_ask"][a_id][1:] = 0
                 mask[agent_str]["proposal_promise"][a_id][1:] = 0
 

@@ -250,33 +250,34 @@ class BasicClubTariffAmbition(Rice):
     def generate_action_masks(self, state: dict) -> chex.Array:
         action_mask = super().generate_action_masks(state)  # get default
 
-        # Update action mask for each club member
-        for agent_id in self.club_members:
+        # Update action masks
+        for agent_id in range(self.num_regions):
             agent_str = i_to_agent_str(agent_id)
 
-            # Minimum mitigation for own proposals is set on minimum mitigation rate
+            # Minimum mitigation mask for own proposals is set via minimum mitigation rate in the state
             # and therefore already handled in parent class
 
             # Now we put a minimum tariff on everyone below the club mitigation rate
             # (for club members the minimum should be 0 since they always mitigate the club rate)
             min_tariff_amount_per_region = (
-                self.club_mitigation_rate
-                - (
-                    state["mitigation_rates_all_regions"]
-                    * self.num_discrete_action_levels
+                (
+                    state["minimum_mitigation_rate_all_regions"][agent_id]
+                    - (state["mitigation_rates_all_regions"])
                 )
+                * self.num_discrete_action_levels
             ).clip(min=0)
             min_tariff_amount_per_region_mask = (
                 jnp.arange(self.num_discrete_action_levels)
                 >= min_tariff_amount_per_region[:, None]
             )
-            action_mask[agent_str]["import_tariff"] = min_tariff_amount_per_region_mask
 
-            # Optional: promote free trade among club members
-            # Only allow "no-tariff" among club members
-            if self.promote_free_trade_among_club_members:
-                action_mask[agent_str]["import_tariff"].at[self.club_members].set(
-                    jnp.arange(self.num_discrete_action_levels) == 0
-                )
+            # When other regions are above own MMR, then the min_tariff should now all be 1s
+            # Those we set to "only allow 0 tariff"
+            min_tariff_amount_per_region_mask = jnp.where(
+                jnp.all(min_tariff_amount_per_region_mask, axis=1)[:, None],
+                (jnp.arange(self.num_discrete_action_levels) == 0)[None, :],
+                min_tariff_amount_per_region_mask,
+            )
+            action_mask[agent_str]["import_tariff"] = min_tariff_amount_per_region_mask
 
         return action_mask
