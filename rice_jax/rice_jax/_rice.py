@@ -408,9 +408,23 @@ class Rice(jym.Environment):
                 _mitigation_mask = create_windowed_mask(
                     prev_mitigation_actions[agent_id]
                 )
-                mask[i_to_agent_str(agent_id)]["mitigation_rate"] = (
+                agent_mitigation_mask = (
                     mask[i_to_agent_str(agent_id)]["mitigation_rate"] * _mitigation_mask
                 )  # Multiply with existing mask to not overwrite
+
+                # If the mitigation rate mask is now all 0s, that means the minimum mitigation rate is outside the window
+                # in that case, the mitigation rate should still MOVE to the minimum mitigation rate
+                # i.e. the upper half of the _mitigation_mask should be
+                is_action_available = jnp.any(agent_mitigation_mask)
+                move_to_minimum_within_window = (
+                    prev_mitigation_actions[agent_id]
+                    < jnp.arange(DISCRETE_ACTION_LEVELS)
+                ) * _mitigation_mask
+                mask[i_to_agent_str(agent_id)]["mitigation_rate"] = jax.lax.select(
+                    is_action_available,
+                    agent_mitigation_mask,
+                    move_to_minimum_within_window,
+                )
 
         return mask
 
