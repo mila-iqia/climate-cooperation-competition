@@ -629,7 +629,11 @@ class Rice(jym.Environment):
                 * jnp.power(prev_atmospheric_temperature, self.region_params.xa_3)
             )
         elif self.dmg_function == "updated":
-            damages = 1 - (0.7438 * (prev_atmospheric_temperature**2)) / 100
+            damages = (
+                1
+                - (self.region_params.xa_updated * (prev_atmospheric_temperature**2))
+                / 100
+            )
             damages = jnp.broadcast_to(damages, (self.num_regions,))
         else:
             raise ValueError(f"Unknown damage function: {self.dmg_function}")

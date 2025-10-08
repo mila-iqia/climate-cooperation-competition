@@ -38,6 +38,7 @@ _RICE_CONSTANT:
   xa_1: 0
   xa_2: 0.00236 # in CAP Eq 6  # DFAIR: 0.003467
   xa_3: 2 # in CAP Eq 6
+  xa_updated: 0.7438
   xdelta_K: 0.1 # in CAP Eq 9 param discribe the depreciate of the capital
   xalpha: 1.45 # Utility function param
   xrho: 0.015 # discount factor of the utility
