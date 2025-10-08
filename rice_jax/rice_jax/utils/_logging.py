@@ -229,6 +229,9 @@ def create_plots(
         KeyError: If required keys are missing from the log data
     """
 
+    #known number of true timesteps
+    N = 20
+
     # Load JSON data
     if not os.path.exists(json_log_path):
         raise FileNotFoundError(f"JSON log file not found: {json_log_path}")
@@ -255,11 +258,14 @@ def create_plots(
 
     # Get actual data length from the first available data array
     actual_timesteps = _get_actual_timesteps(episode_data)
-    years = [start_year + i * years_per_step for i in range(actual_timesteps)]
+
+    number_negotiation_steps = actual_timesteps / N
+
+    years = [start_year + i * years_per_step for i in range(N)]
 
     # Create single combined plot with grid layout
     plot_file = _create_combined_plot(
-        episode_data, parameter_keys, years, output_dir, base_filename, figsize, dpi
+        episode_data, parameter_keys, years, output_dir, base_filename, figsize, dpi, number_negotiation_steps
     )
 
     return [plot_file] if plot_file else []
@@ -295,6 +301,7 @@ def _create_combined_plot(
     base_filename: str,
     figsize: tuple,
     dpi: int,
+    number_negotiation_steps: int
 ) -> Optional[str]:
     """Creates a single combined plot with grid layout for all parameters."""
 
@@ -341,17 +348,23 @@ def _create_combined_plot(
             # Special handling for combined temperature plot
             if param_key == "global_temperature":
                 temp_data = episode_data["global_temperature"]
+
+                #use every Nth value depending on number of negotiation steps.
+                temp_data_atmosphere = values = [x for i, x in enumerate(temp_data["atmosphere"], 1) if i % number_negotiation_steps == 0]
                 ax.plot(
                     years,
-                    temp_data["atmosphere"],
+                    temp_data_atmosphere,
                     label="Atmosphere",
                     linewidth=2,
                     linestyle="-",
                     color="#1f77b4",
                 )
+                
+                #use every Nth value depending on number of negotiation steps.
+                temp_data_lower_ocean = [x for i, x in enumerate(temp_data["lower_ocean"], 1) if i % number_negotiation_steps == 0]
                 ax.plot(
                     years,
-                    temp_data["lower_ocean"],
+                    temp_data_lower_ocean,
                     label="Ocean",
                     linewidth=2,
                     linestyle="--",
@@ -374,6 +387,10 @@ def _create_combined_plot(
                     if all(isinstance(v, list) for v in data.values()):
                         # Data is organized by region
                         for j, (region_id, values) in enumerate(data.items()):
+
+                            #get every Nth value depending on number of intermediate negotiation steps
+                            values = [x for i, x in enumerate(values, 1) if i % number_negotiation_steps == 0]
+
                             style = line_styles[j % len(line_styles)]
                             color = colors[j % len(colors)]
                             ax.plot(
