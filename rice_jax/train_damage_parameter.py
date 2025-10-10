@@ -25,7 +25,7 @@ import numpy as np
 NUM_REGIONS = 3
 TARGET_DMG_PARAMETER = 0.7438  # The "true" damage parameter we want to recover
 LEARNING_RATE = 0.005
-NUM_ITERATIONS = 20
+NUM_ITERATIONS = 400
 NUM_ENSEMBLE_SAMPLES = 100
 
 
