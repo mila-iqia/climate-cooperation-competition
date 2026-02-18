@@ -10,7 +10,7 @@ import tyro
 from jaxnasium.algorithms import PPO
 
 from _experiment_util import FixedActionAgent, load_agent, run_single_episode
-from rice_jax import BasicClub, OptimalMitigation, Rice, BasicClubTariffAmbition
+from rice_jax import BasicClub, OptimalMitigation, Rice, BasicClubTariffAmbition, BasicClubTariffAmbitionFixedSavings
 from rice_jax.utils import (  # noqa: F401
     create_plots,
     full_state_info_log_fn,
@@ -35,7 +35,7 @@ class EnvSettings:
     diff_reward_mode: bool = True
     relative_reward_mode: bool = False
     num_discrete_action_levels: int = 10
-    action_window_size: int = 0  # 0 = No action windows
+    action_window_size: int = 1  # 0 = No action windows
     disable_trading: bool = False
     negotiation_on: bool = False
 
@@ -88,7 +88,7 @@ class Config:
     env_settings: EnvSettings = field(default_factory=lambda: EnvSettings())
     trainer_settings: TrainerSettings = field(default_factory=lambda: TrainerSettings())
     load_model: str | None = None
-    scenario: Literal["default", "optimal_mitigation", "basic_club", "basic_club_tariff_ambition"] = "default"
+    scenario: Literal["default", "optimal_mitigation", "basic_club", "basic_club_tariff_ambition", "basic_club_tariff_ambition_fixed_savings"] = "default"
     agent: Literal["fixed_action", "ppo"] = "ppo"
     # PQN, DQN, SAC also possible (although, TrainerSettings needs to be updated so not listed here (yet))
 
@@ -108,6 +108,8 @@ def build_rice_scenario(config: Config) -> Rice:
         env = BasicClub(**env_settings)
     elif config.scenario == "basic_club_tariff_ambition":
         env = BasicClubTariffAmbition(**env_settings)
+    elif config.scenario == "basic_club_tariff_ambition_fixed_savings":
+        env = BasicClubTariffAmbitionFixedSavings(**env_settings)
     else:
         raise ValueError(f"Scenario {env_settings['scenario']} not recognized")
 

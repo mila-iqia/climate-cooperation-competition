@@ -1,9 +1,13 @@
 from typing import Any
+import jaxnasium as jym
 
 import chex
 import jax.numpy as jnp
 import numpy as np
-from jaxnasium import Discrete
+from jaxnasium import Discrete, MultiDiscrete
+import equinox as eqx
+import jax
+import optax
 
 from rice_jax import Rice
 from rice_jax.utils import i_to_agent_str
@@ -126,6 +130,25 @@ class BasicClubTariffAmbition(Rice):
             action_space[agent_key]["proposal"] = Discrete(N_DISCRETIZATION)
 
         return action_space
+
+    # @property
+    # def action_space(self) -> dict[str, jym.Space]:
+    #     N_REGIONS = self.num_regions
+    #     N_DISCRETIZATION = self.num_discrete_action_levels
+
+    #     # --- CORRECTED LINE ---
+    #     # Get the action space dictionary from the parent class correctly
+    #     action_space = Rice.action_space.fget(self)
+
+    #     for agent_id in range(self.num_regions):
+    #         agent_key = i_to_agent_str(agent_id)
+    #         # remove standard propose
+    #         action_space[agent_key].pop("proposal_ask", None)
+    #         action_space[agent_key].pop("proposal_promise", None)
+    #         # add new propose
+    #         action_space[agent_key]["proposal"] = Discrete(N_DISCRETIZATION)
+
+    #     return action_space
 
     def step_propose(self, state: dict, actions: dict) -> dict:
         if not self.negotiation_on:
@@ -281,3 +304,160 @@ class BasicClubTariffAmbition(Rice):
             action_mask[agent_str]["import_tariff"] = min_tariff_amount_per_region_mask
 
         return action_mask
+    
+class BasicClubTariffAmbitionFixedSavings(BasicClubTariffAmbition):
+    """
+    This scenario is identical to BasicClubTariffAmbition, but the savings
+    rate action is removed from the agent's action space and fixed to a 
+    constant value of 0.2 for all regions.
+    """
+
+    fixed_savings_rate: float = 0.2
+
+    @property
+    def action_space(self):
+        # Get the action space from the parent class (BasicClubTariffAmbition)
+        # by explicitly calling the property's getter function.
+        action_space = BasicClubTariffAmbition.action_space.fget(self)
+
+        # Remove the 'savings_rate' action for all agents, as it is now fixed
+        for agent_id in range(self.num_regions):
+            agent_key = i_to_agent_str(agent_id)
+            if "savings_rate" in action_space[agent_key]:
+                action_space[agent_key].pop("savings_rate")
+
+        return action_space
+
+    def process_actions(self, actions: dict, state: dict):
+        # To call the overridden parent method, we must be explicit, as super()
+        # does not work with a regular method if the class has property overrides.
+        processed_actions = BasicClubTariffAmbition.process_actions(self, actions, state)
+
+        # Manually add the fixed savings rate to the processed actions dictionary.
+        # This creates an array of shape (num_regions,) with the fixed value.
+        processed_actions["savings_rate"] = jnp.full(
+            (self.num_regions,), self.fixed_savings_rate
+        )
+
+        return processed_actions
+    
+    def generate_action_masks_base(self, state: dict[str, Any]) -> dict[str, Any]:
+        """Should output the same structure as `self.action_space`
+        1: Allowed action, 0: disallowed action
+        """
+
+        NUM_REGIONS = self.num_regions
+        DISCRETE_ACTION_LEVELS = self.num_discrete_action_levels
+
+        def allow_all_actions_in_action_space(action_space):
+            if isinstance(action_space, MultiDiscrete):
+                num_actions = np.array(action_space.nvec).shape[0]
+                num_discrete_actions = np.array(action_space.nvec)[0]
+                return np.ones((num_actions, num_discrete_actions))
+            elif isinstance(action_space, Discrete):
+                num_discrete_actions = int(action_space.n)
+                return np.ones((num_discrete_actions,))
+            else:
+                raise ValueError(f"Unknown action space: {action_space}")
+
+        # Allow each action as a base
+        mask = jax.tree.map(allow_all_actions_in_action_space, self.action_space)
+
+        # Disallow actions on own region "self"
+        for a_id in range(NUM_REGIONS):
+            agent_str = i_to_agent_str(a_id)
+            # Set diagonal elements to 0 for import actions (except first element)
+            mask[agent_str]["import_bid"][a_id][1:] = 0
+            mask[agent_str]["import_tariff"][a_id][1:] = 0
+            if self.negotiation_on and "proposal_ask" in mask[agent_str]:
+                mask[agent_str]["proposal_ask"][a_id][1:] = 0
+                mask[agent_str]["proposal_promise"][a_id][1:] = 0
+
+        # Minimum mitigation rate masking
+        minimum_mitigation_rate_all = state["minimum_mitigation_rate_all_regions"]
+        for agent_id in range(self.num_regions):
+            min_mitigation_rate_agent = (
+                minimum_mitigation_rate_all[agent_id] * self.num_discrete_action_levels
+            )
+            mask[i_to_agent_str(agent_id)]["mitigation_rate"] = (
+                jnp.arange(self.num_discrete_action_levels) >= min_mitigation_rate_agent
+            )
+
+        if self.action_window_size > 0:
+
+            def create_windowed_mask(prev_actions):
+                MAX_DIFF = self.action_window_size
+                POSSIBLE_ACTIONS = jnp.arange(DISCRETE_ACTION_LEVELS)
+                return jnp.abs(POSSIBLE_ACTIONS - prev_actions) <= MAX_DIFF
+
+            # Only allow actions around the previous action for `savings` and `mitigation` rate actions
+            # prev_savings_actions = jnp.round(
+            #     state["savings_all_regions"] * DISCRETE_ACTION_LEVELS
+            # )
+            prev_mitigation_actions = jnp.round(
+                state["mitigation_rates_all_regions"] * DISCRETE_ACTION_LEVELS
+            )
+            for agent_id in range(NUM_REGIONS):
+                # _savings_mask = create_windowed_mask(prev_savings_actions[agent_id])
+                # mask[i_to_agent_str(agent_id)]["savings_rate"] = (
+                #     mask[i_to_agent_str(agent_id)]["savings_rate"] * _savings_mask
+                # )  # Multiply with existing mask to not overwrite
+
+                _mitigation_mask = create_windowed_mask(
+                    prev_mitigation_actions[agent_id]
+                )
+                agent_mitigation_mask = (
+                    mask[i_to_agent_str(agent_id)]["mitigation_rate"] * _mitigation_mask
+                )  # Multiply with existing mask to not overwrite
+
+                # If the mitigation rate mask is now all 0s, that means the minimum mitigation rate is outside the window
+                # in that case, the mitigation rate should still MOVE to the minimum mitigation rate
+                # i.e. the upper half of the _mitigation_mask should be
+                is_action_available = jnp.any(agent_mitigation_mask)
+                move_to_minimum_within_window = (
+                    prev_mitigation_actions[agent_id]
+                    < jnp.arange(DISCRETE_ACTION_LEVELS)
+                ) * _mitigation_mask
+                mask[i_to_agent_str(agent_id)]["mitigation_rate"] = jax.lax.select(
+                    is_action_available,
+                    agent_mitigation_mask,
+                    move_to_minimum_within_window,
+                )
+
+        return mask
+    
+    def generate_action_masks(self, state: dict) -> chex.Array:
+        action_mask = self.generate_action_masks_base(state)  # get default
+
+        # Update action masks
+        for agent_id in range(self.num_regions):
+            agent_str = i_to_agent_str(agent_id)
+
+            # Minimum mitigation mask for own proposals is set via minimum mitigation rate in the state
+            # and therefore already handled in parent class
+
+            # Now we put a minimum tariff on everyone below the club mitigation rate
+            # (for club members the minimum should be 0 since they always mitigate the club rate)
+            min_tariff_amount_per_region = (
+                (
+                    state["minimum_mitigation_rate_all_regions"][agent_id]
+                    - (state["mitigation_rates_all_regions"])
+                )
+                * self.num_discrete_action_levels
+            ).clip(min=0)
+            min_tariff_amount_per_region_mask = (
+                jnp.arange(self.num_discrete_action_levels)
+                >= min_tariff_amount_per_region[:, None]
+            )
+
+            # When other regions are above own MMR, then the min_tariff should now all be 1s
+            # Those we set to "only allow 0 tariff"
+            min_tariff_amount_per_region_mask = jnp.where(
+                jnp.all(min_tariff_amount_per_region_mask, axis=1)[:, None],
+                (jnp.arange(self.num_discrete_action_levels) == 0)[None, :],
+                min_tariff_amount_per_region_mask,
+            )
+            action_mask[agent_str]["import_tariff"] = min_tariff_amount_per_region_mask
+
+        return action_mask
+    
