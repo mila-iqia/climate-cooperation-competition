@@ -58,16 +58,29 @@ def load_region_yamls(num_regions: int):
         "./region_yamls/"
     )
     region_yamls = []
-    for file in sorted(os.listdir(f"{yaml_file_directory}/{num_regions}_regions")):
-        if file.endswith(".yml"):
-            with open(f"{yaml_file_directory}/{num_regions}_regions/{file}", "r") as f:
-                region = yaml.safe_load(f)
-                region = region["_RICE_CONSTANT"]  # remove redundant key
-                region_yamls.append(region)
+    # Ensure numeric ordering of region files (1.yml, 2.yml, ..., 10.yml, ...)
+    region_dir = f"{yaml_file_directory}/{num_regions}_regions"
+    files = [f for f in os.listdir(region_dir) if f.endswith(".yml")]
+    def _numeric_key(fname: str):
+        name = os.path.splitext(fname)[0]
+        try:
+            return int(name)
+        except ValueError:
+            return name
+
+    for file in sorted(files, key=_numeric_key):
+        with open(f"{region_dir}/{file}", "r") as f:
+            region = yaml.safe_load(f)
+            region = region["_RICE_CONSTANT"]  # remove redundant key
+            region_yamls.append(region)
 
     # ximport_ is an exception, sice it is an array for each region
     ximport_ = [region["ximport"] for region in region_yamls]
-    ximport_ = [dict(sorted(x.items())) for x in ximport_]  # sort by region id
+    # Sort by region id numerically (not lexicographically) to avoid misalignment
+    ximport_ = [
+        dict(sorted(x.items(), key=lambda item: int(item[0])))
+        for x in ximport_
+    ]
     ximport_ = [list(x.values()) for x in ximport_]
 
     region_params = {
@@ -94,6 +107,26 @@ def load_region_yamls(num_regions: int):
 
     # merge the region_params, overwriting the key,values that are already present
     params = {**default_params, **region_params}
+
+    # sanity check: some regions have extremely large production growth parameters
+    # which can cause numerical explosions in production_factor updates.
+    # Print warning so users know the source.
+    try:
+        # xDelta is scalar, others are arrays
+        prod_growth = params["xg_A"] * np.exp(
+            params["xdelta_A"] * params["xDelta"]
+        )
+        if np.any(prod_growth > 1000):
+            idx = np.where(prod_growth > 1000)[0]
+            print(
+                "Warning: regions with high production growth multiplier:",
+                idx,
+                "values:",
+                prod_growth[idx],
+            )
+    except Exception:
+        # if parameters missing or weird shape, ignore
+        pass
 
     # allow for dot notation
     params = SimpleNamespace(**params)

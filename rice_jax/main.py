@@ -31,7 +31,7 @@ SETTINGS_YAML_PATH = importlib.resources.files("rice_jax").joinpath("./config_ya
 class EnvSettings:
     """The Rice environment settings."""
 
-    num_regions: Literal[3, 7, 20] = 3
+    num_regions: Literal[3, 7, 20] = 20
     diff_reward_mode: bool = True
     relative_reward_mode: bool = False
     num_discrete_action_levels: int = 10
@@ -88,7 +88,7 @@ class Config:
     env_settings: EnvSettings = field(default_factory=lambda: EnvSettings())
     trainer_settings: TrainerSettings = field(default_factory=lambda: TrainerSettings())
     load_model: str | None = None
-    scenario: Literal["default", "optimal_mitigation", "basic_club", "basic_club_tariff_ambition", "basic_club_tariff_ambition_fixed_savings"] = "default"
+    scenario: Literal["default", "optimal_mitigation", "basic_club", "basic_club_tariff_ambition", "basic_club_tariff_ambition_fixed_savings", "max_export"] = "default"
     agent: Literal["fixed_action", "ppo"] = "ppo"
     # PQN, DQN, SAC also possible (although, TrainerSettings needs to be updated so not listed here (yet))
 
@@ -110,6 +110,10 @@ def build_rice_scenario(config: Config) -> Rice:
         env = BasicClubTariffAmbition(**env_settings)
     elif config.scenario == "basic_club_tariff_ambition_fixed_savings":
         env = BasicClubTariffAmbitionFixedSavings(**env_settings)
+    elif config.scenario == "max_export":
+        from rice_jax._scenarios import MaxExport
+
+        env = MaxExport(**env_settings)
     else:
         raise ValueError(f"Scenario {env_settings['scenario']} not recognized")
 
@@ -164,18 +168,18 @@ if __name__ == "__main__":
 
         # # OPTIONALLY: Create the plots immediately:
         # # Create plots with default parameters (now creates a single combined plot)
-        # plot_files = create_plots(
-        #     json_log_path=log_filepath,
-        #     output_dir="plots",
-        #     parameter_keys=[
-        #         "global_temperature",  # Combined temperature plot
-        #         "production_all_regions",
-        #         "utility_all_regions",
-        #         "actions.savings_rate",
-        #         "actions.mitigation_rate",
-        #         "gross_output_all_regions",
-        #         "damages_all_regions",
-        #     ],
-        #     figsize=(12, 8),
-        #     dpi=300,
-        # )
+        plot_files = create_plots(
+            json_log_path=log_filepath,
+            output_dir="plots",
+            parameter_keys=[
+                "global_temperature",  # Combined temperature plot
+                "production_all_regions",
+                "utility_all_regions",
+                "actions.savings_rate",
+                "actions.mitigation_rate",
+                "gross_output_all_regions",
+                "damages_all_regions",
+            ],
+            figsize=(12, 8),
+            dpi=300,
+        )

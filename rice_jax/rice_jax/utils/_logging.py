@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 import equinox as eqx
 import jax
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 
 def empty_info_log_fn(state: dict, actions: dict) -> dict:
@@ -381,6 +382,9 @@ def _create_combined_plot(
                 else:
                     data = episode_data[param_key]
 
+                if "output" in param_key:
+                        print(data["10"])
+
                 # Handle different data structures
                 if isinstance(data, dict):
                     # Region-specific data (e.g., production_all_regions)
@@ -443,6 +447,195 @@ def _create_combined_plot(
 
     # Save plot
     filename = f"{base_filename}_plot.png"
+    filepath = os.path.join(output_dir, filename)
+
+    plt.tight_layout()
+    plt.savefig(filepath, dpi=dpi, bbox_inches="tight")
+    plt.close()
+
+    return filepath
+
+import numpy as np
+
+def compute_consumption_breakdown(
+    json_log_path: str,
+    output_dir: str = "plots",
+    figsize: tuple = (14, 8),
+    dpi: int = 300,
+) -> str:
+    """Computes and visualizes domestic vs foreign consumption breakdown over time.
+
+    The resulting figure contains two parts:
+    1. A set of bar charts (one per region) showing the share of consumption
+       coming from domestic production vs imported goods.  Each region also
+       overlays a secondary line plot (twin y-axis) displaying the export
+       ratio (`export_limit_all_regions`) over time.
+    2. A heatmap of average bilateral imports expressed as a percentage of the
+       recipient region's consumption.
+
+    Args:
+        json_log_path: Path to the JSON log file created by log_episode_to_json
+        output_dir: Directory to save the plot file
+        figsize: Figure size for matplotlib plots
+        dpi: DPI for saved plots
+
+    Returns:
+        str: Path to the created plot file
+    """
+
+    # Load JSON data
+    if not os.path.exists(json_log_path):
+        raise FileNotFoundError(f"JSON log file not found: {json_log_path}")
+
+    with open(json_log_path, "r") as f:
+        log_data = json.load(f)
+
+    # Extract metadata and episode data
+    metadata = log_data["metadata"]
+    episode_data = log_data["episode_data"]
+    env_params = log_data["environment_parameters"]
+
+    # Create output directory
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Generate base filename from metadata
+    timestamp = metadata["timestamp"]
+    episode_id = metadata["episode_id"]
+
+    # Get actual data length
+    actual_timesteps = _get_actual_timesteps(episode_data)
+    N = 20  # True number of timesteps (excluding negotiation steps)
+    number_negotiation_steps = actual_timesteps / N
+
+    # Get time axis (years)
+    start_year = env_params["start_year"]
+    years_per_step = env_params["years_per_step"]
+    years = [start_year + i * years_per_step for i in range(N)]
+
+    # Extract relevant data
+    aggregate_consumption = episode_data["aggregate_consumption"]
+    imports_minus_tariffs = episode_data["imports_minus_tariffs"]
+
+    # imports_minus_tariffs is [timesteps, from_region, to_region]
+    # We need to convert it to account for negotiation steps
+    imports_array = np.array(imports_minus_tariffs)
+
+    # Get every Nth value depending on number of negotiation steps
+    imports_sampled = imports_array[
+        [(i - 1) % number_negotiation_steps == 0 for i in range(1, actual_timesteps + 1)]
+    ]
+    
+    num_regions = imports_sampled.shape[1]
+
+    # We'll combine the bar charts and heatmap in a single figure using gridspec
+    import matplotlib.gridspec as gridspec
+
+    # calculate height ratio: 3 for bars, 1 for heatmap
+    fig = plt.figure(figsize=figsize)
+    gs = gridspec.GridSpec(2, num_regions, height_ratios=[3, 1])
+
+    colors = ["#2ca02c", "#d62728"]  # Green for domestic, red for foreign
+
+    # top row: bar charts for each region
+    for region_id in range(num_regions):
+        ax = fig.add_subplot(gs[0, region_id])
+
+        # Get consumption for this region
+        region_key = str(region_id)
+        consumption_data = aggregate_consumption[region_key]
+        consumption_sampled = [
+            x for i, x in enumerate(consumption_data, 1)
+            if i % number_negotiation_steps == 0
+        ]
+        consumption_array = np.array(consumption_sampled)
+
+        # Get total imports into this region (sum over all source regions)
+        imported_consumption = imports_sampled[:, :, region_id].sum(axis=1)
+
+        # Calculate domestic consumption
+        domestic_consumption = consumption_array - imported_consumption
+
+        # Ensure non-negative (handle small numerical errors)
+        domestic_consumption = np.maximum(domestic_consumption, 0)
+        imported_consumption = np.maximum(imported_consumption, 0)
+
+        # Calculate percentages
+        total_consumption = domestic_consumption + imported_consumption
+        domestic_pct = (
+            (domestic_consumption / np.maximum(total_consumption, 1e-8)) * 100
+        )
+        foreign_pct = (
+            (imported_consumption / np.maximum(total_consumption, 1e-8)) * 100
+        )
+
+        # Create stacked bar chart
+        ax.bar(years, domestic_pct, label="Domestic", color=colors[0], alpha=0.8)
+        ax.bar(
+            years,
+            foreign_pct,
+            bottom=domestic_pct,
+            label="Foreign (Imported)",
+            color=colors[1],
+            alpha=0.8,
+        )
+
+        # Add export ratio line using secondary y-axis
+        if "export_limit_all_regions" in episode_data:
+            export_data = episode_data["export_limit_all_regions"][str(region_id)]
+            export_sampled = [
+                x for i, x in enumerate(export_data, 1)
+                if i % number_negotiation_steps == 0
+            ]
+            ax2 = ax.twinx()
+            ax2.plot(
+                years,
+                export_sampled,
+                color="#9467bd",
+                linestyle="-",
+                linewidth=2,
+                label="Export ratio",
+            )
+            ax2.set_ylabel("Export limit")
+            if region_id == 0:
+                ax2.legend(loc="lower right")
+
+        # Customize plot
+        ax.set_xlabel("Year")
+        ax.set_ylabel("Consumption (%)")
+        ax.set_title(f"Region {region_id}: Domestic vs Foreign")
+        ax.set_ylim([0, 100])
+        if region_id == 0:
+            ax.legend(loc="upper right")
+        ax.grid(True, alpha=0.3, axis="y")
+        ax.tick_params(axis="x", rotation=45)
+
+    # bottom row: heatmap showing average imports share per receiving region
+    ax_heat = fig.add_subplot(gs[1, :])
+
+    # compute average imports over timesteps
+    avg_imports = imports_sampled.mean(axis=0)  # shape (from, to)
+
+    # average consumption per receiving region
+    avg_consumption_per_region = np.array([
+        np.mean([x for i, x in enumerate(aggregate_consumption[str(r)]) if i % number_negotiation_steps == 0])
+        for r in range(num_regions)
+    ])
+
+    # percentage of receiving region consumption
+    heatmap_data = (avg_imports / np.maximum(avg_consumption_per_region[np.newaxis, :], 1e-8)) * 100
+
+    im = ax_heat.imshow(heatmap_data, cmap="viridis", aspect="auto")
+    ax_heat.set_title("Average imports (% of recipient consumption)")
+    ax_heat.set_xlabel("Recipient region")
+    ax_heat.set_ylabel("Source region")
+    ax_heat.set_xticks(range(num_regions))
+    ax_heat.set_yticks(range(num_regions))
+    ax_heat.set_xticklabels([f"R{r}" for r in range(num_regions)])
+    ax_heat.set_yticklabels([f"R{r}" for r in range(num_regions)])
+    plt.colorbar(im, ax=ax_heat, fraction=0.05, pad=0.05)
+
+    # finalize and save
+    filename = f"episode_{timestamp}_ep{episode_id}_consumption_breakdown.png"
     filepath = os.path.join(output_dir, filename)
 
     plt.tight_layout()

@@ -113,6 +113,39 @@ class BasicClub(Rice):
         return obs
 
 
+class MaxExport(Rice):
+    """Scenario where each region is forced to choose the maximum export limit permitted.
+
+    This builds on the base export mask that already constrains export_ratio by
+    physical capacity. After computing the default mask we reduce the
+    export_limit action space to a single choice: the highest-discretization
+    level still allowed by that mask.
+    """
+
+    def generate_action_masks(self, state: dict[str, Any]) -> dict[str, Any]:
+        mask = super().generate_action_masks(state)
+
+        for agent_id in range(self.num_regions):
+            agent_str = i_to_agent_str(agent_id)
+            if "export_limit" in mask[agent_str]:
+                export_mask = mask[agent_str]["export_limit"]
+                # find largest allowed index in a JIT‑friendly way
+                # reverse mask and take argmax (returns 0 if no True values)
+                rev_idx = jnp.argmax(export_mask[::-1])
+                # compute corresponding forward index
+                max_idx = export_mask.shape[0] - 1 - rev_idx
+                # ensure the mask actually contained a True
+                has_allowed = jnp.any(export_mask)
+                # build one-hot: if none allowed, leave mask unchanged
+                new_mask = jnp.where(
+                    has_allowed,
+                    jnp.eye(export_mask.shape[0], dtype=export_mask.dtype)[max_idx],
+                    export_mask,
+                )
+                mask[agent_str]["export_limit"] = new_mask
+        return mask
+
+
 class BasicClubTariffAmbition(Rice):
     @property
     def action_space(self):
@@ -131,24 +164,6 @@ class BasicClubTariffAmbition(Rice):
 
         return action_space
 
-    # @property
-    # def action_space(self) -> dict[str, jym.Space]:
-    #     N_REGIONS = self.num_regions
-    #     N_DISCRETIZATION = self.num_discrete_action_levels
-
-    #     # --- CORRECTED LINE ---
-    #     # Get the action space dictionary from the parent class correctly
-    #     action_space = Rice.action_space.fget(self)
-
-    #     for agent_id in range(self.num_regions):
-    #         agent_key = i_to_agent_str(agent_id)
-    #         # remove standard propose
-    #         action_space[agent_key].pop("proposal_ask", None)
-    #         action_space[agent_key].pop("proposal_promise", None)
-    #         # add new propose
-    #         action_space[agent_key]["proposal"] = Discrete(N_DISCRETIZATION)
-
-    #     return action_space
 
     def step_propose(self, state: dict, actions: dict) -> dict:
         if not self.negotiation_on:

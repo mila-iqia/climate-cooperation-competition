@@ -385,6 +385,25 @@ class Rice(jym.Environment):
                 jnp.arange(self.num_discrete_action_levels) >= min_mitigation_rate_agent
             )
 
+        # Export limit mask based on physical capacity (gross output minus investment)
+        # compute max feasible ratio per region
+        gross_outputs = state.get("gross_output_all_regions")
+        investments = state.get("investment_all_regions")
+        if gross_outputs is not None and investments is not None:
+            # avoid division by zero
+            feasible_ratio = jnp.where(
+                gross_outputs > 0,
+                jnp.clip((gross_outputs - investments) / gross_outputs, 0.0, 1.0),
+                0.0,
+            )
+            for agent_id in range(self.num_regions):
+                agent_str = i_to_agent_str(agent_id)
+                # discrete action values equidistant between 0 and 1
+                levels = jnp.arange(self.num_discrete_action_levels) / (
+                    self.num_discrete_action_levels - 1
+                )
+                mask[agent_str]["export_limit"] = levels <= feasible_ratio[agent_id]
+
         if self.action_window_size > 0:
 
             def create_windowed_mask(prev_actions):
@@ -425,6 +444,16 @@ class Rice(jym.Environment):
                     agent_mitigation_mask,
                     move_to_minimum_within_window,
                 )
+
+                # apply windowing also to export_limit (if available)
+                if "export_limit" in mask[i_to_agent_str(agent_id)]:
+                    prev_export_actions = jnp.round(
+                        state.get("export_limit_all_regions", 0) * DISCRETE_ACTION_LEVELS
+                    )
+                    _export_mask = create_windowed_mask(prev_export_actions[agent_id])
+                    mask[i_to_agent_str(agent_id)]["export_limit"] = (
+                        mask[i_to_agent_str(agent_id)]["export_limit"] * _export_mask
+                    )
 
         return mask
 
@@ -886,6 +915,9 @@ class Rice(jym.Environment):
                 * (state["activity_timestep"] - 1)
             )
         )
+        print(state["activity_timestep"])
+        print(self.region_params.xg_A[18])
+        print(production_factors[18])
         return production_factors
 
     def calc_gov_balances_post_trade(
