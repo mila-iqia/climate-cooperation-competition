@@ -146,6 +146,29 @@ class MaxExport(Rice):
         return mask
 
 
+class MaxExportFixedSavings(MaxExport):
+    """Max-export scenario with a constant savings rate for all regions.
+
+    The savings rate action is ignored and replaced with a fixed continuous
+    value (default 0.2) after the parent class has processed the actions. This
+    allows running the environment without training or specifying savings_rate
+    actions while still enforcing the maximum export behavior from
+    :class:`MaxExport`.
+    """
+
+    fixed_savings_rate: float = 0.2
+
+    def process_actions(self, actions: dict[str, Any], state: dict[str, chex.Array]):
+        # call parent processing (including masking, scaling, stacking)
+        actions = super().process_actions(actions, state)
+        # override the savings_rate component with a constant value between 0
+        # and 1. The actions coming in have already been divided by
+        # ``num_discrete_action_levels`` so 0.2 is treated as the continuous rate.
+        if "savings_rate" in actions:
+            actions["savings_rate"] = jnp.ones_like(actions["savings_rate"]) * self.fixed_savings_rate
+        return actions
+
+
 class BasicClubTariffAmbition(Rice):
     @property
     def action_space(self):

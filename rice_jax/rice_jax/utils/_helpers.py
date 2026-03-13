@@ -108,26 +108,6 @@ def load_region_yamls(num_regions: int):
     # merge the region_params, overwriting the key,values that are already present
     params = {**default_params, **region_params}
 
-    # sanity check: some regions have extremely large production growth parameters
-    # which can cause numerical explosions in production_factor updates.
-    # Print warning so users know the source.
-    try:
-        # xDelta is scalar, others are arrays
-        prod_growth = params["xg_A"] * np.exp(
-            params["xdelta_A"] * params["xDelta"]
-        )
-        if np.any(prod_growth > 1000):
-            idx = np.where(prod_growth > 1000)[0]
-            print(
-                "Warning: regions with high production growth multiplier:",
-                idx,
-                "values:",
-                prod_growth[idx],
-            )
-    except Exception:
-        # if parameters missing or weird shape, ignore
-        pass
-
     # allow for dot notation
     params = SimpleNamespace(**params)
 

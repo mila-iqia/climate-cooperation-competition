@@ -10,7 +10,7 @@ import tyro
 from jaxnasium.algorithms import PPO
 
 from _experiment_util import FixedActionAgent, load_agent, run_single_episode
-from rice_jax import BasicClub, OptimalMitigation, Rice, BasicClubTariffAmbition, BasicClubTariffAmbitionFixedSavings
+from rice_jax import BasicClub, OptimalMitigation, Rice, RiceMRIO, BasicClubTariffAmbition, BasicClubTariffAmbitionFixedSavings
 from rice_jax.utils import (  # noqa: F401
     create_plots,
     full_state_info_log_fn,
@@ -28,10 +28,21 @@ SETTINGS_YAML_PATH = importlib.resources.files("rice_jax").joinpath("./config_ya
 
 
 @dataclass
+class MRIOSettings:
+    """Settings for the RiceMRIO scenario."""
+
+    num_regions: Literal[3, 7, 20] = 20
+    # Root of the csv_asset directory (relative to the rice_jax/ working dir
+    # or absolute).  Aggregated MRIO sub-paths and CountryClass CSVs are
+    # derived automatically from num_regions.
+    mrio_data_root: str = "../csv_asset"
+
+
+@dataclass
 class EnvSettings:
     """The Rice environment settings."""
 
-    num_regions: Literal[3, 7, 20] = 20
+    num_regions: Literal[3, 7, 20] = 7
     diff_reward_mode: bool = True
     relative_reward_mode: bool = False
     num_discrete_action_levels: int = 10
@@ -49,7 +60,7 @@ class EnvSettings:
     init_capital_multiplier: float = 10.0
     balance_interest_rate: float = 0.1
     consumption_substitution_rate: float = 0.5
-    preference_for_domestic: float = 0.5
+    preference_for_domestic: float = 0.9
 
     init_gamma: float = 0.99  # discount factor
 
@@ -88,16 +99,32 @@ class Config:
     env_settings: EnvSettings = field(default_factory=lambda: EnvSettings())
     trainer_settings: TrainerSettings = field(default_factory=lambda: TrainerSettings())
     load_model: str | None = None
-    scenario: Literal["default", "optimal_mitigation", "basic_club", "basic_club_tariff_ambition", "basic_club_tariff_ambition_fixed_savings", "max_export"] = "default"
+    scenario: Literal[
+        "default",
+        "optimal_mitigation",
+        "basic_club",
+        "basic_club_tariff_ambition",
+        "basic_club_tariff_ambition_fixed_savings",
+        "max_export",
+        "max_export_fixed_savings",
+        "rice_mrio",
+    ] = "default"
+    mrio_settings: MRIOSettings = field(default_factory=lambda: MRIOSettings())
     agent: Literal["fixed_action", "ppo"] = "ppo"
     # PQN, DQN, SAC also possible (although, TrainerSettings needs to be updated so not listed here (yet))
 
 
 def build_rice_scenario(config: Config) -> Rice:
-    region_params = load_region_yamls(config.env_settings.num_regions)
+    if config.scenario == "rice_mrio":
+        num_regions = config.mrio_settings.num_regions
+    else:
+        num_regions = config.env_settings.num_regions
+
+    region_params = load_region_yamls(num_regions)
     env_settings = {
         **config.env_settings.__dict__,
         "region_params": region_params,
+        "num_regions": num_regions,
     }
 
     if config.scenario == "default":
@@ -114,8 +141,17 @@ def build_rice_scenario(config: Config) -> Rice:
         from rice_jax._scenarios import MaxExport
 
         env = MaxExport(**env_settings)
+    elif config.scenario == "max_export_fixed_savings":
+        from rice_jax._scenarios import MaxExportFixedSavings
+
+        env = MaxExportFixedSavings(**env_settings)
+    elif config.scenario == "rice_mrio":
+        env = RiceMRIO(
+            **env_settings,
+            mrio_data_root=config.mrio_settings.mrio_data_root,
+        )
     else:
-        raise ValueError(f"Scenario {env_settings['scenario']} not recognized")
+        raise ValueError(f"Scenario {config.scenario} not recognized")
 
     return jym.LogWrapper(env)
 

@@ -525,6 +525,12 @@ class Rice(jym.Environment):
         return actions
 
     def step_climate_and_economy(self, state: dict[str, Any], actions: dict[str, Any]):
+        # Increment activity_timestep at the start of the step to match PyTorch implementation
+        # This ensures production_factor calculations use the correct timestep value
+        # (PyTorch increments before calculations, not after)
+        state = state.copy()
+        state["activity_timestep"] = state["activity_timestep"] + 1
+        
         damages = self.calc_damages(state)
         abatement_costs = self.calc_abatement_costs(state, actions)
         productions = self.calc_productions(state)
@@ -570,7 +576,7 @@ class Rice(jym.Environment):
         state = state.copy()
         state.update(
             {
-                "activity_timestep": state["activity_timestep"] + 1,
+                # Note: activity_timestep already incremented at start of step_climate_and_economy
                 # actions
                 "savings_all_regions": actions["savings_rate"],
                 "mitigation_rates_all_regions": actions["mitigation_rate"],
@@ -915,9 +921,6 @@ class Rice(jym.Environment):
                 * (state["activity_timestep"] - 1)
             )
         )
-        print(state["activity_timestep"])
-        print(self.region_params.xg_A[18])
-        print(production_factors[18])
         return production_factors
 
     def calc_gov_balances_post_trade(
