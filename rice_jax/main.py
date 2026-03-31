@@ -2,7 +2,11 @@ import importlib.resources
 import logging
 import os
 from dataclasses import dataclass, field, replace
+from types import SimpleNamespace
 from typing import Annotated, Literal
+
+import numpy as np
+import yaml
 
 import jax
 import jaxnasium as jym
@@ -36,6 +40,27 @@ class MRIOSettings:
     # or absolute).  Aggregated MRIO sub-paths and CountryClass CSVs are
     # derived automatically from num_regions.
     mrio_data_root: str = "../csv_asset"
+    # AR(1) persistence weight ρ ∈ [0,1] for the destination-allocation logit
+    # anchor.  ρ=0 → always re-anchor to 2016 MRIO baseline (default).
+    # ρ=1 → fully adaptive (prev allocation becomes the new baseline).
+    # See CBAM_GRADIENT_DESIGN.md § Approach D and Roberts & Tybout (1997).
+    dest_alloc_persistence: float = 0.0
+    # When True, the welfare-loss multiplier is resolved sector-by-sector:
+    #   welfloss[r] = 1 - Σ_s (X_{r,s}^EU * σ_{r,s} * τ * α) / Y_r
+    # Gives export_reallocation a per-sector reward gradient.  False = Approach B.
+    sectoral_welfloss: bool = False
+    # Remove savings_rate / mitigation_rate from the action space and fix them
+    # to their hardcoded values (0.2 and 0.0 respectively), leaving
+    # export_reallocation as the sole driver of differentiated reward.
+    fixed_savings_rate: bool = False
+    no_mitigation: bool = False
+    # Sector granularity for the export_reallocation action space:
+    #   "full"              — all 26 EORA sectors (default).
+    #   "cbam-specific"     — 3 CBAM sectors separate + "non-CBAM" bucket (4 total).
+    #   "simple"            — 2 sectors: "CBAM" and "non-CBAM".
+    #   "emissions-specific" — 7 dirty sectors separate + "non-CBAM" (8 total).
+    #   "emissions-simple"   — 2 sectors: dirty (CBAM + high-emissions) vs rest.
+    sector_granularity: str = "full"
 
 
 @dataclass
@@ -99,6 +124,10 @@ class Config:
     env_settings: EnvSettings = field(default_factory=lambda: EnvSettings())
     trainer_settings: TrainerSettings = field(default_factory=lambda: TrainerSettings())
     load_model: str | None = None
+    # Path to a directory of numbered yaml files (e.g. rice_jax/cbam_yamls/setup_5).
+    # When set, overrides num_regions-based yaml loading and infers num_regions
+    # from the number of .yml files found in the directory.
+    region_yamls_dir: str | None = None
     scenario: Literal[
         "default",
         "optimal_mitigation",
@@ -114,13 +143,60 @@ class Config:
     # PQN, DQN, SAC also possible (although, TrainerSettings needs to be updated so not listed here (yet))
 
 
+def _load_region_yamls_from_dir(directory: str) -> tuple:
+    """Load numbered yaml files from an arbitrary directory.
+
+    Returns (region_params, num_regions) where region_params is a
+    SimpleNamespace identical in structure to load_region_yamls().
+    """
+    files = sorted(
+        [f for f in os.listdir(directory) if f.endswith(".yml")],
+        key=lambda f: int(os.path.splitext(f)[0]),
+    )
+    if not files:
+        raise FileNotFoundError(f"No .yml files found in {directory}")
+
+    region_yamls = []
+    for fname in files:
+        with open(os.path.join(directory, fname)) as f:
+            doc = yaml.safe_load(f)
+        region_yamls.append(doc["_RICE_CONSTANT"])
+
+    ximport_ = [
+        list(dict(sorted(r["ximport"].items(), key=lambda kv: int(kv[0]))).values())
+        for r in region_yamls
+    ]
+    region_params = {
+        k: np.array([r[k] for r in region_yamls])
+        for k in region_yamls[0].keys()
+        if k != "ximport"
+    }
+    region_params["ximport"] = np.array(ximport_)
+
+    # Merge with default params (dice + rice constants) from the package default.yml
+    yaml_file_directory = importlib.resources.files("rice_jax").joinpath("./region_yamls/")
+    with open(f"{yaml_file_directory}/default.yml") as f:
+        default_doc = yaml.safe_load(f)
+    dice_params = default_doc["_DICE_CONSTANT"]
+    rice_params_default = default_doc["_RICE_CONSTANT"]
+
+    def list_to_tuples(v):
+        return tuple(list_to_tuples(x) for x in v) if isinstance(v, list) else v
+
+    dice_params = {k: list_to_tuples(v) for k, v in dice_params.items()}
+    params = {**dice_params, **rice_params_default, **region_params}
+    return SimpleNamespace(**params), len(files)
+
+
 def build_rice_scenario(config: Config) -> Rice:
-    if config.scenario == "rice_mrio":
+    if config.region_yamls_dir is not None:
+        region_params, num_regions = _load_region_yamls_from_dir(config.region_yamls_dir)
+    elif config.scenario == "rice_mrio":
         num_regions = config.mrio_settings.num_regions
+        region_params = load_region_yamls(num_regions)
     else:
         num_regions = config.env_settings.num_regions
-
-    region_params = load_region_yamls(num_regions)
+        region_params = load_region_yamls(num_regions)
     env_settings = {
         **config.env_settings.__dict__,
         "region_params": region_params,
@@ -149,6 +225,11 @@ def build_rice_scenario(config: Config) -> Rice:
         env = RiceMRIO(
             **env_settings,
             mrio_data_root=config.mrio_settings.mrio_data_root,
+            dest_alloc_persistence=config.mrio_settings.dest_alloc_persistence,
+            sectoral_welfloss=config.mrio_settings.sectoral_welfloss,
+            fixed_savings_rate=config.mrio_settings.fixed_savings_rate,
+            no_mitigation=config.mrio_settings.no_mitigation,
+            sector_granularity=config.mrio_settings.sector_granularity,
         )
     else:
         raise ValueError(f"Scenario {config.scenario} not recognized")

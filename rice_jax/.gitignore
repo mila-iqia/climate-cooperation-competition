@@ -3,3 +3,10 @@ dist/
 _dev*
 
 uv.lock
+
+# Research notes and validation/diagnostic scripts (not for PR)
+notes/
+validation/
+plots/
+training_logs/
+episode_logs/

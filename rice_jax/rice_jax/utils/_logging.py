@@ -382,9 +382,6 @@ def _create_combined_plot(
                 else:
                     data = episode_data[param_key]
 
-                if "output" in param_key:
-                        print(data["10"])
-
                 # Handle different data structures
                 if isinstance(data, dict):
                     # Region-specific data (e.g., production_all_regions)
