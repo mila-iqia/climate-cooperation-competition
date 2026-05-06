@@ -25,7 +25,19 @@ See CBAM_ROADMAP.md and rice_jax/rice_jax/MRIO_RICE_DESIGN.md for details.
 from __future__ import annotations
 
 import os
+import warnings
 from typing import Any
+
+# RiceMRIO stores large numpy arrays (dest_alloc_baseline, sector_output_shares,
+# total_export_frac, emissions_intensity) in eqx.field(static=True) fields.
+# This is intentional: they are compile-time constants accessed inside JIT via
+# explicit jnp.array(...) conversions.  Equinox's is_array check does not
+# distinguish numpy from JAX arrays, so it warns incorrectly here.
+warnings.filterwarnings(
+    "ignore",
+    message="A JAX array is being set as static",
+    category=UserWarning,
+)
 
 import chex
 import equinox as eqx
@@ -533,6 +545,14 @@ class RiceMRIO(Rice):
     fixed_savings_rate: bool = eqx.field(static=True, default=False)
     no_mitigation: bool = eqx.field(static=True, default=False)
 
+    # When True, abatement costs are zeroed out (abatement_cost = 0 for all
+    # regions).  Used for the Phase 2B motivating experiment: with free
+    # abatement, agents should learn to fully mitigate under CBAM because
+    # reducing μ → lower embedded emissions → lower CBAM cost at no expense.
+    # This is the canonical null condition that isolates the CBAM-mitigation
+    # incentive channel before adding realistic abatement costs in Phase 2B.
+    zero_abatement_cost: bool = eqx.field(static=True, default=False)
+
     # Sector granularity for the export_reallocation action space.
     # Controls how the 26 EORA sectors are aggregated before building the
     # trade arrays, reducing the action-space dimensionality.
@@ -553,6 +573,113 @@ class RiceMRIO(Rice):
     # empirical deadweight-loss estimate.  Increase for mechanism-validation
     # experiments where the realistic penalty is too small for PPO to detect.
     welfare_loss_per_unit_tariff: float = eqx.field(static=True, default=0.4)
+
+    # Reward mode: controls how the CBAM tariff penalty enters the reward.
+    #   "welfloss" (default) — multiplicative welfare-loss multiplier on utility:
+    #       r_t = Δ(U_t × welfloss_t).  Requires manual α calibration.
+    #   "additive_cbam" — additive penalty following RCPO (Tessler et al. 2019):
+    #       r_t = ΔU_t − λ · CBAM_cost_t.  λ is a Lagrange multiplier
+    #       that auto-tunes on a slower timescale.  CBAM_cost is the raw
+    #       export-weighted tariff penalty (not divided by Y_r), making
+    #       the signal size-invariant across regions.
+    reward_mode: str = eqx.field(static=True, default="welfloss")
+
+    # Initial (and post-reset) value of the Lagrange multiplier λ stored in
+    # state["cbam_lambda"].  Default 0.0 preserves existing RCPO behaviour
+    # (λ starts at 0 and is grown by RCPOMonitoredPPO).  Set to a positive
+    # value when using a *fixed* calibrated penalty instead of auto-tuned RCPO
+    # (e.g. cbam_lambda_init=1.0 for 9-region diversion experiments where the
+    # EU trade share is too small for RCPO to accumulate λ across episode
+    # boundaries).
+    cbam_lambda_init: float = eqx.field(static=True, default=0.0)
+
+    # Phase 2B Tier 1: fraction of CBAM revenue pool redistributed to exporters.
+    # 0.0 (default) = no transfer (current behaviour); 1.0 = full redistribution.
+    # Transfer to each non-EU exporter r is proportional to r's CBAM burden:
+    #   transfer[r] = revenue_share * pool * cbam_cost[r] / (pool + ε)
+    # Added to exporter consumption before utility is computed, so the subsidy
+    # reduces the effective CBAM burden without changing the welfloss multiplier.
+    # EU does not self-transfer; it retains (1 - revenue_share) implicitly.
+    # Reference: Phase 2B design plan, Tier 1 ablation grid.
+    revenue_share: float = eqx.field(static=True, default=0.0)
+
+    # Controls how CBAM revenue transfers are applied to recipient exporters.
+    #
+    #   "consumption" (default, Mode A): transfer added directly to consumption
+    #       as a lump-sum cash payment.  Net effective CBAM cost = (1-rs)·c_r.
+    #       At rs=1 both the diversion and mitigation incentives are fully eroded
+    #       — the Böhringer, Fischer & Rosendahl (2010 §4) perverse recycling result.
+    #
+    #   "abatement" (Mode B): transfer is earmarked to offset the abatement-cost
+    #       deduction already applied inside calc_gross_outputs.  The subsidy is
+    #       capped at the region's actual abatement spending; any excess reverts to
+    #       free consumption (same as Mode A).  Gross output and investment are
+    #       updated consistently before consumptions are recomputed.
+    #
+    #       Key asymmetry vs Mode A: diversion incentive is unchanged (full CBAM
+    #       cost still penalises EU-bound dirty exports) but mitigation becomes
+    #       cheaper (abatement cost partially covered), so Mode B preserves the
+    #       mitigation channel even at rs=1 while still penalising diversion.
+    #       Grounded in: Fischer & Springborn (2011) "Emissions Targets and the
+    #       Real Business Cycle: Intensity Targets Versus Caps or Taxes",
+    #       J. Environmental Economics and Management 62(3), §3–4 — earmarked
+    #       green R&D/technology transfer lowers marginal abatement cost over
+    #       time vs. lump-sum cash which protects households but does not
+    #       trigger structural industrial transformation.  Chiroleu-Assouline &
+    #       Fodha (2014) confirm conditionality on "intermediate outputs"
+    #       (e.g., specific technology installation) outperforms simple
+    #       results-based transfers for industrial sectors.
+    transfer_mode: str = eqx.field(static=True, default="consumption")
+
+    # Controls how the CBAM revenue pool is split across recipient exporters.
+    # All rules zero-out the EU region after allocation.
+    #
+    #   "burden" (default): proportional to each exporter's raw CBAM cost c_r.
+    #       Matches the EU CBAM Regulation intent; rewards staying dirty
+    #       (Böhringer, Fischer & Rosendahl 2010 §4 perverse recycling).
+    #
+    #   "effort": proportional to each exporter's current mitigation rate μ_r.
+    #       Directly rewards abatement effort — breaks the dirty-equilibrium
+    #       trap for large low-μ exporters (China).
+    #       Grounded in: Angelsen et al. (2017) "REDD+ as Result-based Aid:
+    #       General Lessons and Bilateral Agreements of Norway" — performance-
+    #       conditional payments shift firm optimisation from cost-recovery to
+    #       innovation-incentive.  Fischer & Springborn (2011) §4: intensity-
+    #       based rebating is preferred over output-based when the emissions
+    #       price is below the social cost of carbon.  Nordhaus (2015) climate
+    #       clubs AEA P&P — transfer conditionality is the "carrot" to the
+    #       trade-sanction "stick" for expanding de facto carbon pricing.
+    #       Risk: bilateral moral hazard (Chiroleu-Assouline & Fodha 2014) —
+    #       recipient manipulates μ measurement baseline.
+    #
+    #   "equal": uniform split across all non-EU exporters (1/(NR-1)).
+    #       Fully decouples transfer from behaviour; pure income effect.
+    #       Useful as a null condition: if "equal" produces the same response
+    #       as "burden", the incentive channel doesn't matter — only the amount.
+    #
+    #   "vulnerability": proportional to CBAM cost normalised by gross output
+    #       (c_r / Y_r).  Favours small open economies with high CBAM exposure
+    #       relative to their size (SSA, India over China/RoW).
+    #       Grounded in: GCF/UNFCCC NCQG (2024) Multidimensional Vulnerability
+    #       Index (MVI) — supplements GNI per capita with structural exposure
+    #       (geographic isolation, fiscal fragility, natural disaster risk).
+    #       CEEW India CBAM report (2024): c_r/Y_r correctly identifies MSMEs
+    #       in iron/steel as most exposed relative to economic size.  Limitation:
+    #       ADB (2024) CGE modelling shows the rule fails for large emitters
+    #       (China) because it diverts transfers away from the "scale effect"
+    #       of Chinese industrial abatement — confirmed by our simulation.
+    #
+    #   "hybrid": effort × vulnerability weight, w_r = μ_r × (c_r / Y_r).
+    #       Combines performance conditionality (effort) with equity targeting
+    #       (vulnerability).  Proposed by Gemini literature synthesis (2026) as
+    #       the mechanism most consistent with both REDD+ RBA literature and
+    #       NCQG equity criteria.  Empirically: should give SSA (high c_r/Y_r)
+    #       a large pool *conditional* on raising μ, and give China (low c_r/Y_r)
+    #       an effort incentive without the full equal-split windfall.
+    #       [LITERATURE NEEDED: peer-reviewed hybrid effort×vulnerability rule
+    #       for CBAM specifically — emerging as of 2026; closest anchor is
+    #       Böhringer et al. (2010) §5 combined OBA+intensity rebate analysis]
+    transfer_allocation: str = eqx.field(static=True, default="burden")
 
     # Populated in __post_init__ when mrio_trade=True
     dest_alloc_baseline: np.ndarray = eqx.field(static=True, default=None)
@@ -644,6 +771,19 @@ class RiceMRIO(Rice):
                 dtype=jnp.float32,
             )
             state["cbam_revenue"] = jnp.zeros(self.num_regions, dtype=jnp.float32)
+            state["cbam_cost_all_regions"] = jnp.zeros(
+                self.num_regions, dtype=jnp.float32
+            )
+            # Lagrange multiplier for additive_cbam reward mode (RCPO).
+            # Lives in state so the training loop can mutate it without
+            # reconstructing the (frozen) equinox environment module.
+            # Initialised to cbam_lambda_init (default 0.0); positive values
+            # implement a fixed calibrated penalty that persists across episode
+            # resets — preventing the λ-zeroing bug in RCPO on small EU-share
+            # setups where per-episode resets prevent λ accumulation.
+            state["cbam_lambda"] = jnp.float32(self.cbam_lambda_init)
+            # Phase 2B: transfer received by each region this step.
+            state["transfer_received"] = jnp.zeros(self.num_regions, dtype=jnp.float32)
             # Current destination-allocation logit anchor (NR, NS, NR).
             # Initialised to the 2016 MRIO baseline; updated each step when
             # dest_alloc_persistence > 0.
@@ -697,8 +837,46 @@ class RiceMRIO(Rice):
                 "dest_alloc": state["dest_alloc_current"][agent_id],     # (NS, NR)
                 "cbam_revenue": state["cbam_revenue"],                   # (NR,)
                 "cbam_tariff_rate": state["cbam_tariff_rate"],            # scalar
+                "cbam_cost": state["cbam_cost_all_regions"][agent_id],    # scalar — own CBAM cost
+                "cbam_lambda": state["cbam_lambda"],                     # scalar — current Lagrange multiplier
+                "revenue_share": jnp.float32(self.revenue_share),         # scalar — fraction redistributed
+                "transfer_received": state["transfer_received"][agent_id], # scalar — transfer received this step
             }
         return obs
+
+    # ------------------------------------------------------------------ rewards (RCPO override)
+
+    def generate_rewards(
+        self, new_state: dict, old_state: dict
+    ) -> dict[str, float]:
+        """Reward with optional additive CBAM penalty (RCPO).
+
+        reward_mode="welfloss" (default):
+            Delegates to parent: r_t = Δ(U × welfloss).
+
+        reward_mode="additive_cbam":
+            r_t = ΔU_t − λ · CBAM_cost_t
+            where CBAM_cost is the raw export-weighted tariff penalty
+            (not divided by Y_r) and λ is a Lagrange multiplier stored
+            in state["cbam_lambda"], updated by the training loop.
+
+        Reference: Tessler et al. (2019), "Reward Constrained Policy
+        Optimization", ICLR 2019, §4.2 Eq. 10.
+        """
+        if self.reward_mode != "additive_cbam":
+            return super().generate_rewards(new_state, old_state)
+
+        # ΔU (pure utility change, no welfloss)
+        reward = new_state["utility_all_regions"]
+        if self.diff_reward_mode:
+            reward = reward - old_state["utility_all_regions"]
+
+        # Subtract λ · CBAM_cost
+        lam = new_state["cbam_lambda"]
+        cbam_cost = new_state["cbam_cost_all_regions"]  # (NR,)
+        reward = reward - lam * cbam_cost
+
+        return {i_to_agent_str(i): reward[i] for i in range(self.num_regions)}
 
     # ------------------------------------------------------------------ action space / masks (Phase 2A only)
 
@@ -816,9 +994,22 @@ class RiceMRIO(Rice):
         trade_flows: chex.Array,
         gross_imports_mrio: chex.Array,
         cbam_tariff_rate: chex.Array | None = None,
+        mitigation_rates: chex.Array | None = None,
     ) -> tuple[chex.Array, chex.Array, chex.Array]:
         """
         Compute CBAM-related quantities.
+
+        Parameters
+        ----------
+        mitigation_rates : (NR,) optional
+            Current-step mitigation rates from state["mitigation_rates_all_regions"].
+            When provided, the effective embedded carbon intensity is scaled by
+            (1 - μ_r), so mitigation reduces CBAM burden proportionally across
+            all sectors of a region.  This follows EU CBAM Regulation 2023/956
+            Art. 7: tariff is charged on *actual* embedded emissions, not on a
+            frozen intensity baseline.
+            When None (default), the static 2016 EORA intensity is used —
+            backward-compatible with all existing experiments.
 
         Returns
         -------
@@ -827,6 +1018,8 @@ class RiceMRIO(Rice):
             non-zero only in EU row.
         cbam_revenue : (NR,)
             Revenue collected by EU from each exporter's goods.
+        cbam_cost : (NR,)
+            Raw CBAM cost borne by each exporting region.
         """
         # What each region r exports to EU, by sector
         eu_exports_by_sector = trade_flows[:, self.eu_region_idx, :]  # (NR, NS)
@@ -834,10 +1027,21 @@ class RiceMRIO(Rice):
         # Use state-based rate when provided, else fall back to static field
         rate = cbam_tariff_rate if cbam_tariff_rate is not None else self.cbam_tariff_rate
 
+        # Effective embedded carbon intensity per (region, sector).
+        # Base: static 2016 EORA σ_{r,s} captures cross-sector heterogeneity.
+        # Dynamic: scale by (1-μ_r) so that mitigation reduces CBAM burden.
+        # Uniform μ across sectors is the correct Phase 2A/2B assumption —
+        # sector-specific abatement requires sector-specific capital (Phase 2C).
+        # Reference: EU CBAM Reg. 2023/956 Art. 7 — tariff on actual emissions.
+        effective_intensity = jnp.array(self.emissions_intensity)  # (NR, NS)
+        if mitigation_rates is not None:
+            abatement_factor = jnp.clip(1.0 - mitigation_rates, 0.0, 1.0)  # (NR,)
+            effective_intensity = effective_intensity * abatement_factor[:, None]
+
         # CBAM cost imposed on exporter r
         cbam_cost = (
             eu_exports_by_sector
-            * jnp.array(self.emissions_intensity)
+            * effective_intensity
             * rate
         ).sum(axis=1)  # (NR,)
 
@@ -854,7 +1058,7 @@ class RiceMRIO(Rice):
             cbam_cost.sum()
         )
 
-        return cbam_tariff_matrix, cbam_revenue
+        return cbam_tariff_matrix, cbam_revenue, cbam_cost
 
     # ------------------------------------------------------------------ step
 
@@ -896,6 +1100,22 @@ class RiceMRIO(Rice):
         #    consumption/utilities will be re-computed below.
         state = super().step_climate_and_economy(state, parent_actions)
 
+        # Zero out abatement costs if requested (Phase 2B motivating experiment).
+        # The parent already deducted abatement_cost from gross_output inside
+        # calc_gross_outputs, so we compensate by scaling gross_output back up.
+        # Specifically: gross_output = damages * (1 - abatement_cost) * production
+        # → with abatement_cost=0: gross_output = damages * production.
+        if self.zero_abatement_cost:
+            abatement_cost = state["abatement_cost_all_regions"]  # (NR,)
+            denom = jnp.maximum(1.0 - abatement_cost, 1e-8)
+            # Reverse the (1 - abatement_cost) factor the parent applied to both
+            # gross_output and investment (investment = savings_rate * gross_output,
+            # so it was also computed from the penalised output).
+            state = state.copy()
+            state["gross_output_all_regions"]  = state["gross_output_all_regions"] / denom
+            state["investment_all_regions"]    = state["investment_all_regions"] / denom
+            state["abatement_cost_all_regions"] = jnp.zeros_like(abatement_cost)
+
         # 3. Disaggregate production into sectors
         Y = state["production_all_regions"]  # (NR,)
         shares = jnp.array(self.sector_output_shares)
@@ -910,10 +1130,19 @@ class RiceMRIO(Rice):
         # gross_imports_mrio[to_r, from_r] = sum_s trade_flows[from_r, to_r, s]
         gross_imports_mrio = trade_flows.sum(axis=2).T  # (NR, NR) [to, from]
 
-        # 5. Compute CBAM: effective tariff matrix + revenue
+        # 5. Compute CBAM: effective tariff matrix + revenue + raw cost.
+        # Pass current mitigation rates so that μ > 0 reduces embedded emissions
+        # and therefore the CBAM burden (EU CBAM Reg. 2023/956 Art. 7).
+        # mitigation_rates_all_regions was updated by the parent step above.
         active_rate = state["cbam_tariff_rate"]
-        cbam_tariff_matrix, cbam_revenue = self._compute_cbam(
-            trade_flows, gross_imports_mrio, cbam_tariff_rate=active_rate
+        mit_rates = (
+            None if self.no_mitigation
+            else state["mitigation_rates_all_regions"]
+        )
+        cbam_tariff_matrix, cbam_revenue, cbam_cost_raw = self._compute_cbam(
+            trade_flows, gross_imports_mrio,
+            cbam_tariff_rate=active_rate,
+            mitigation_rates=mit_rates,
         )
 
         # 6. Recompute consumptions with MRIO gross imports (no tariff on quantity)
@@ -922,6 +1151,85 @@ class RiceMRIO(Rice):
         consumptions = self.calc_consumptions(
             gross_outputs, investments, gross_imports_mrio, gross_imports_mrio
         )
+
+        # 6b. Phase 2B: revenue transfer to exporters.
+        # Redistribute `revenue_share` fraction of the total CBAM pool back to
+        # exporters.  EU is the collector and does not self-transfer.
+        # Allocation rule is controlled by self.transfer_allocation.
+        pool = cbam_cost_raw.sum()  # scalar — total revenue collected by EU
+
+        # ── Allocation rule ────────────────────────────────────────────────
+        if self.transfer_allocation == "effort":
+            # Proportional to current mitigation rate μ_r.
+            # Directly rewards abatement effort; breaks dirty-equilibrium trap
+            # for large low-μ exporters.  EU share zeroed after normalisation.
+            mu = state["mitigation_rates_all_regions"]                 # (NR,)
+            mu_ex = mu.at[self.eu_region_idx].set(0.0)
+            burden_share = mu_ex / (mu_ex.sum() + 1e-8)
+        elif self.transfer_allocation == "equal":
+            # Uniform split across all non-EU exporters.
+            # Pure income effect; decouples transfer amount from behaviour.
+            mask = jnp.ones(self.num_regions).at[self.eu_region_idx].set(0.0)
+            burden_share = mask / (mask.sum() + 1e-8)
+        elif self.transfer_allocation == "vulnerability":
+            # Proportional to CBAM cost / gross output (c_r / Y_r).
+            # Favours small open economies with high CBAM exposure relative
+            # to their economic size (SSA, India over China).
+            # Grounded in GCF/NCQG MVI criteria (UNFCCC 2024).
+            vul = cbam_cost_raw / (gross_outputs + 1e-8)               # (NR,)
+            vul = vul.at[self.eu_region_idx].set(0.0)
+            burden_share = vul / (vul.sum() + 1e-8)
+        elif self.transfer_allocation == "hybrid":
+            # w_r = μ_r × (c_r / Y_r) — effort × vulnerability.
+            # Performance-conditional (effort) combined with equity targeting
+            # (vulnerability/exposure).  Proposed in Gemini literature synthesis
+            # (2026); closest anchor is Böhringer et al. (2010) §5 combined
+            # OBA+intensity rebate.  EU share zeroed after normalisation.
+            mu  = state["mitigation_rates_all_regions"]                # (NR,)
+            vul = cbam_cost_raw / (gross_outputs + 1e-8)               # (NR,)
+            w   = mu * vul
+            w   = w.at[self.eu_region_idx].set(0.0)
+            burden_share = w / (w.sum() + 1e-8)
+        else:
+            # "burden" (default): proportional to raw CBAM cost c_r.
+            # Böhringer, Fischer & Rosendahl (2010) §4: mimics OBA for foreign
+            # producers, offsetting trade barrier but risking moral hazard.
+            burden_share = cbam_cost_raw / (pool + 1e-8)               # (NR,)
+
+        transfer_received = self.revenue_share * pool * burden_share   # (NR,)
+        transfer_received = transfer_received.at[self.eu_region_idx].set(0.0)
+
+        if self.transfer_mode == "abatement":
+            # Mode B — earmarked abatement subsidy, no consumption spillover.
+            # The transfer reduces the effective abatement-cost deduction that
+            # the parent's calc_gross_outputs already applied:
+            #   gross_output = damage * (1 - abatement_cost) * production
+            # We reverse part of that (1-abatement_cost) factor, capped at
+            # actual abatement spending.  Any excess is forfeited — it does NOT
+            # enter the exporter's consumption.  This ensures the only channel
+            # through which the transfer raises welfare is by making mitigation
+            # cheaper, not by providing a general income transfer.
+            # Key property: diversion incentive (full CBAM cost) is unchanged;
+            # mitigation cost is reduced → pure asymmetric incentive structure.
+            abatement_cost_frac = state["abatement_cost_all_regions"]  # (NR,)
+            denom = jnp.maximum(1.0 - abatement_cost_frac, 1e-8)
+            gross_output_pre_abatement = gross_outputs / denom        # (NR,)
+            abatement_spending = abatement_cost_frac * gross_output_pre_abatement  # (NR,)
+            subsidy = jnp.minimum(transfer_received, abatement_spending)  # (NR,)
+            # Implied savings rate (investment / gross_output) keeps capital
+            # accumulation consistent with the updated gross_output.
+            savings_rate_implied = investments / jnp.maximum(gross_outputs, 1e-8)  # (NR,)
+            gross_outputs_new = gross_outputs + subsidy
+            investments_new = investments + savings_rate_implied * subsidy
+            consumptions = self.calc_consumptions(
+                gross_outputs_new, investments_new,
+                gross_imports_mrio, gross_imports_mrio,
+            )
+        else:
+            # Mode A — free consumption (default).
+            # Full transfer added to consumption as a lump-sum cash payment.
+            # Net effective CBAM cost = (1 - revenue_share) * cbam_cost[r].
+            consumptions = consumptions + transfer_received
 
         # 7. Welfare-loss multiplier.
         #
@@ -964,15 +1272,25 @@ class RiceMRIO(Rice):
 
         # 8. Recompute utilities with MRIO consumptions
         utilities = self.calc_utilities(state, consumptions)
-        utility_times_welfloss = utilities * welfloss
 
-        # 9. Update state
+        # 9. Apply CBAM penalty according to reward_mode.
+        #    "welfloss":       utility_times_welfloss = U × welfloss  (status quo)
+        #    "additive_cbam":  utility_times_welfloss = U  (penalty applied in
+        #                      generate_rewards via λ · cbam_cost_raw)
+        if self.reward_mode == "additive_cbam":
+            utility_times_welfloss = utilities  # no multiplicative penalty
+        else:
+            utility_times_welfloss = utilities * welfloss
+
+        # 10. Update state
         state = state.copy()
         state.update(
             {
                 "production_by_sector": production_by_sector,
                 "trade_flows": trade_flows,
                 "cbam_revenue": cbam_revenue,
+                "cbam_cost_all_regions": cbam_cost_raw,
+                "transfer_received": transfer_received,
                 # Overwrite consumption / utility with MRIO values
                 "aggregate_consumption": consumptions,
                 "utility_all_regions": utilities,

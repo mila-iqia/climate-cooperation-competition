@@ -52,14 +52,18 @@ def solve_for_alpha(prev_alpha, a, tau, irf0, irC, irT, pert_carb_stock, tempera
     return alpha
 
 
-def load_region_yamls(num_regions: int):
-    assert num_regions in [3, 7, 20], "Supported number of regions are 3, 7, 20"
+def load_region_yamls(num_regions: int, yaml_dir: str | None = None):
+    if yaml_dir is None:
+        assert num_regions in [3, 7, 20], "Supported number of regions are 3, 7, 20"
     yaml_file_directory = importlib.resources.files("rice_jax").joinpath(
         "./region_yamls/"
     )
     region_yamls = []
     # Ensure numeric ordering of region files (1.yml, 2.yml, ..., 10.yml, ...)
-    region_dir = f"{yaml_file_directory}/{num_regions}_regions"
+    if yaml_dir is not None:
+        region_dir = yaml_dir
+    else:
+        region_dir = f"{yaml_file_directory}/{num_regions}_regions"
     files = [f for f in os.listdir(region_dir) if f.endswith(".yml")]
     def _numeric_key(fname: str):
         name = os.path.splitext(fname)[0]

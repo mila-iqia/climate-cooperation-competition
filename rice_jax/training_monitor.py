@@ -27,6 +27,7 @@ from dataclasses import replace
 from functools import partial
 from typing import Callable, Literal, Optional
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -120,6 +121,127 @@ class MonitoredPPO(PPO):
         return runner_state[0]
 
 
+# ── RCPOMonitoredPPO ──────────────────────────────────────────────────────────
+
+
+class RCPOMonitoredPPO(MonitoredPPO):
+    """MonitoredPPO with RCPO Lagrange-multiplier update for CBAM cost.
+
+    Reference: Tessler et al. (2019), "Reward Constrained Policy Optimization",
+    ICLR 2019, §5.2 (mean-value constraint).
+
+    The penalised reward is  r̂ = r - λ·c  where c is the per-step CBAM
+    cost and λ auto-tunes on a slower timescale than the policy:
+
+        λ_{k+1} = max(0, λ_k + η_λ · (E[c] - α_target))
+
+    Requirements on the environment:
+    1. ``reward_mode="additive_cbam"`` on ``RiceMRIO``
+    2. A ``log_info_fn`` that returns
+       ``{"cbam_cost_all_regions": state["cbam_cost_all_regions"]}``
+       (see :func:`rcpo_cbam_log_info_fn`).
+    """
+
+    rcpo_eta_lambda: float = eqx.field(static=True, default=5e-7)
+    rcpo_alpha_target: float = eqx.field(static=True, default=0.01)
+
+    def train(self, key, env: Environment, **hyperparams) -> "RCPOMonitoredPPO":
+        @scan_callback(
+            callback_fn=self.log_function,
+            callback_interval=self.log_interval,
+            n=self.num_iterations,
+        )
+        def train_iteration(runner_state, _):
+            self_: RCPOMonitoredPPO = runner_state[0]
+            rollout_state = runner_state[1:]
+            (env_state, last_obs, rng), trajectory_batch = self_._collect_rollout(
+                rollout_state, env
+            )
+
+            # ── RCPO λ update (Tessler et al. 2019, eq. 6) ───────────────
+            # cbam_cost_all_regions shape: (num_steps, num_envs, num_regions)
+            cbam_costs = trajectory_batch.info["cbam_cost_all_regions"]
+            mean_cost = cbam_costs.mean()
+            # env_state is a LogEnvState; inner RICE state is env_state.env_state
+            inner = env_state.env_state
+            old_lambda = inner["cbam_lambda"].mean()
+            new_lambda = jnp.maximum(
+                0.0,
+                old_lambda + self.rcpo_eta_lambda * (mean_cost - self.rcpo_alpha_target),
+            )
+            updated_inner = {
+                **inner,
+                "cbam_lambda": jnp.full_like(
+                    inner["cbam_lambda"], new_lambda
+                ),
+            }
+            env_state = eqx.tree_at(
+                lambda s: s.env_state, env_state, updated_inner
+            )
+
+            # ── Augmented metric ──────────────────────────────────────────
+            # Exclude per-step cost array from scan output to save memory;
+            # the aggregated scalar mean_cbam_cost is enough for logging.
+            base_info = {
+                k: v
+                for k, v in (trajectory_batch.info or {}).items()
+                if k != "cbam_cost_all_regions"
+            }
+            action_mean = jax.tree.map(
+                lambda a: a.mean(axis=(0, 1)), trajectory_batch.action
+            )
+            action_var = jax.tree.map(
+                lambda a: a.var(axis=(0, 1)), trajectory_batch.action
+            )
+            reward_leaves = jax.tree.leaves(trajectory_batch.reward)
+            reward_stack = jnp.stack([r.ravel() for r in reward_leaves])
+            metric = {
+                **base_info,
+                "action_mean": action_mean,
+                "action_var": action_var,
+                "reward_mean": reward_stack.mean(),
+                "reward_var": reward_stack.var(),
+                "reward_sum": reward_stack.sum(),
+                "cbam_lambda": new_lambda,
+                "mean_cbam_cost": mean_cost,
+            }
+
+            # ── Standard PPO post-processing + update ─────────────────────
+            trajectory_batch, updated_state = self_._postprocess_rollout(
+                trajectory_batch, self_.state
+            )
+            updated_state = self_._update_agent_state(
+                rng, updated_state, trajectory_batch
+            )
+            self_ = replace(self_, state=updated_state)
+
+            runner_state = (self_, env_state, last_obs, rng)
+            return runner_state, metric
+
+        env = self.__check_env__(env, vectorized=True)
+        self = replace(self, **hyperparams)
+
+        if not self.is_initialized:
+            self = self.init_state(key, env)
+
+        obsv, env_state = env.reset(jax.random.split(key, self.num_envs))
+        runner_state = (self, env_state, obsv, key)
+        runner_state, _metrics = jax.lax.scan(
+            train_iteration, runner_state, jnp.arange(self.num_iterations)
+        )
+        return runner_state[0]
+
+
+def rcpo_cbam_log_info_fn(state: dict, actions: dict) -> dict:
+    """log_info_fn for RCPO training: captures per-step CBAM cost.
+
+    Pass this to the RiceMRIO constructor::
+
+        env = RiceMRIO(..., log_info_fn=rcpo_cbam_log_info_fn)
+    """
+    return {"cbam_cost_all_regions": state["cbam_cost_all_regions"]}
+
+
 # ── Log-function factories ────────────────────────────────────────────────────
 
 
@@ -189,9 +311,20 @@ def make_csv_log_fn(
             "reward_sum": round(reward_sum, 4),
             "ep_return_mean": round(ep_return_mean, 4) if not _np.isnan(ep_return_mean) else "",
             "ep_return_std": round(ep_return_std, 4) if not _np.isnan(ep_return_std) else "",
+        }
+
+        # RCPO fields (present when using RCPOMonitoredPPO)
+        cbam_lambda = data.get("cbam_lambda")
+        if cbam_lambda is not None:
+            row["cbam_lambda"] = round(float(_np.array(cbam_lambda)), 8)
+        mean_cbam_cost = data.get("mean_cbam_cost")
+        if mean_cbam_cost is not None:
+            row["mean_cbam_cost"] = round(float(_np.array(mean_cbam_cost)), 8)
+
+        row.update({
             **{f"action_mean_{i}": round(float(v), 6) for i, v in enumerate(act_mean)},
             **{f"action_var_{i}": round(float(v), 6) for i, v in enumerate(act_var)},
-        }
+        })
 
         if not state["initialized"]:
             os.makedirs(os.path.dirname(csv_path) if os.path.dirname(csv_path) else ".", exist_ok=True)
@@ -254,15 +387,22 @@ def make_print_log_fn(
                 if ep_rets.size > 0:
                     ep_str = f"  ep_ret={ep_rets.mean():.3f}±{ep_rets.std():.3f}"
 
+        # RCPO info suffix
+        rcpo_str = ""
+        if "cbam_lambda" in data:
+            lam = float(_np.array(data["cbam_lambda"]))
+            cost = float(_np.array(data.get("mean_cbam_cost", _np.nan)))
+            rcpo_str = f"  λ={lam:.6f} c̄={cost:.6f}"
+
         if act_mean.size > 0:
             labels = action_labels or [f"a{i}" for i in range(len(act_mean))]
             mean_parts = "  ".join(
                 f"{l}={v:.3f}±{s:.3f}"
                 for l, v, s in zip(labels, act_mean, _np.sqrt(act_var))
             )
-            line = f"[{iter_int:5d}] rew={rew_mean:.4f}\u00b1{rew_std:.4f}{ep_str}  |  {mean_parts}"
+            line = f"[{iter_int:5d}] rew={rew_mean:.4f}\u00b1{rew_std:.4f}{ep_str}{rcpo_str}  |  {mean_parts}"
         else:
-            line = f"[{iter_int:5d}] rew={rew_mean:.4f}\u00b1{rew_std:.4f}{ep_str}"
+            line = f"[{iter_int:5d}] rew={rew_mean:.4f}\u00b1{rew_std:.4f}{ep_str}{rcpo_str}"
 
         if num_iterations is not None:
             try:
