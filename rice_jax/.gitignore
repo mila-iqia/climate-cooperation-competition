@@ -10,3 +10,6 @@ validation/
 plots/
 training_logs/
 episode_logs/
+experiments/
+
+.github/

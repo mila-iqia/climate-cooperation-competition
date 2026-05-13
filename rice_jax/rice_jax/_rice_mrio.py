@@ -545,6 +545,14 @@ class RiceMRIO(Rice):
     fixed_savings_rate: bool = eqx.field(static=True, default=False)
     no_mitigation: bool = eqx.field(static=True, default=False)
 
+    # Prescribed EU mitigation pathway.  Tuple of floats in [0,1], one per
+    # episode timestep (0-indexed by activity_timestep before parent increments).
+    # Overrides EU's mitigation action each step; all other agents learn freely.
+    # Values beyond the episode horizon are clamped to the last entry.
+    # Gives MAC_EU > 0 from step 1 → nonzero τ_eff from the first gradient.
+    # [LITERATURE NEEDED: EU ETS trajectory reference]
+    eu_mitigation_schedule: tuple | None = eqx.field(static=True, default=None)
+
     # When True, abatement costs are zeroed out (abatement_cost = 0 for all
     # regions).  Used for the Phase 2B motivating experiment: with free
     # abatement, agents should learn to fully mitigate under CBAM because
@@ -680,6 +688,51 @@ class RiceMRIO(Rice):
     #       for CBAM specifically — emerging as of 2026; closest anchor is
     #       Böhringer et al. (2010) §5 combined OBA+intensity rebate analysis]
     transfer_allocation: str = eqx.field(static=True, default="burden")
+
+    # ── CBAM tariff mode ──────────────────────────────────────────────────────
+    # Controls how the effective CBAM tariff rate is computed each step.
+    #
+    #   "flat" (default): scalar cbam_tariff_rate applied uniformly to all
+    #       exporters.  Backward-compatible with all existing experiments.
+    #       Calibration note: τ=0.80 (original) has no literature anchor.
+    #       Literature-grounded range: τ ∈ {0.05, 0.10, 0.15, 0.25}, derived
+    #       from Böhringer, Fischer & Rosendahl (2010) Table 2: effective ad-
+    #       valorem equivalent of €65-100/tCO₂ EU ETS price on iron/steel
+    #       (8-22%), cement (15-25%), and aluminium (10-18%).  Weighted median
+    #       across CBAM sectors ≈ 0.15.  Comparable: Martin, de Preux & Wagner
+    #       (2014) JIE §4 Table 3: 10-25% effective rate for UK CCL-covered
+    #       sectors.  Recommended default for new experiments: 0.15.
+    #
+    #   "differential": per-region effective tariff τ_eff[r] =
+    #       max(0, MAC_EU(μ_EU) − MAC_r(μ_r)) / MAC_EU(μ_EU)
+    #       where MAC_r is the RICE marginal abatement cost of region r at its
+    #       current mitigation rate.  Implements the actual CBAM mechanism
+    #       (EU CBAM Reg. 2023/956 Art. 5–7): tariff is charged only on the
+    #       carbon price differential between EU ETS and the exporter's
+    #       implicit carbon price.  As exporter μ_r rises toward EU μ_EU,
+    #       τ_eff → 0, restoring full EU market access.  This creates the
+    #       self-incentivising mitigation channel that the "flat" mode lacks.
+    #
+    #       RICE MAC formula (Nordhaus 2017, DICE-2016R eq. 9):
+    #         MAC_r(μ_r, t) = p_b_r · (1-δ_pb_r)^(t-1) · μ_r^(θ₂_r - 1)
+    #       where all parameters are region-specific from xp_b, xdelta_pb,
+    #       xtheta_2; and μ is the current mitigation rate from state.
+    #       The MAC is dimensionless in RICE (fraction of Y per unit μ change
+    #       per unit carbon intensity); normalised to [0,1] by EU's own MAC
+    #       so τ_eff is always in [0, 1].
+    #
+    #       Canonical null test: when all regions have the same mitigation rate
+    #       as EU, τ_eff[r] = 0 for all r → cbam_cost = 0.
+    #
+    #       Singularity guard: MAC is undefined at μ=0 when θ₂>1 (MACs → ∞).
+    #       Clamp μ_safe = max(μ, mu_floor_differential) before computing MAC.
+    cbam_tariff_mode: str = eqx.field(static=True, default="flat")
+
+    # Floor mitigation rate for differential mode MAC computation.
+    # Prevents divide-by-zero singularity when μ_r = 0 (MAC → ∞ for θ₂ > 1).
+    # Default 0.01 corresponds to ≈1% abatement — consistent with Nordhaus
+    # (2017) BAU scenario minimal mitigation (0-5% range in early periods).
+    mu_floor_differential: float = eqx.field(static=True, default=0.01)
 
     # Populated in __post_init__ when mrio_trade=True
     dest_alloc_baseline: np.ndarray = eqx.field(static=True, default=None)
@@ -995,6 +1048,7 @@ class RiceMRIO(Rice):
         gross_imports_mrio: chex.Array,
         cbam_tariff_rate: chex.Array | None = None,
         mitigation_rates: chex.Array | None = None,
+        activity_timestep: chex.Array | None = None,
     ) -> tuple[chex.Array, chex.Array, chex.Array]:
         """
         Compute CBAM-related quantities.
@@ -1010,6 +1064,9 @@ class RiceMRIO(Rice):
             frozen intensity baseline.
             When None (default), the static 2016 EORA intensity is used —
             backward-compatible with all existing experiments.
+        activity_timestep : scalar, optional
+            Required for cbam_tariff_mode="differential" to compute time-
+            varying MAC via the RICE backstop price decay factor.
 
         Returns
         -------
@@ -1024,8 +1081,44 @@ class RiceMRIO(Rice):
         # What each region r exports to EU, by sector
         eu_exports_by_sector = trade_flows[:, self.eu_region_idx, :]  # (NR, NS)
 
-        # Use state-based rate when provided, else fall back to static field
-        rate = cbam_tariff_rate if cbam_tariff_rate is not None else self.cbam_tariff_rate
+        # ── Tariff rate (scalar "flat" or per-region (NR,) "differential") ──
+        if self.cbam_tariff_mode == "differential" and mitigation_rates is not None:
+            # Per-region effective tariff rate: τ_eff[r] = max(0, MAC_EU - MAC_r) / MAC_EU
+            # RICE MAC formula (Nordhaus 2017 DICE-2016R eq. 9):
+            #   MAC_r(μ, t) = p_b_r · (1-δ_pb_r)^(t-1) · μ^(θ₂_r - 1)
+            # All parameters are region-specific; MAC is dimensionless in RICE.
+            # Normalised by EU's own MAC so τ_eff is always in [0, 1].
+            p_b     = jnp.array(self.region_params.xp_b, dtype=jnp.float32)        # (NR,)
+            delta_pb = jnp.array(self.region_params.xdelta_pb, dtype=jnp.float32)  # (NR,)
+            theta2  = jnp.array(self.region_params.xtheta_2, dtype=jnp.float32)    # (NR,)
+            t = activity_timestep if activity_timestep is not None else 1.0
+            decay   = jnp.power(jnp.maximum(1.0 - delta_pb, 0.0), t - 1.0)       # (NR,)
+
+            # Clamp μ to avoid singularity (MAC → ∞ when θ₂ > 1, μ → 0)
+            mu_safe = jnp.maximum(mitigation_rates, self.mu_floor_differential)    # (NR,)
+            mac     = p_b * decay * jnp.power(mu_safe, theta2 - 1.0)              # (NR,)
+
+            mac_eu  = mac[self.eu_region_idx]                                       # scalar
+            # τ_eff[r] = (MAC_EU - MAC_r) / MAC_EU, clamped to [0, 1]
+            # EU's own rate is 0 by construction (MAC_EU - MAC_EU = 0)
+            safe_eu = jnp.maximum(mac_eu, 1e-8)
+            rate_per_region = jnp.clip((mac_eu - mac) / safe_eu, 0.0, 1.0)        # (NR,)
+            rate_per_region = rate_per_region.at[self.eu_region_idx].set(0.0)
+            # When cbam_randomize is active, cbam_tariff_rate from state acts as a
+            # binary gate (0.0 = CBAM off, 1.0 = full differential).  Without
+            # randomize the gate is always 1 (backward-compatible).
+            scale = (
+                jnp.clip(cbam_tariff_rate, 0.0, 1.0)
+                if (self.cbam_randomize and cbam_tariff_rate is not None)
+                else 1.0
+            )
+            # Broadcast to (NR, NS) for the cost calculation below
+            rate = rate_per_region[:, None] * scale                                 # (NR, 1)
+        else:
+            # "flat" mode: scalar rate (backward-compatible)
+            # Use state-based rate when provided, else fall back to static field
+            flat = cbam_tariff_rate if cbam_tariff_rate is not None else self.cbam_tariff_rate
+            rate = flat  # scalar — broadcasts to (NR, NS) naturally
 
         # Effective embedded carbon intensity per (region, sector).
         # Base: static 2016 EORA σ_{r,s} captures cross-sector heterogeneity.
@@ -1034,7 +1127,8 @@ class RiceMRIO(Rice):
         # sector-specific abatement requires sector-specific capital (Phase 2C).
         # Reference: EU CBAM Reg. 2023/956 Art. 7 — tariff on actual emissions.
         effective_intensity = jnp.array(self.emissions_intensity)  # (NR, NS)
-        if mitigation_rates is not None:
+        if mitigation_rates is not None and self.cbam_tariff_mode != "differential":
+            # In differential mode, μ enters via MAC; don't double-count via intensity
             abatement_factor = jnp.clip(1.0 - mitigation_rates, 0.0, 1.0)  # (NR,)
             effective_intensity = effective_intensity * abatement_factor[:, None]
 
@@ -1096,6 +1190,18 @@ class RiceMRIO(Rice):
         if self.no_mitigation:
             parent_actions["mitigation_rate"] = jnp.zeros(self.num_regions)
 
+        # Prescribed EU pathway: fix EU's mitigation to schedule value.
+        # activity_timestep is 0-based here (parent increments inside super()).
+        if self.eu_mitigation_schedule is not None:
+            schedule = jnp.array(self.eu_mitigation_schedule, dtype=jnp.float32)
+            t_idx = jnp.clip(
+                jnp.int32(state["activity_timestep"]), 0, schedule.shape[0] - 1
+            )
+            parent_actions["mitigation_rate"] = (
+                parent_actions["mitigation_rate"]
+                .at[self.eu_region_idx].set(schedule[t_idx])
+            )
+
         # 2. Run parent with zeroed trade → correct climate/production/investment;
         #    consumption/utilities will be re-computed below.
         state = super().step_climate_and_economy(state, parent_actions)
@@ -1143,6 +1249,7 @@ class RiceMRIO(Rice):
             trade_flows, gross_imports_mrio,
             cbam_tariff_rate=active_rate,
             mitigation_rates=mit_rates,
+            activity_timestep=state["activity_timestep"],
         )
 
         # 6. Recompute consumptions with MRIO gross imports (no tariff on quantity)

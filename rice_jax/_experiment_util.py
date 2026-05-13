@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import time
@@ -97,3 +98,53 @@ def run_single_episode(
         length=env.episode_length,
     )
     return info_stack
+
+
+# ── Experiment directory helpers ─────────────────────────────────────────────
+#
+# Validation scripts call get_output_dir() / get_log_dir() instead of hard-
+# coding "plots" / "training_logs".  When the CBAM_EXPERIMENT_DIR env-var is
+# set (by run_experiment.py), outputs are redirected into the experiment
+# folder; otherwise the original flat directories are used unchanged so every
+# script still works standalone.
+
+_EXPDIR_ENV_VAR = "CBAM_EXPERIMENT_DIR"
+
+
+def get_experiment_dir() -> str | None:
+    """Return the current experiment root directory, or None if unset."""
+    return os.environ.get(_EXPDIR_ENV_VAR) or None
+
+
+def get_output_dir(default: str = "plots") -> str:
+    """Return the plots sub-directory for this run.
+
+    If CBAM_EXPERIMENT_DIR is set, returns ``<experiment_dir>/plots``.
+    Otherwise returns *default* (preserving the original behaviour).
+    """
+    base = get_experiment_dir()
+    return os.path.join(base, "plots") if base else default
+
+
+def get_log_dir(default: str = "training_logs") -> str:
+    """Return the logs sub-directory for this run.
+
+    If CBAM_EXPERIMENT_DIR is set, returns ``<experiment_dir>/logs``.
+    Otherwise returns *default*.
+    """
+    base = get_experiment_dir()
+    return os.path.join(base, "logs") if base else default
+
+
+def save_run_config(config: dict) -> None:
+    """Write *config* as ``config.json`` in the experiment directory.
+
+    No-op if CBAM_EXPERIMENT_DIR is not set.
+    """
+    base = get_experiment_dir()
+    if base is None:
+        return
+    os.makedirs(base, exist_ok=True)
+    with open(os.path.join(base, "config.json"), "w") as fh:
+        json.dump(config, fh, indent=2, default=str)
+

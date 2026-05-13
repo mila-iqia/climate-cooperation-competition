@@ -321,6 +321,41 @@ def make_csv_log_fn(
         if mean_cbam_cost is not None:
             row["mean_cbam_cost"] = round(float(_np.array(mean_cbam_cost)), 8)
 
+        # Absolute utility level (present when using cbam_and_utility_log_info_fn).
+        # trajectory_batch.info["mean_utility_step"] has shape (num_steps, num_envs);
+        # we average over both dims to get a single scalar per training iteration.
+        mean_utility_step = data.get("mean_utility_step")
+        if mean_utility_step is not None:
+            row["mean_utility"] = round(float(_np.array(mean_utility_step).mean()), 6)
+
+        # RICE economic decomposition scalars (same shape convention as mean_utility_step)
+        for _key, _col in [
+            ("mean_gross_output_step",   "mean_gross_output"),
+            ("mean_consumption_step",    "mean_consumption"),
+            ("mean_abatement_cost_step", "mean_abatement_cost"),
+            ("mean_mitigation_step",     "mean_mitigation"),
+        ]:
+            _val = data.get(_key)
+            if _val is not None:
+                row[_col] = round(float(_np.array(_val).mean()), 6)
+
+        # Per-region arrays (shape: num_steps × num_envs × NR after scan).
+        # Written as <metric>_r0 .. _r{NR-1} by averaging over steps and envs.
+        for _key in [
+            "utility_per_region",
+            "gross_output_per_region",
+            "consumption_per_region",
+            "abatement_cost_per_region",
+            "mitigation_per_region",
+        ]:
+            _val = data.get(_key)
+            if _val is not None:
+                _arr = _np.array(_val)          # (num_steps, num_envs, NR)
+                _region_means = _arr.mean(axis=tuple(range(_arr.ndim - 1)))  # (NR,)
+                _col_prefix = _key.replace("_per_region", "")
+                for _r, _v in enumerate(_region_means):
+                    row[f"{_col_prefix}_r{_r}"] = round(float(_v), 6)
+
         row.update({
             **{f"action_mean_{i}": round(float(v), 6) for i, v in enumerate(act_mean)},
             **{f"action_var_{i}": round(float(v), 6) for i, v in enumerate(act_var)},
@@ -412,7 +447,12 @@ def make_print_log_fn(
                         _tqdm_mod.tqdm(total=num_iterations, desc="Training", unit=" iters")
                     )
                 tqdm_bar[0].set_postfix_str(line)
-                tqdm_bar[0].update(1)
+                # Sync bar position directly from the scan-step index so the
+                # percentage is correct regardless of log_interval / callback_interval.
+                # iter_int is the raw scan-step passed by scan_callback; setting
+                # .n directly keeps the display in sync with actual progress.
+                tqdm_bar[0].n = min(iter_int + 1, num_iterations)
+                tqdm_bar[0].refresh()
                 return
             except ImportError:
                 pass
