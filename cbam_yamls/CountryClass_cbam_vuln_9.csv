@@ -1,0 +1,219 @@
+No,Economy,Code,RI,RIG
+31,Botswana,BWA,SSA Metals & Mining,5
+68,Gabon,GAB,SSA Metals & Mining,5
+76,Equatorial Guinea,GNQ,SSA Metals & Mining,5
+137,Mauritius,MUS,SSA Metals & Mining,5
+140,Namibia,NAM,SSA Metals & Mining,5
+216,South Africa,ZAF,SSA Metals & Mining,5
+3,Angola,AGO,SSA Metals & Mining,5
+16,Benin,BEN,SSA Metals & Mining,5
+38,Côte d'Ivoire,CIV,SSA Metals & Mining,5
+39,Cameroon,CMR,SSA Metals & Mining,5
+41,"Congo, Rep.",COG,SSA Metals & Mining,5
+43,Comoros,COM,SSA Metals & Mining,5
+44,Cabo Verde,CPV,SSA Metals & Mining,5
+71,Ghana,GHA,SSA Metals & Mining,5
+101,Kenya,KEN,SSA Metals & Mining,5
+115,Lesotho,LSO,SSA Metals & Mining,5
+136,Mauritania,MRT,SSA Metals & Mining,5
+143,Nigeria,NGA,SSA Metals & Mining,5
+170,Senegal,SEN,SSA Metals & Mining,5
+179,São Tomé and Principe,STP,SSA Metals & Mining,5
+184,Eswatini,SWZ,SSA Metals & Mining,5
+201,Tanzania,TZA,SSA Metals & Mining,5
+217,Zambia,ZMB,SSA Metals & Mining,5
+218,Zimbabwe,ZWE,SSA Metals & Mining,5
+14,Burundi,BDI,Rest of World,1
+17,Burkina Faso,BFA,Rest of World,1
+32,Central African Republic,CAF,Rest of World,1
+40,"Congo, Dem. Rep.",COD,SSA Metals & Mining,5
+59,Eritrea,ERI,Rest of World,1
+62,Ethiopia,ETH,Rest of World,1
+73,Guinea,GIN,Rest of World,1
+74,"Gambia, The",GMB,Rest of World,1
+75,Guinea-Bissau,GNB,Rest of World,1
+110,Liberia,LBR,Rest of World,1
+124,Madagascar,MDG,Rest of World,1
+129,Mali,MLI,Rest of World,1
+135,Mozambique,MOZ,SSA Metals & Mining,5
+138,Malawi,MWI,Rest of World,1
+142,Niger,NER,Rest of World,1
+167,Rwanda,RWA,Rest of World,1
+169,Sudan,SDN,Rest of World,1
+173,Sierra Leone,SLE,Rest of World,1
+176,Somalia,SOM,Rest of World,1
+178,South Sudan,SSD,Rest of World,1
+189,Chad,TCD,Rest of World,1
+190,Togo,TGO,Rest of World,1
+202,Uganda,UGA,Rest of World,1
+186,Seychelles,SYC,SSA Metals & Mining,5
+125,Maldives,MDV,Rest of World,1
+18,Bangladesh,BGD,Rest of World,1
+30,Bhutan,BTN,Rest of World,1
+90,India,IND,India,9
+114,Sri Lanka,LKA,Rest of World,1
+147,Nepal,NPL,Rest of World,1
+151,Pakistan,PAK,Rest of World,1
+2,Afghanistan,AFG,Rest of World,1
+25,Bermuda,BMU,Americas,6
+33,Canada,CAN,Americas,6
+205,United States,USA,Americas,6
+93,Iraq,IRQ,MENA (Gulf + N.Africa),3
+98,Jordan,JOR,MENA (Gulf + N.Africa),3
+109,Lebanon,LBN,MENA (Gulf + N.Africa),3
+111,Libya,LBY,MENA (Gulf + N.Africa),3
+52,Djibouti,DJI,MENA (Gulf + N.Africa),3
+56,Algeria,DZA,MENA (Gulf + N.Africa),3
+58,"Egypt, Arab Rep.",EGY,MENA (Gulf + N.Africa),3
+92,"Iran, Islamic Rep.",IRN,MENA (Gulf + N.Africa),3
+121,Morocco,MAR,MENA (Gulf + N.Africa),3
+162,West Bank and Gaza,PSE,MENA (Gulf + N.Africa),3
+197,Tunisia,TUN,MENA (Gulf + N.Africa),3
+187,Syrian Arab Republic,SYR,MENA (Gulf + N.Africa),3
+215,"Yemen, Rep.",YEM,MENA (Gulf + N.Africa),3
+6,United Arab Emirates,ARE,MENA (Gulf + N.Africa),3
+20,Bahrain,BHR,MENA (Gulf + N.Africa),3
+95,Israel,ISR,MENA (Gulf + N.Africa),3
+107,Kuwait,KWT,MENA (Gulf + N.Africa),3
+130,Malta,MLT,MENA (Gulf + N.Africa),3
+150,Oman,OMN,MENA (Gulf + N.Africa),3
+164,Qatar,QAT,MENA (Gulf + N.Africa),3
+168,Saudi Arabia,SAU,MENA (Gulf + N.Africa),3
+7,Argentina,ARG,Americas,6
+27,Brazil,BRA,Americas,6
+42,Colombia,COL,Americas,6
+45,Costa Rica,CRI,Americas,6
+46,Cuba,CUB,Americas,6
+53,Dominica,DMA,Americas,6
+55,Dominican Republic,DOM,Americas,6
+57,Ecuador,ECU,Americas,6
+78,Grenada,GRD,Americas,6
+80,Guatemala,GTM,Americas,6
+82,Guyana,GUY,Americas,6
+97,Jamaica,JAM,Americas,6
+112,St. Lucia,LCA,Americas,6
+126,Mexico,MEX,Americas,6
+152,Panama,PAN,Americas,6
+153,Peru,PER,Americas,6
+161,Paraguay,PRY,Americas,6
+180,Suriname,SUR,Americas,6
+207,St. Vincent and the Grenadines,VCT,Americas,6
+24,Belize,BLZ,Americas,6
+26,Bolivia,BOL,Americas,6
+84,Honduras,HND,Americas,6
+86,Haiti,HTI,Americas,6
+144,Nicaragua,NIC,Americas,6
+174,El Salvador,SLV,Americas,6
+1,Aruba,ABW,Americas,6
+10,Antigua and Barbuda,ATG,Americas,6
+21,"Bahamas, The",BHS,Americas,6
+28,Barbados,BRB,Americas,6
+36,Chile,CHL,Americas,6
+47,Curaçao,CUW,Americas,6
+48,Cayman Islands,CYM,Americas,6
+105,St. Kitts and Nevis,KNA,Americas,6
+120,St. Martin (French part),MAF,Americas,6
+158,Puerto Rico,PRI,Americas,6
+185,Sint Maarten (Dutch part),SXM,Americas,6
+188,Turks and Caicos Islands,TCA,Americas,6
+196,Trinidad and Tobago,TTO,Americas,6
+204,Uruguay,URY,Americas,6
+209,British Virgin Islands,VGB,Americas,6
+210,Virgin Islands (U.S.),VIR,Americas,6
+208,"Venezuela, RB",VEN,,
+4,Albania,ALB,Russia + Turkey + Eurasia,2
+8,Armenia,ARM,Russia + Turkey + Eurasia,2
+13,Azerbaijan,AZE,Russia + Turkey + Eurasia,2
+19,Bulgaria,BGR,Russia + Turkey + Eurasia,2
+22,Bosnia and Herzegovina,BIH,Russia + Turkey + Eurasia,2
+23,Belarus,BLR,Russia + Turkey + Eurasia,2
+70,Georgia,GEO,Russia + Turkey + Eurasia,2
+100,Kazakhstan,KAZ,Russia + Turkey + Eurasia,2
+123,Moldova,MDA,Russia + Turkey + Eurasia,2
+128,North Macedonia,MKD,Russia + Turkey + Eurasia,2
+132,Montenegro,MNE,Russia + Turkey + Eurasia,2
+165,Romania,ROU,Russia + Turkey + Eurasia,2
+166,Russian Federation,RUS,Russia + Turkey + Eurasia,2
+177,Serbia,SRB,Russia + Turkey + Eurasia,2
+193,Turkmenistan,TKM,Russia + Turkey + Eurasia,2
+198,Turkey,TUR,Russia + Turkey + Eurasia,2
+214,Kosovo,XKX,Russia + Turkey + Eurasia,2
+102,Kyrgyz Republic,KGZ,Russia + Turkey + Eurasia,2
+192,Tajikistan,TJK,Russia + Turkey + Eurasia,2
+203,Ukraine,UKR,Russia + Turkey + Eurasia,2
+206,Uzbekistan,UZB,Russia + Turkey + Eurasia,2
+5,Andorra,AND,EU & Western Europe,4
+12,Austria,AUT,EU & Western Europe,4
+15,Belgium,BEL,EU & Western Europe,4
+34,Switzerland,CHE,EU & Western Europe,4
+35,Channel Islands,CHI,EU & Western Europe,4
+49,Cyprus,CYP,EU & Western Europe,4
+50,Czech Republic,CZE,EU & Western Europe,4
+51,Germany,DEU,EU & Western Europe,4
+54,Denmark,DNK,EU & Western Europe,4
+60,Spain,ESP,EU & Western Europe,4
+61,Estonia,EST,EU & Western Europe,4
+63,Finland,FIN,EU & Western Europe,4
+65,France,FRA,EU & Western Europe,4
+66,Faroe Islands,FRO,EU & Western Europe,4
+69,United Kingdom,GBR,EU & Western Europe,4
+72,Gibraltar,GIB,EU & Western Europe,4
+77,Greece,GRC,EU & Western Europe,4
+79,Greenland,GRL,EU & Western Europe,4
+85,Croatia,HRV,EU & Western Europe,4
+87,Hungary,HUN,EU & Western Europe,4
+89,Isle of Man,IMN,EU & Western Europe,4
+91,Ireland,IRL,EU & Western Europe,4
+94,Iceland,ISL,EU & Western Europe,4
+96,Italy,ITA,EU & Western Europe,4
+113,Liechtenstein,LIE,EU & Western Europe,4
+116,Lithuania,LTU,EU & Western Europe,4
+117,Luxembourg,LUX,EU & Western Europe,4
+118,Latvia,LVA,EU & Western Europe,4
+122,Monaco,MCO,EU & Western Europe,4
+145,Netherlands,NLD,EU & Western Europe,4
+146,Norway,NOR,EU & Western Europe,4
+157,Poland,POL,EU & Western Europe,4
+160,Portugal,PRT,EU & Western Europe,4
+175,San Marino,SMR,EU & Western Europe,4
+181,Slovak Republic,SVK,EU & Western Europe,4
+182,Slovenia,SVN,EU & Western Europe,4
+183,Sweden,SWE,EU & Western Europe,4
+9,American Samoa,ASM,SE Asia & Pacific developing,7
+37,China,CHN,China,8
+64,Fiji,FJI,SE Asia & Pacific developing,7
+127,Marshall Islands,MHL,SE Asia & Pacific developing,7
+139,Malaysia,MYS,SE Asia & Pacific developing,7
+191,Thailand,THA,SE Asia & Pacific developing,7
+195,Tonga,TON,SE Asia & Pacific developing,7
+199,Tuvalu,TUV,SE Asia & Pacific developing,7
+67,"Micronesia, Fed. Sts.",FSM,SE Asia & Pacific developing,7
+88,Indonesia,IDN,SE Asia & Pacific developing,7
+103,Cambodia,KHM,SE Asia & Pacific developing,7
+104,Kiribati,KIR,SE Asia & Pacific developing,7
+108,Lao PDR,LAO,SE Asia & Pacific developing,7
+131,Myanmar,MMR,SE Asia & Pacific developing,7
+133,Mongolia,MNG,SE Asia & Pacific developing,7
+154,Philippines,PHL,SE Asia & Pacific developing,7
+156,Papua New Guinea,PNG,SE Asia & Pacific developing,7
+172,Solomon Islands,SLB,SE Asia & Pacific developing,7
+194,Timor-Leste,TLS,SE Asia & Pacific developing,7
+211,Vietnam,VNM,SE Asia & Pacific developing,7
+212,Vanuatu,VUT,SE Asia & Pacific developing,7
+213,Samoa,WSM,SE Asia & Pacific developing,7
+159,"Korea, Dem. People's Rep.",PRK,,
+11,Australia,AUS,Rest of World,1
+29,Brunei Darussalam,BRN,Rest of World,1
+81,Guam,GUM,Rest of World,1
+83,"Hong Kong SAR, China",HKG,Rest of World,1
+99,Japan,JPN,Rest of World,1
+106,"Korea, Rep.",KOR,Rest of World,1
+119,"Macao SAR, China",MAC,Rest of World,1
+134,Northern Mariana Islands,MNP,Rest of World,1
+141,New Caledonia,NCL,Rest of World,1
+148,Nauru,NRU,Rest of World,1
+149,New Zealand,NZL,Rest of World,1
+155,Palau,PLW,Rest of World,1
+163,French Polynesia,PYF,Rest of World,1
+171,Singapore,SGP,Rest of World,1
+200,"Taiwan, China",TWN,Rest of World,1

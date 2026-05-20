@@ -85,6 +85,23 @@ def aggregate_and_save(eora, n_agents, group_csv_path, out_dir):
 
 
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Aggregate EORA26 MRIO tables by a CountryClass CSV."
+    )
+    parser.add_argument(
+        "--csv", type=str, default=None,
+        help="Path to a single CountryClass CSV to aggregate. "
+             "If omitted, runs all default aggregations (3, 7, 20)."
+    )
+    parser.add_argument(
+        "--n", type=int, default=None,
+        help="Number of regions (used for output dir name: eora_agg_N). "
+             "Required when --csv is given."
+    )
+    args = parser.parse_args()
+
     out_dir = os.path.join(eora_dir, 'aggregated')
     os.makedirs(out_dir, exist_ok=True)
 
@@ -94,9 +111,14 @@ if __name__ == '__main__':
     print(f"  Regions: {len(list(eora.get_regions()))}")
     print(f"  Sectors: {list(eora.get_sectors())[:3]} ...")
 
-    for n_agents, csv_file in country_class_files.items():
-        group_csv_path = os.path.join(csv_asset_dir, csv_file)
-        aggregate_and_save(eora, n_agents, group_csv_path, out_dir)
+    if args.csv:
+        if args.n is None:
+            parser.error("--n is required when --csv is given")
+        aggregate_and_save(eora, args.n, args.csv, out_dir)
+    else:
+        for n_agents, csv_file in country_class_files.items():
+            group_csv_path = os.path.join(csv_asset_dir, csv_file)
+            aggregate_and_save(eora, n_agents, group_csv_path, out_dir)
 
     print('\nAll aggregations complete.')
 

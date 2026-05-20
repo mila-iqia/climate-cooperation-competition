@@ -734,6 +734,35 @@ class RiceMRIO(Rice):
     # (2017) BAU scenario minimal mitigation (0-5% range in early periods).
     mu_floor_differential: float = eqx.field(static=True, default=0.01)
 
+    # Transitional abatement cost (Grubb et al. 1995, DIAM model; reviewed in
+    # Grubb, Wieners & Yang 2021, WIREs Climate Change 12:e698, Eq. 2).
+    # Makes rapid changes in mitigation rate economically costly, so that
+    # jumping from μ=0→80% in one RICE step incurs a large GDP penalty while
+    # gradual ramp-ups are cheap.  Replaces action_window_size as the
+    # smoothness-enforcement mechanism — policy can still express large Δμ in
+    # response to CBAM observations, but pays an economic cost for doing so.
+    #
+    # Formulation (discrete RICE step, Δt = xDelta years):
+    #   TC_{t,r} = transition_cost_coef × ((μ_{t,r} − μ_{t-1,r}) / Δt)²
+    # TC is subtracted as a fraction of gross output, exactly like the
+    # enduring abatement cost already applied inside calc_gross_outputs.
+    #
+    # Units: dimensionless fraction of GDP per unit (yr⁻¹)² of Δμ.
+    # Calibration: Grubb et al. (1995) DIAM pliability p=0.5 implies the
+    # transitional term equals the enduring term at the optimal μ path.
+    # For RICE with xp_b≈550, xtheta_2≈2.8 at μ≈0.5, the enduring cost is
+    # ~10–15% of GDP; matching that for a 5-yr step of 0.1/5=0.02 yr⁻¹ gives
+    # transition_cost_coef ≈ 0.10/0.0004 ≈ 250 (very stiff).  A softer choice
+    # of ≈10 penalises 0→50% jumps by ~1% GDP while leaving gradual ramps
+    # essentially free.  Default 0.0 = disabled (backward-compatible).
+    # Set action_window_size=0 when using this mechanism.
+    transition_cost_coef: float = eqx.field(static=True, default=0.0)
+    # When True, only penalise *increases* in μ (asymmetric TC). Downward
+    # reversals are free.  Literature rationale: reversal costs are
+    # stock-based (stranded capital), not flow-rate-based — see Ha-Duong
+    # et al. (1997), Grubb et al. (2021 WIREs).
+    transition_cost_asymmetric: bool = eqx.field(static=True, default=False)
+
     # Populated in __post_init__ when mrio_trade=True
     dest_alloc_baseline: np.ndarray = eqx.field(static=True, default=None)
     total_export_frac: np.ndarray = eqx.field(static=True, default=None)
@@ -977,6 +1006,46 @@ class RiceMRIO(Rice):
                     jnp.arange(D) >= min_rate
                 )
 
+        # Apply action windows to savings_rate and mitigation_rate only.
+        # Regions must change these actions gradually (±action_window_size levels
+        # per timestep); export_reallocation is intentionally excluded.
+        if self.action_window_size > 0:
+
+            def create_windowed_mask(prev_action_level):
+                return jnp.abs(jnp.arange(D) - prev_action_level) <= self.action_window_size
+
+            if not self.fixed_savings_rate:
+                prev_savings_actions = jnp.round(
+                    state["savings_all_regions"] * D
+                )
+            if not self.no_mitigation:
+                prev_mitigation_actions = jnp.round(
+                    state["mitigation_rates_all_regions"] * D
+                )
+
+            for agent_id in range(N):
+                astr = i_to_agent_str(agent_id)
+
+                if not self.fixed_savings_rate:
+                    _savings_mask = create_windowed_mask(prev_savings_actions[agent_id])
+                    mask[astr]["savings_rate"] = mask[astr]["savings_rate"] * _savings_mask
+
+                if not self.no_mitigation:
+                    _mitigation_mask = create_windowed_mask(prev_mitigation_actions[agent_id])
+                    agent_mitigation_mask = mask[astr]["mitigation_rate"] * _mitigation_mask
+                    is_action_available = jnp.any(agent_mitigation_mask)
+                    # If the MMR floor is above the reachable window (negotiation
+                    # is off so this never fires, but kept for correctness), allow
+                    # the agent to step upward toward the floor within the window.
+                    move_to_minimum_within_window = (
+                        prev_mitigation_actions[agent_id] < jnp.arange(D)
+                    ) * _mitigation_mask
+                    mask[astr]["mitigation_rate"] = jax.lax.select(
+                        is_action_available,
+                        agent_mitigation_mask,
+                        move_to_minimum_within_window,
+                    )
+
         return mask
 
     # ------------------------------------------------------------------ Phase 2A core
@@ -1175,6 +1244,9 @@ class RiceMRIO(Rice):
 
         # ---- Phase 2A ----
         # 1. Extract MRIO action; inject zeroed legacy trade for parent compatibility.
+        # Capture previous-step mitigation BEFORE super() updates state so we can
+        # compute Δμ for the transitional cost term (Grubb et al. 1995, Eq. 2).
+        prev_mitigation = state["mitigation_rates_all_regions"]  # (NR,) μ_{t-1}
         export_reallocation = actions["export_reallocation"]  # (NR, NS*NR) in [0,1]
         parent_actions = dict(actions)
         parent_actions["export_limit"] = jnp.zeros(self.num_regions)
@@ -1221,6 +1293,33 @@ class RiceMRIO(Rice):
             state["gross_output_all_regions"]  = state["gross_output_all_regions"] / denom
             state["investment_all_regions"]    = state["investment_all_regions"] / denom
             state["abatement_cost_all_regions"] = jnp.zeros_like(abatement_cost)
+
+        # Transitional abatement cost (Grubb et al. 1995 DIAM model, Eq. 2;
+        # reviewed in Grubb, Wieners & Yang 2021, WIREs Climate Change 12:e698).
+        # TC_{t,r} = c_B × ((μ_t − μ_{t-1}) / Δt)²  subtracted as GDP fraction.
+        # Economically penalises rapid μ changes; replaces mechanical AW block
+        # (set action_window_size=0 when using transition_cost_coef > 0).
+        if self.transition_cost_coef > 0.0:
+            curr_mitigation = state["mitigation_rates_all_regions"]  # (NR,) μ_t
+            dt = float(self.region_params.xDelta)                    # step length, yr
+            delta_mu = curr_mitigation - prev_mitigation             # (NR,)
+            # Asymmetric: only penalise increases (Ha-Duong et al. 1997).
+            if self.transition_cost_asymmetric:
+                delta_mu = jnp.maximum(delta_mu, 0.0)
+            delta_mu_per_yr = delta_mu / dt                          # (NR,) yr⁻¹
+            tc_frac = self.transition_cost_coef * delta_mu_per_yr ** 2  # (NR,)
+            scale = jnp.clip(1.0 - tc_frac, 0.0, 1.0)               # (NR,)
+            state = state.copy()
+            state["gross_output_all_regions"] = (
+                state["gross_output_all_regions"] * scale
+            )
+            state["investment_all_regions"] = (
+                state["investment_all_regions"] * scale
+            )
+            # Accumulate into abatement_cost for bookkeeping (enduring + transitional).
+            state["abatement_cost_all_regions"] = jnp.clip(
+                state["abatement_cost_all_regions"] + tc_frac, 0.0, 1.0
+            )
 
         # 3. Disaggregate production into sectors
         Y = state["production_all_regions"]  # (NR,)

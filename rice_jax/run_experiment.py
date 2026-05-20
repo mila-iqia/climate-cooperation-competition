@@ -32,6 +32,9 @@ Usage (from rice_jax/):
     # Re-run only posthoc on an existing experiment folder:
     python run_experiment.py --posthoc-only experiments/cbam_litmus_mechanism_20260512_140000
 
+    # Resume a partially-completed experiment (after Ctrl+C):
+    python run_experiment.py --resume experiments/cbam_experiment_A_crowdout_20260515_120000
+
 Depth levels
 ------------
   train     Run the script; training CSVs and PKLs land in the run folder.
@@ -72,8 +75,20 @@ _POSTHOC_2B_SCRIPTS = {
 }
 _POSTHOC_2B = os.path.join(_SCRIPT_DIR, "validation", "cbam_posthoc_2b.py")
 
+# Scripts that emit an Experiment-A pkl understood by cbam_posthoc_A_crowdout.py.
+_POSTHOC_A_SCRIPTS = {
+    "cbam_experiment_A_crowdout": "pkl",
+}
+_POSTHOC_A = os.path.join(_SCRIPT_DIR, "validation", "cbam_posthoc_A_crowdout.py")
+
+# Scripts that emit an Experiment-C pkl understood by cbam_posthoc_C_litmus.py.
+_POSTHOC_C_SCRIPTS = {
+    "cbam_experiment_C_litmus": "pkl",
+}
+_POSTHOC_C = os.path.join(_SCRIPT_DIR, "validation", "cbam_posthoc_C_litmus.py")
+
 # Union of all scripts that have posthoc support
-_POSTHOC_SCRIPTS = {**_POSTHOC_LITMUS_SCRIPTS, **_POSTHOC_2B_SCRIPTS}
+_POSTHOC_SCRIPTS = {**_POSTHOC_LITMUS_SCRIPTS, **_POSTHOC_2B_SCRIPTS, **_POSTHOC_A_SCRIPTS, **_POSTHOC_C_SCRIPTS}
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -117,6 +132,12 @@ def _run_subprocess(cmd: list[str], env: dict, label: str) -> int:
     return result.returncode
 
 
+def _find_checkpoint(plots_dir: str) -> str | None:
+    """Return the most recent *_ckpt_*.pkl in plots_dir, or None."""
+    matches = sorted(glob.glob(os.path.join(plots_dir, "*_ckpt_*.pkl")))
+    return matches[-1] if matches else None
+
+
 def _find_pkl(plots_dir: str, stem: str) -> str | None:
     """Find the freshest pkl in plots_dir whose name starts with <stem>."""
     pattern = os.path.join(plots_dir, f"{stem}_*.pkl")
@@ -152,6 +173,18 @@ def _run_posthoc(dirs: dict, stem: str, save_agents: bool) -> int:
             f"--{pkl_type}-pkl", pkl_path,
             "--out-dir", dirs["posthoc"],
             "--out-report", os.path.join(dirs["posthoc"], "scorecard.md"),
+        ]
+    elif stem in _POSTHOC_A_SCRIPTS:
+        cmd = [
+            sys.executable, _POSTHOC_A,
+            "--pkl", pkl_path,
+            "--out-dir", dirs["posthoc"],
+        ]
+    elif stem in _POSTHOC_C_SCRIPTS:
+        cmd = [
+            sys.executable, _POSTHOC_C,
+            "--pkl", pkl_path,
+            "--out-dir", dirs["posthoc"],
         ]
     else:
         print(f"  [posthoc] No posthoc mapping for '{stem}', skipping.")
@@ -214,6 +247,13 @@ def main() -> None:
         help="Skip training; re-run posthoc on an existing experiment folder",
     )
     parser.add_argument(
+        "--resume",
+        metavar="RUN_DIR",
+        default=None,
+        help="Resume a partially-completed experiment folder (looks for *_ckpt_*.pkl "
+             "in <RUN_DIR>/plots/ and forwards --resume <ckpt> to the script)",
+    )
+    parser.add_argument(
         "--introspect",
         action="store_true",
         default=False,
@@ -231,11 +271,72 @@ def main() -> None:
     # Everything the runner doesn't recognise is forwarded to the experiment script.
     # Use '--' to explicitly separate runner flags from script flags if needed.
     args, passthrough = parser.parse_known_args()
+    # Strip the '--' separator if the user used it to delimit runner vs script flags.
+    if passthrough and passthrough[0] == "--":
+        passthrough = passthrough[1:]
 
     # ── posthoc-only shortcut ────────────────────────────────────────────────
     if args.posthoc_only:
         run_posthoc_only(args.posthoc_only, introspect=args.introspect)
         return  # unreachable (sys.exit inside)
+
+    # ── resume shortcut ──────────────────────────────────────────────────────
+    if args.resume:
+        run_dir = os.path.abspath(args.resume)
+        if not os.path.isdir(run_dir):
+            parser.error(f"--resume: directory not found: {run_dir}")
+
+        config_path = os.path.join(run_dir, "config.json")
+        if not os.path.isfile(config_path):
+            parser.error(f"--resume: no config.json in {run_dir}")
+        with open(config_path) as fh:
+            cfg = json.load(fh)
+
+        script_path = cfg.get("script", "")
+        if not os.path.isabs(script_path):
+            script_path = os.path.join(_SCRIPT_DIR, script_path)
+        if not os.path.isfile(script_path):
+            parser.error(f"--resume: script not found: {script_path}")
+
+        stem = cfg.get("script_stem") or _script_stem(script_path)
+        dirs = {
+            "root":    run_dir,
+            "plots":   os.path.join(run_dir, "plots"),
+            "logs":    os.path.join(run_dir, "logs"),
+            "posthoc": os.path.join(run_dir, "posthoc"),
+        }
+
+        ckpt = _find_checkpoint(dirs["plots"])
+        if ckpt is None:
+            print(f"  [resume] No checkpoint found in {dirs['plots']} — starting from scratch.")
+        else:
+            print(f"  [resume] Checkpoint: {ckpt}")
+
+        save_agents = cfg.get("save_agents", False) or args.introspect
+        orig_passthrough = cfg.get("passthrough_args", [])
+        script_cmd = [sys.executable, script_path] + orig_passthrough
+        if ckpt is not None:
+            script_cmd += ["--resume", ckpt]
+        if save_agents and stem in _POSTHOC_SCRIPTS:
+            if "--save-agents" not in script_cmd:
+                script_cmd.append("--save-agents")
+
+        print(f"\n  Resuming: {run_dir}")
+        env = os.environ.copy()
+        env["CBAM_EXPERIMENT_DIR"] = run_dir
+
+        rc = _run_subprocess(script_cmd, env, f"EXPERIMENT (resume): {stem}")
+        if rc != 0:
+            print(f"\n  [ERROR] Script exited with code {rc}. Run_dir preserved: {run_dir}")
+            sys.exit(rc)
+
+        if args.depth == "full" and stem in _POSTHOC_SCRIPTS:
+            rc = _run_posthoc(dirs, stem, save_agents=save_agents)
+            if rc != 0:
+                print(f"\n  [WARN] Posthoc exited with code {rc}.")
+
+        print(f"\n  Run complete → {run_dir}")
+        return
 
     if not args.script:
         parser.error("Provide a script path or --posthoc-only <run_dir>")
