@@ -601,6 +601,23 @@ class RiceMRIO(Rice):
     # boundaries).
     cbam_lambda_init: float = eqx.field(static=True, default=0.0)
 
+    # When True, the CBAM cost is divided by gross output (Y_r) before being
+    # multiplied by λ in the additive_cbam reward:
+    #   r_t = ΔU_t − λ · (c_r / Y_r)
+    # This makes the penalty dimensionless (a fraction of GDP), ensuring
+    # λ has a consistent per-unit interpretation across regions regardless
+    # of economic size or EU export dependence.
+    # Motivation: probe_reward_scale.py shows that raw c_r produces penalty/ΔU
+    # ratios ranging from 7% (RoW) to 310% (Russia+Eur.), drowning the welfare
+    # signal for high-EU-export regions.  Normalising by Y_r compresses this
+    # range to the same order of magnitude as abatement_cost_frac, which is
+    # already expressed as a GDP fraction inside RICE.  λ must be recalibrated
+    # when switching (raw c_r ≈ 0.02-0.08; c_r/Y_r ≈ 0.001-0.01 → multiply λ
+    # by ~10-50 to recover the same penalty magnitude).
+    # Default False preserves the existing validated behaviour (C-litmus PASS,
+    # May 19 2026); set True with cbam_lambda_init=10.0 for the normalised arm.
+    cbam_cost_normalize_by_output: bool = eqx.field(static=True, default=False)
+
     # Phase 2B Tier 1: fraction of CBAM revenue pool redistributed to exporters.
     # 0.0 (default) = no transfer (current behaviour); 1.0 = full redistribution.
     # Transfer to each non-EU exporter r is proportional to r's CBAM burden:
@@ -610,6 +627,21 @@ class RiceMRIO(Rice):
     # EU does not self-transfer; it retains (1 - revenue_share) implicitly.
     # Reference: Phase 2B design plan, Tier 1 ablation grid.
     revenue_share: float = eqx.field(static=True, default=0.0)
+
+    # External finance multiplier for the CBAM transfer pool.
+    # At 1.0 (default) the pool equals the CBAM revenue collected by the EU;
+    # at M > 1 the pool is scaled up to simulate NCQG / GCF top-up finance.
+    # This tests Experiment C: "at what multiplier does CBAM-revenue-funded
+    # transfers become sufficient to suppress diversion?".
+    #
+    # Motivation: NCQG $300B/yr climate finance commitment vs EU CBAM ~€2.1B/yr
+    # implies a ratio of ~140×.  Fischer & Fox (2012) and Helm & Schmidt (2015)
+    # both show that allocation rule is welfare-differentiating only once the
+    # pool is large; at pool≈CBAM-revenue the rule is irrelevant (Böhringer,
+    # Fischer & Rosendahl 2010 §4 perverse-recycling result).
+    # Grounded in: Schrag et al. (2025) Harvard "carbon tax assets" paper;
+    # IEEP (2025) CBAM reform brief; NCQG COP29 outcome ($300B/yr by 2035).
+    transfer_pool_multiplier: float = eqx.field(static=True, default=1.0)
 
     # Controls how CBAM revenue transfers are applied to recipient exporters.
     #
@@ -763,6 +795,19 @@ class RiceMRIO(Rice):
     # et al. (1997), Grubb et al. (2021 WIREs).
     transition_cost_asymmetric: bool = eqx.field(static=True, default=False)
 
+    # Toggle for per-region damage coefficients.  When False (default), the base
+    # Rice damage formula uses uniform xa_2 from the region yamls.  When True,
+    # regional_damage_coeff (shape (num_regions,)) is used instead of xa_2.
+    # Setting this True without supplying regional_damage_coeff raises at init.
+    use_regional_damage_coeff: bool = eqx.field(static=True, default=False)
+
+    # Per-region damage coefficient — replaces xa_2 (quadratic temperature sensitivity)
+    # in the Nordhaus DICE/RICE damage formula.  Shape (num_regions,), units = °C^{-2}.
+    # Only active when use_regional_damage_coeff=True.
+    # [LITERATURE NEEDED: regional calibration source — Ricke et al. 2018
+    #  "Country-level social cost of carbon" or Hansel et al. 2020]
+    regional_damage_coeff: np.ndarray = eqx.field(static=True, default=None)
+
     # Populated in __post_init__ when mrio_trade=True
     dest_alloc_baseline: np.ndarray = eqx.field(static=True, default=None)
     total_export_frac: np.ndarray = eqx.field(static=True, default=None)
@@ -838,6 +883,20 @@ class RiceMRIO(Rice):
             object.__setattr__(self, "dest_alloc_baseline", dest_alloc)
             object.__setattr__(self, "total_export_frac", total_export_frac)
             object.__setattr__(self, "emissions_intensity", intensity)
+
+        # Validate regional damage coefficient configuration
+        if self.use_regional_damage_coeff:
+            if self.regional_damage_coeff is None:
+                raise ValueError(
+                    "use_regional_damage_coeff=True but regional_damage_coeff is None. "
+                    "Supply a (num_regions,) array of per-region xa_2 coefficients."
+                )
+            coeff = np.asarray(self.regional_damage_coeff)
+            if coeff.shape != (self.num_regions,):
+                raise ValueError(
+                    f"regional_damage_coeff must have shape ({self.num_regions},), "
+                    f"got {coeff.shape}."
+                )
 
     # ------------------------------------------------------------------ state
 
@@ -953,9 +1012,13 @@ class RiceMRIO(Rice):
         if self.diff_reward_mode:
             reward = reward - old_state["utility_all_regions"]
 
-        # Subtract λ · CBAM_cost
+        # Subtract λ · CBAM_cost (optionally normalised by gross output)
         lam = new_state["cbam_lambda"]
         cbam_cost = new_state["cbam_cost_all_regions"]  # (NR,)
+        if self.cbam_cost_normalize_by_output:
+            cbam_cost = cbam_cost / jnp.maximum(
+                new_state["gross_output_all_regions"], 1e-8
+            )
         reward = reward - lam * cbam_cost
 
         return {i_to_agent_str(i): reward[i] for i in range(self.num_regions)}
@@ -1111,6 +1174,45 @@ class RiceMRIO(Rice):
         trade_flows = trade_flows_rsd.transpose(0, 2, 1)  # (NR, NR, NS) [from, to, s]
         return trade_flows, dest_alloc
 
+    def _mac(self, mitigation_rates: chex.Array, t: chex.Array) -> chex.Array:
+        """RICE backstop marginal abatement cost (Nordhaus 2017 DICE-2016R eq. 9):
+
+            MAC_r(μ, t) = p_b_r · (1-δ_pb_r)^(t-1) · μ^(θ₂_r - 1)
+
+        All parameters are region-specific; MAC is dimensionless in RICE.  μ is
+        clamped at ``mu_floor_differential`` to avoid the singularity at μ→0
+        (θ₂ > 1).  Returns a per-region array shaped like ``mitigation_rates``.
+        Factored out of ``_compute_cbam`` so coalition scenarios (clubs) can
+        reuse the identical MAC curve when computing club-reference tariffs.
+        """
+        p_b      = jnp.array(self.region_params.xp_b, dtype=jnp.float32)        # (NR,)
+        delta_pb = jnp.array(self.region_params.xdelta_pb, dtype=jnp.float32)  # (NR,)
+        theta2   = jnp.array(self.region_params.xtheta_2, dtype=jnp.float32)    # (NR,)
+        decay    = jnp.power(jnp.maximum(1.0 - delta_pb, 0.0), t - 1.0)        # (NR,)
+        mu_safe  = jnp.maximum(mitigation_rates, self.mu_floor_differential)    # (NR,)
+        return p_b * decay * jnp.power(mu_safe, theta2 - 1.0)                  # (NR,)
+
+    def _postprocess_cbam(
+        self,
+        state: dict,
+        trade_flows: chex.Array,
+        gross_imports_mrio: chex.Array,
+        mitigation_rates: chex.Array | None,
+        cbam_tariff_matrix: chex.Array,
+        cbam_revenue: chex.Array,
+        cbam_cost_raw: chex.Array,
+    ) -> tuple[chex.Array, chex.Array, chex.Array]:
+        """Hook for coalition/club scenarios to recompute CBAM quantities from
+        membership information carried in ``state`` (e.g. ``club_membership``).
+
+        Default implementation is the identity: the single-EU CBAM computed by
+        :meth:`_compute_cbam` is returned unchanged.  This keeps the base
+        ``RiceMRIO`` behaviour bit-identical (canonical null condition) while
+        letting subclasses in ``_scenarios.py`` route CBAM collection through a
+        negotiated club mask without re-implementing the whole step pipeline.
+        """
+        return cbam_tariff_matrix, cbam_revenue, cbam_cost_raw
+
     def _compute_cbam(
         self,
         trade_flows: chex.Array,
@@ -1157,16 +1259,9 @@ class RiceMRIO(Rice):
             #   MAC_r(μ, t) = p_b_r · (1-δ_pb_r)^(t-1) · μ^(θ₂_r - 1)
             # All parameters are region-specific; MAC is dimensionless in RICE.
             # Normalised by EU's own MAC so τ_eff is always in [0, 1].
-            p_b     = jnp.array(self.region_params.xp_b, dtype=jnp.float32)        # (NR,)
-            delta_pb = jnp.array(self.region_params.xdelta_pb, dtype=jnp.float32)  # (NR,)
-            theta2  = jnp.array(self.region_params.xtheta_2, dtype=jnp.float32)    # (NR,)
+            # MAC curve factored into self._mac (clamps μ at mu_floor_differential).
             t = activity_timestep if activity_timestep is not None else 1.0
-            decay   = jnp.power(jnp.maximum(1.0 - delta_pb, 0.0), t - 1.0)       # (NR,)
-
-            # Clamp μ to avoid singularity (MAC → ∞ when θ₂ > 1, μ → 0)
-            mu_safe = jnp.maximum(mitigation_rates, self.mu_floor_differential)    # (NR,)
-            mac     = p_b * decay * jnp.power(mu_safe, theta2 - 1.0)              # (NR,)
-
+            mac     = self._mac(mitigation_rates, t)                              # (NR,)
             mac_eu  = mac[self.eu_region_idx]                                       # scalar
             # τ_eff[r] = (MAC_EU - MAC_r) / MAC_EU, clamped to [0, 1]
             # EU's own rate is 0 by construction (MAC_EU - MAC_EU = 0)
@@ -1222,6 +1317,41 @@ class RiceMRIO(Rice):
         )
 
         return cbam_tariff_matrix, cbam_revenue, cbam_cost
+
+    # ------------------------------------------------------------------ damages
+
+    def calc_damages(self, state: dict) -> chex.Array:
+        """Per-region damage multiplier.
+
+        When ``regional_damage_coeff`` is None (default), delegates to the base
+        Rice implementation which reads all coefficients from ``region_params``
+        (yaml values, uniform across regions).
+
+        When ``regional_damage_coeff`` is supplied (shape ``(num_regions,)``),
+        it substitutes ``xa_2`` / ``xa_updated`` in the damage formula so that
+        each region has its own calibrated temperature sensitivity:
+
+        - "base"    : damages = 1 / (1 + xa_1*T + coeff*T^xa_3)
+        - "updated" : damages = 1 - (coeff * T^2) / 100
+        """
+        if not self.use_regional_damage_coeff:
+            return super().calc_damages(state)
+
+        T = state["global_temperature"][0]  # scalar — global mean surface temp
+        coeff = jnp.array(self.regional_damage_coeff)  # (num_regions,)
+
+        if self.dmg_function == "base":
+            damages = 1.0 / (
+                1.0
+                + self.region_params.xa_1 * T
+                + coeff * jnp.power(T, self.region_params.xa_3)
+            )
+        elif self.dmg_function == "updated":
+            damages = 1.0 - (coeff * (T**2)) / 100.0
+        else:
+            raise ValueError(f"Unknown damage function: {self.dmg_function}")
+
+        return damages
 
     # ------------------------------------------------------------------ step
 
@@ -1350,6 +1480,12 @@ class RiceMRIO(Rice):
             mitigation_rates=mit_rates,
             activity_timestep=state["activity_timestep"],
         )
+        # Coalition hook: club scenarios recompute CBAM from membership in state.
+        # Default (base RiceMRIO) returns the single-EU CBAM unchanged.
+        cbam_tariff_matrix, cbam_revenue, cbam_cost_raw = self._postprocess_cbam(
+            state, trade_flows, gross_imports_mrio, mit_rates,
+            cbam_tariff_matrix, cbam_revenue, cbam_cost_raw,
+        )
 
         # 6. Recompute consumptions with MRIO gross imports (no tariff on quantity)
         gross_outputs = state["gross_output_all_regions"]
@@ -1363,6 +1499,9 @@ class RiceMRIO(Rice):
         # exporters.  EU is the collector and does not self-transfer.
         # Allocation rule is controlled by self.transfer_allocation.
         pool = cbam_cost_raw.sum()  # scalar — total revenue collected by EU
+        # External finance top-up: amplify the transfer pool without changing
+        # the CBAM cost accounting.  At default multiplier=1.0 this is a no-op.
+        effective_pool = pool * self.transfer_pool_multiplier
 
         # ── Allocation rule ────────────────────────────────────────────────
         if self.transfer_allocation == "effort":
@@ -1402,7 +1541,7 @@ class RiceMRIO(Rice):
             # producers, offsetting trade barrier but risking moral hazard.
             burden_share = cbam_cost_raw / (pool + 1e-8)               # (NR,)
 
-        transfer_received = self.revenue_share * pool * burden_share   # (NR,)
+        transfer_received = self.revenue_share * effective_pool * burden_share   # (NR,)
         transfer_received = transfer_received.at[self.eu_region_idx].set(0.0)
 
         if self.transfer_mode == "abatement":

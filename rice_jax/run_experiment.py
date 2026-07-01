@@ -87,8 +87,23 @@ _POSTHOC_C_SCRIPTS = {
 }
 _POSTHOC_C = os.path.join(_SCRIPT_DIR, "validation", "cbam_posthoc_C_litmus.py")
 
+# Scripts that emit an Experiment-E (amplifier sweep) pkl understood by
+# cbam_posthoc_C_amplifier.py.
+_POSTHOC_E_AMPLIFIER_SCRIPTS = {
+    "cbam_experiment_C_amplifier": "pkl",
+}
+_POSTHOC_E_AMPLIFIER = os.path.join(
+    _SCRIPT_DIR, "validation", "cbam_posthoc_C_amplifier.py"
+)
+
 # Union of all scripts that have posthoc support
-_POSTHOC_SCRIPTS = {**_POSTHOC_LITMUS_SCRIPTS, **_POSTHOC_2B_SCRIPTS, **_POSTHOC_A_SCRIPTS, **_POSTHOC_C_SCRIPTS}
+_POSTHOC_SCRIPTS = {
+    **_POSTHOC_LITMUS_SCRIPTS,
+    **_POSTHOC_2B_SCRIPTS,
+    **_POSTHOC_A_SCRIPTS,
+    **_POSTHOC_C_SCRIPTS,
+    **_POSTHOC_E_AMPLIFIER_SCRIPTS,
+}
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -186,6 +201,12 @@ def _run_posthoc(dirs: dict, stem: str, save_agents: bool) -> int:
             "--pkl", pkl_path,
             "--out-dir", dirs["posthoc"],
         ]
+    elif stem in _POSTHOC_E_AMPLIFIER_SCRIPTS:
+        cmd = [
+            sys.executable, _POSTHOC_E_AMPLIFIER,
+            "--pkl", pkl_path,
+            "--out-dir", dirs["posthoc"],
+        ]
     else:
         print(f"  [posthoc] No posthoc mapping for '{stem}', skipping.")
         return 0
@@ -267,6 +288,14 @@ def main() -> None:
         help="Include trained PPO agents in the pkl (larger files). "
              "Enables Layer 2 introspection and is forwarded to litmus scripts only.",
     )
+    parser.add_argument(
+        "--num-envs",
+        type=int,
+        default=8,
+        metavar="N",
+        help="Number of parallel environments (default: 8). Sets CBAM_NUM_ENVS "
+             "for all canonical experiment scripts.",
+    )
 
     # Everything the runner doesn't recognise is forwarded to the experiment script.
     # Use '--' to explicitly separate runner flags from script flags if needed.
@@ -324,6 +353,7 @@ def main() -> None:
         print(f"\n  Resuming: {run_dir}")
         env = os.environ.copy()
         env["CBAM_EXPERIMENT_DIR"] = run_dir
+        env["CBAM_NUM_ENVS"] = str(cfg.get("num_envs", args.num_envs))
 
         rc = _run_subprocess(script_cmd, env, f"EXPERIMENT (resume): {stem}")
         if rc != 0:
@@ -368,6 +398,7 @@ def main() -> None:
         "timestamp":        ts,
         "passthrough_args": passthrough,
         "save_agents":      save_agents,
+        "num_envs":         args.num_envs,
         "run_dir":          run_dir,
     })
 
@@ -376,6 +407,7 @@ def main() -> None:
     # ── Set env vars so the script writes to our run_dir ────────────────────
     env = os.environ.copy()
     env["CBAM_EXPERIMENT_DIR"] = run_dir
+    env["CBAM_NUM_ENVS"] = str(args.num_envs)
 
     # ── Run the experiment script ────────────────────────────────────────────
     rc = _run_subprocess(script_cmd, env, f"EXPERIMENT: {stem}")

@@ -9,6 +9,8 @@ data
 
 .github/
 
+papers/
+
 # Runtime data
 pids
 *.pid

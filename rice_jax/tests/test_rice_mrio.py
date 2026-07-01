@@ -496,3 +496,64 @@ class TestPhase2Aplus:
             "With τ=0, sectoral_welfloss=True should give same utility as False\n"
             f"  max diff = {np.abs(u_sl - u_no).max():.4e}"
         )
+
+
+# ---------------------------------------------------------------------------
+# TestRegionalDamageCoeff — canonical null test for regional_damage_coeff field
+# ---------------------------------------------------------------------------
+
+class TestRegionalDamageCoeff:
+    """Canonical null test: regional_damage_coeff=None and a uniform array equal
+    to the yaml default (xa_2=0.00236) must produce bit-identical damages."""
+
+    def test_null_uniform_coeff_identical_to_none(self, region_params):
+        """regional_damage_coeff set to uniform xa_2 == regional_damage_coeff=None."""
+        key = jax.random.PRNGKey(SEED)
+
+        env_none = RiceMRIO(region_params=region_params, **_BASE_KWARGS)
+        env_uniform = RiceMRIO(
+            region_params=region_params,
+            use_regional_damage_coeff=True,
+            regional_damage_coeff=np.full(NUM_REGIONS, 0.00236),
+            **_BASE_KWARGS,
+        )
+
+        _, state = env_none.reset(key)
+
+        d_none = np.array(env_none.calc_damages(state))
+        d_uniform = np.array(env_uniform.calc_damages(state))
+
+        assert np.allclose(d_none, d_uniform, atol=1e-8), (
+            "Uniform regional_damage_coeff=0.00236 must match None baseline\n"
+            f"  max diff = {np.abs(d_none - d_uniform).max():.2e}"
+        )
+
+    def test_heterogeneous_coeff_differentiates_regions(self, region_params):
+        """Non-uniform regional_damage_coeff must produce distinct per-region damages."""
+        key = jax.random.PRNGKey(SEED)
+
+        # Make coefficients deliberately spread: low for first half, high for second.
+        coeffs = np.array(
+            [0.001] * (NUM_REGIONS // 2) + [0.005] * (NUM_REGIONS - NUM_REGIONS // 2)
+        )
+        env = RiceMRIO(
+            region_params=region_params,
+            use_regional_damage_coeff=True,
+            regional_damage_coeff=coeffs,
+            **_BASE_KWARGS,
+        )
+
+        _, state = env.reset(key)
+        damages = np.array(env.calc_damages(state))
+
+        # All values must be in (0, 1] (survival fractions)
+        assert np.all(damages > 0) and np.all(damages <= 1.0), (
+            f"Damage multipliers out of (0,1]: {damages}"
+        )
+        # Low-coeff regions should have *higher* survival fraction than high-coeff ones
+        low = damages[: NUM_REGIONS // 2]
+        high = damages[NUM_REGIONS // 2 :]
+        assert low.min() > high.max(), (
+            "Regions with lower damage coeff must have higher survival fraction\n"
+            f"  low={low}, high={high}"
+        )

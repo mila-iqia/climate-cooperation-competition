@@ -4,5 +4,8 @@ from ._scenarios import (
     BasicClub as BasicClub,
     OptimalMitigation as OptimalMitigation,
     BasicClubTariffAmbition as BasicClubTariffAmbition,
-    BasicClubTariffAmbitionFixedSavings as BasicClubTariffAmbitionFixedSavings
+    BasicClubTariffAmbitionFixedSavings as BasicClubTariffAmbitionFixedSavings,
+    MRIOClubCBAM as MRIOClubCBAM,
+    MRIOSectoralClub as MRIOSectoralClub,
+    MRIOMultiClub as MRIOMultiClub,
 )
