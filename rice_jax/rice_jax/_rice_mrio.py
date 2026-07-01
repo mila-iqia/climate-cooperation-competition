@@ -601,23 +601,6 @@ class RiceMRIO(Rice):
     # boundaries).
     cbam_lambda_init: float = eqx.field(static=True, default=0.0)
 
-    # When True, the CBAM cost is divided by gross output (Y_r) before being
-    # multiplied by λ in the additive_cbam reward:
-    #   r_t = ΔU_t − λ · (c_r / Y_r)
-    # This makes the penalty dimensionless (a fraction of GDP), ensuring
-    # λ has a consistent per-unit interpretation across regions regardless
-    # of economic size or EU export dependence.
-    # Motivation: probe_reward_scale.py shows that raw c_r produces penalty/ΔU
-    # ratios ranging from 7% (RoW) to 310% (Russia+Eur.), drowning the welfare
-    # signal for high-EU-export regions.  Normalising by Y_r compresses this
-    # range to the same order of magnitude as abatement_cost_frac, which is
-    # already expressed as a GDP fraction inside RICE.  λ must be recalibrated
-    # when switching (raw c_r ≈ 0.02-0.08; c_r/Y_r ≈ 0.001-0.01 → multiply λ
-    # by ~10-50 to recover the same penalty magnitude).
-    # Default False preserves the existing validated behaviour (C-litmus PASS,
-    # May 19 2026); set True with cbam_lambda_init=10.0 for the normalised arm.
-    cbam_cost_normalize_by_output: bool = eqx.field(static=True, default=False)
-
     # Phase 2B Tier 1: fraction of CBAM revenue pool redistributed to exporters.
     # 0.0 (default) = no transfer (current behaviour); 1.0 = full redistribution.
     # Transfer to each non-EU exporter r is proportional to r's CBAM burden:
@@ -1012,13 +995,9 @@ class RiceMRIO(Rice):
         if self.diff_reward_mode:
             reward = reward - old_state["utility_all_regions"]
 
-        # Subtract λ · CBAM_cost (optionally normalised by gross output)
+        # Subtract λ · CBAM_cost
         lam = new_state["cbam_lambda"]
         cbam_cost = new_state["cbam_cost_all_regions"]  # (NR,)
-        if self.cbam_cost_normalize_by_output:
-            cbam_cost = cbam_cost / jnp.maximum(
-                new_state["gross_output_all_regions"], 1e-8
-            )
         reward = reward - lam * cbam_cost
 
         return {i_to_agent_str(i): reward[i] for i in range(self.num_regions)}
