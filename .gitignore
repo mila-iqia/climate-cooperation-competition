@@ -241,9 +241,6 @@ Colab_Tutorial-Copy1.ipynb
 Draw_graphs.ipynb
 100_rounds.pkl
 *.pdf
-core
-!rice_jax/rice_jax/core/
-!rice_jax/rice_jax/core/**
 .tmp
 Submissions/*
 .vscode/*
