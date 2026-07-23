@@ -24,11 +24,11 @@ Panels
 
 Usage
 -----
-    python validation/cbam_posthoc_A_crowdout.py \\
-        --pkl experiments/cbam_experiment_A_crowdout_*/plots/cbam_A_crowdout_*.pkl
+    python cbam/posthoc/cbam_posthoc_A_crowdout.py \\
+        --pkl cbam/experiment_results/cbam_experiment_A_crowdout_*/plots/cbam_A_crowdout_*.pkl
 
-    # Or from run_experiment.py (once registered):
-    python run_experiment.py --posthoc-only experiments/cbam_experiment_A_crowdout_*
+    # Or from run_cbam_experiment.py (once registered):
+    python run_cbam_experiment.py --posthoc-only cbam/experiment_results/cbam_experiment_A_crowdout_*
 """
 
 from __future__ import annotations
@@ -36,10 +36,17 @@ from __future__ import annotations
 import matplotlib
 matplotlib.use("Agg")
 
+import sys
+from pathlib import Path
+
+_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
+if str(_RICE_JAX_ROOT) not in sys.path:
+    sys.path.insert(0, str(_RICE_JAX_ROOT))
+
+
 import argparse
 import os
 import pickle
-import sys
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -47,7 +54,6 @@ import matplotlib.gridspec as gridspec
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from _experiment_util import get_output_dir
 
 

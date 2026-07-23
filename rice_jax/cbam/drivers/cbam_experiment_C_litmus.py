@@ -11,16 +11,21 @@ Pass criterion (from registry):
   headline.
 
 Usage (from rice_jax/, rice-jax conda env):
-    python validation/cbam_experiment_C_litmus.py [--timesteps 2000000]
-    python validation/cbam_experiment_C_litmus.py --seeds 0,1,2
-    python validation/cbam_experiment_C_litmus.py --replot <pickle.pkl>
+    python cbam/drivers/cbam_experiment_C_litmus.py [--timesteps 2000000]
+    python cbam/drivers/cbam_experiment_C_litmus.py --seeds 0,1,2
+    python cbam/drivers/cbam_experiment_C_litmus.py --replot <pickle.pkl>
 """
 
 import matplotlib
 matplotlib.use("Agg")
 
-import os as _os, sys as _sys
-_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+import sys
+from pathlib import Path
+
+_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
+if str(_RICE_JAX_ROOT) not in sys.path:
+    sys.path.insert(0, str(_RICE_JAX_ROOT))
+
 
 import argparse
 import cloudpickle
@@ -34,18 +39,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from _experiment_util import get_output_dir, get_log_dir, save_run_config
-from validation.canonical_config import (
+from cbam.config.canonical_config import (
     CANONICAL_SEEDS,
     CANONICAL_TRAIN_KWARGS,
     SENSITIVITY_PARAMS,
     canonical_train_kwargs,
 )
-from validation.registry import REGISTRY
+from cbam.config.registry import REGISTRY
 
 # These are the actual test runners from the two litmus scripts.
 # They accept a single JAX PRNG key and return (passed, data) tuples.
-import validation.cbam_litmus_mechanism as _mech
-import validation.cbam_litmus_conditioning as _cond
+import cbam.drivers.cbam_litmus_mechanism as _mech
+import cbam.drivers.cbam_litmus_conditioning as _cond
 
 
 EXPERIMENT_ID = "C_litmus_multiseed"
@@ -351,7 +356,7 @@ def main():
     print(f"\n  Results saved: {pkl_path}")
 
     save_run_config({
-        "script": "validation/cbam_experiment_C_litmus.py",
+        "script": "cbam/drivers/cbam_experiment_C_litmus.py",
         "experiment_id": EXPERIMENT_ID,
         "timesteps": timesteps,
         "seeds": seeds,

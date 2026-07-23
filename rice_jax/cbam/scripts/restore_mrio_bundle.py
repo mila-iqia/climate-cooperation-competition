@@ -16,11 +16,18 @@ After extraction, point RiceMRIO at the directory by setting:
 or pass mrio_data_root= directly when constructing RiceMRIO.
 
 Usage (run from project root):
-    python scripts/restore_mrio_bundle.py
-    python scripts/restore_mrio_bundle.py --bundle /path/to/bundle.zip
-    python scripts/restore_mrio_bundle.py --target-csv-asset /data/csv_asset
-    python scripts/restore_mrio_bundle.py --force   # overwrite existing files
+    python cbam/scripts/restore_mrio_bundle.py
+    python cbam/scripts/restore_mrio_bundle.py --bundle /path/to/bundle.zip
+    python cbam/scripts/restore_mrio_bundle.py --target-csv-asset /data/csv_asset
+    python cbam/scripts/restore_mrio_bundle.py --force   # overwrite existing files
 """
+
+import sys
+from pathlib import Path
+
+_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
+if str(_RICE_JAX_ROOT) not in sys.path:
+    sys.path.insert(0, str(_RICE_JAX_ROOT))
 
 from __future__ import annotations
 

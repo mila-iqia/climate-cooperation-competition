@@ -12,18 +12,25 @@ Works on:
   - cbam_experiment_2b_alloc.py pkls (list of dicts, keyed by allocation)
 
 Usage (from rice_jax/):
-    python validation/cbam_posthoc_2b.py --tier1-pkl plots/cbam_2b_tier1_*.pkl
-    python validation/cbam_posthoc_2b.py --alloc-pkl plots/cbam_2b_alloc_*.pkl
-    python validation/cbam_posthoc_2b.py --tier1-pkl <t1.pkl> --alloc-pkl <a.pkl> --out-report auto
+    python cbam/posthoc/cbam_posthoc_2b.py --tier1-pkl plots/cbam_2b_tier1_*.pkl
+    python cbam/posthoc/cbam_posthoc_2b.py --alloc-pkl plots/cbam_2b_alloc_*.pkl
+    python cbam/posthoc/cbam_posthoc_2b.py --tier1-pkl <t1.pkl> --alloc-pkl <a.pkl> --out-report auto
 """
 
 import matplotlib
 matplotlib.use("Agg")
 
+import sys
+from pathlib import Path
+
+_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
+if str(_RICE_JAX_ROOT) not in sys.path:
+    sys.path.insert(0, str(_RICE_JAX_ROOT))
+
+
 import argparse
 import os
 import pickle
-import sys
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -31,7 +38,6 @@ import matplotlib.gridspec as gridspec
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from _experiment_util import get_output_dir
 
 

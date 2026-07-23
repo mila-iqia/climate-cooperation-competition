@@ -11,8 +11,8 @@ Analyses per-test per-seed metric values from the Experiment C pkl to identify:
    aggregate pass/fail and whether non-responding regions drag the average down.
 
 Usage (from rice_jax/):
-    python validation/cbam_posthoc_C_litmus.py \\
-        --pkl experiments/cbam_experiment_C_litmus_*/plots/cbam_C_litmus_*.pkl
+    python cbam/posthoc/cbam_posthoc_C_litmus.py \\
+        --pkl cbam/experiment_results/cbam_experiment_C_litmus_*/plots/cbam_C_litmus_*.pkl
 """
 
 from __future__ import annotations
@@ -20,10 +20,17 @@ from __future__ import annotations
 import matplotlib
 matplotlib.use("Agg")
 
+import sys
+from pathlib import Path
+
+_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
+if str(_RICE_JAX_ROOT) not in sys.path:
+    sys.path.insert(0, str(_RICE_JAX_ROOT))
+
+
 import argparse
 import os
 import pickle
-import sys
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -32,7 +39,6 @@ import numpy as np
 import pandas as pd
 from matplotlib.colors import TwoSlopeNorm
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from _experiment_util import get_output_dir
 
 

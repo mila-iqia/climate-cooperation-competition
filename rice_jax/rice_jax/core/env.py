@@ -10,7 +10,7 @@ import numpy as np
 import optax
 from jaxnasium import Discrete, MultiDiscrete
 
-from .utils import empty_info_log_fn, i_to_agent_str, solve_for_alpha
+from ..utils import empty_info_log_fn, i_to_agent_str, solve_for_alpha
 
 
 class Rice(jym.Environment):

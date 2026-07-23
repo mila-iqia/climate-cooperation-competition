@@ -104,7 +104,7 @@ def run_single_episode(
 #
 # Validation scripts call get_output_dir() / get_log_dir() instead of hard-
 # coding "plots" / "training_logs".  When the CBAM_EXPERIMENT_DIR env-var is
-# set (by run_experiment.py), outputs are redirected into the experiment
+# set (by run_cbam_experiment.py), outputs are redirected into the experiment
 # folder; otherwise the original flat directories are used unchanged so every
 # script still works standalone.
 

@@ -214,11 +214,11 @@ def build_rice_scenario(config: Config) -> Rice:
     elif config.scenario == "basic_club_tariff_ambition_fixed_savings":
         env = BasicClubTariffAmbitionFixedSavings(**env_settings)
     elif config.scenario == "max_export":
-        from rice_jax._scenarios import MaxExport
+        from rice_jax.core.scenarios import MaxExport
 
         env = MaxExport(**env_settings)
     elif config.scenario == "max_export_fixed_savings":
-        from rice_jax._scenarios import MaxExportFixedSavings
+        from rice_jax.core.scenarios import MaxExportFixedSavings
 
         env = MaxExportFixedSavings(**env_settings)
     elif config.scenario == "rice_mrio":

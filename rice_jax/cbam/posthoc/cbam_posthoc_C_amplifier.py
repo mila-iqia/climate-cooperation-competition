@@ -53,11 +53,11 @@ Output
 
 Usage
 -----
-    python validation/cbam_posthoc_C_amplifier.py \\
+    python cbam/posthoc/cbam_posthoc_C_amplifier.py \\
         --pkl plots/cbam_C_amplifier_<timestamp>.pkl
 
     # Optional: direct output directory
-    python validation/cbam_posthoc_C_amplifier.py \\
+    python cbam/posthoc/cbam_posthoc_C_amplifier.py \\
         --pkl ... --out-dir plots/
 """
 
@@ -66,10 +66,17 @@ from __future__ import annotations
 import matplotlib
 matplotlib.use("Agg")
 
+import sys
+from pathlib import Path
+
+_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
+if str(_RICE_JAX_ROOT) not in sys.path:
+    sys.path.insert(0, str(_RICE_JAX_ROOT))
+
+
 import argparse
 import os
 import pickle
-import sys
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -77,7 +84,6 @@ import matplotlib.gridspec as gridspec
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from _experiment_util import get_output_dir
 
 

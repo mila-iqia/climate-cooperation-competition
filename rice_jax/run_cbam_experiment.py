@@ -1,11 +1,11 @@
-"""run_experiment.py — Experiment runner for CBAM-RICE.
+"""run_cbam_experiment.py — Experiment runner for CBAM-RICE.
 
-Creates a self-contained experiment folder and runs a validation script at
+Creates a self-contained experiment folder and runs a CBAM driver script at
 the requested *depth*, then optionally launches post-hoc analysis.
 
 Folder layout
 -------------
-experiments/
+cbam/experiment_results/
   <script_stem>_<YYYYMMDD_HHMMSS>/
   ├── config.json          frozen args + metadata
   ├── plots/               all PNGs and PKLs from the run
@@ -20,20 +20,20 @@ experiments/
         └── introspection.png  (only with --save-agents)
 
 Usage (from rice_jax/):
-    python run_experiment.py validation/cbam_litmus_mechanism.py \\
+    python run_cbam_experiment.py cbam/drivers/cbam_litmus_mechanism.py \\
         --depth train --timesteps 1000000 --free-savings
 
-    python run_experiment.py validation/cbam_litmus_mechanism.py \\
+    python run_cbam_experiment.py cbam/drivers/cbam_litmus_mechanism.py \\
         --depth visualize --timesteps 1000000 --free-savings
 
-    python run_experiment.py validation/cbam_litmus_mechanism.py \\
+    python run_cbam_experiment.py cbam/drivers/cbam_litmus_mechanism.py \\
         --depth full --timesteps 1000000 --free-savings --save-agents
 
     # Re-run only posthoc on an existing experiment folder:
-    python run_experiment.py --posthoc-only experiments/cbam_litmus_mechanism_20260512_140000
+    python run_cbam_experiment.py --posthoc-only cbam/experiment_results/cbam_litmus_mechanism_20260512_140000
 
     # Resume a partially-completed experiment (after Ctrl+C):
-    python run_experiment.py --resume experiments/cbam_experiment_A_crowdout_20260515_120000
+    python run_cbam_experiment.py --resume cbam/experiment_results/cbam_experiment_A_crowdout_20260515_120000
 
 Depth levels
 ------------
@@ -58,6 +58,7 @@ import sys
 from datetime import datetime
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_DEFAULT_RESULTS_DIR = os.path.join(_SCRIPT_DIR, "cbam", "experiment_results")
 
 # Scripts that emit a litmus-style pkl understood by cbam_posthoc_litmus.py.
 # Value is the --<key>-pkl flag name.
@@ -65,7 +66,7 @@ _POSTHOC_LITMUS_SCRIPTS = {
     "cbam_litmus_mechanism":    "mech",
     "cbam_litmus_conditioning": "cond",
 }
-_POSTHOC_LITMUS = os.path.join(_SCRIPT_DIR, "validation", "cbam_posthoc_litmus.py")
+_POSTHOC_LITMUS = os.path.join(_SCRIPT_DIR, "cbam", "posthoc", "cbam_posthoc_litmus.py")
 
 # Scripts that emit a 2B-style pkl understood by cbam_posthoc_2b.py.
 # Value is the --<key>-pkl flag name.
@@ -73,19 +74,19 @@ _POSTHOC_2B_SCRIPTS = {
     "cbam_experiment_2b_tier1": "tier1",
     "cbam_experiment_2b_alloc": "alloc",
 }
-_POSTHOC_2B = os.path.join(_SCRIPT_DIR, "validation", "cbam_posthoc_2b.py")
+_POSTHOC_2B = os.path.join(_SCRIPT_DIR, "cbam", "posthoc", "cbam_posthoc_2b.py")
 
 # Scripts that emit an Experiment-A pkl understood by cbam_posthoc_A_crowdout.py.
 _POSTHOC_A_SCRIPTS = {
     "cbam_experiment_A_crowdout": "pkl",
 }
-_POSTHOC_A = os.path.join(_SCRIPT_DIR, "validation", "cbam_posthoc_A_crowdout.py")
+_POSTHOC_A = os.path.join(_SCRIPT_DIR, "cbam", "posthoc", "cbam_posthoc_A_crowdout.py")
 
 # Scripts that emit an Experiment-C pkl understood by cbam_posthoc_C_litmus.py.
 _POSTHOC_C_SCRIPTS = {
     "cbam_experiment_C_litmus": "pkl",
 }
-_POSTHOC_C = os.path.join(_SCRIPT_DIR, "validation", "cbam_posthoc_C_litmus.py")
+_POSTHOC_C = os.path.join(_SCRIPT_DIR, "cbam", "posthoc", "cbam_posthoc_C_litmus.py")
 
 # Scripts that emit an Experiment-E (amplifier sweep) pkl understood by
 # cbam_posthoc_C_amplifier.py.
@@ -93,7 +94,7 @@ _POSTHOC_E_AMPLIFIER_SCRIPTS = {
     "cbam_experiment_C_amplifier": "pkl",
 }
 _POSTHOC_E_AMPLIFIER = os.path.join(
-    _SCRIPT_DIR, "validation", "cbam_posthoc_C_amplifier.py"
+    _SCRIPT_DIR, "cbam", "posthoc", "cbam_posthoc_C_amplifier.py"
 )
 
 # Union of all scripts that have posthoc support
@@ -248,7 +249,7 @@ def main() -> None:
     parser.add_argument(
         "script",
         nargs="?",
-        help="Path to the validation script to run (relative to rice_jax/)",
+        help="Path to the CBAM driver script to run (relative to rice_jax/)",
     )
     parser.add_argument(
         "--depth",
@@ -257,9 +258,9 @@ def main() -> None:
         help="How far to run: train / visualize (same as train) / full (+ posthoc)",
     )
     parser.add_argument(
-        "--experiments-dir",
-        default=os.path.join(_SCRIPT_DIR, "experiments"),
-        help="Root directory for experiment folders (default: rice_jax/experiments/)",
+        "--results-dir",
+        default=_DEFAULT_RESULTS_DIR,
+        help="Root directory for experiment result folders (default: rice_jax/cbam/experiment_results/)",
     )
     parser.add_argument(
         "--posthoc-only",
@@ -378,7 +379,7 @@ def main() -> None:
         parser.error(f"Script not found: {script_path}")
 
     stem = _script_stem(script_path)
-    run_dir, ts = _make_run_dir(stem, args.experiments_dir)
+    run_dir, ts = _make_run_dir(stem, args.results_dir)
     dirs = _setup_dirs(run_dir)
 
     save_agents = args.save_agents or args.introspect

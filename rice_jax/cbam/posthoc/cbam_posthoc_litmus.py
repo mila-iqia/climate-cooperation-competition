@@ -15,18 +15,18 @@ Layer 2 "introspection" (requires JAX, needs --save-agents pkls):
 
 Usage (from rice_jax/, any Python 3.11+ env — no JAX needed for Layer 1):
     # Layer 1 only:
-    python validation/cbam_posthoc_litmus.py \\
+    python cbam/drivers/cbam_posthoc_litmus.py \\
         --mech-pkl plots/litmus_mech_1M_freesav_*.pkl \\
         --cond-pkl plots/litmus_cond_1M_freesav_*.pkl
 
     # Full analysis (Layer 1 + Layer 2, requires JAX and --save-agents pkls):
-    python validation/cbam_posthoc_litmus.py \\
+    python cbam/drivers/cbam_posthoc_litmus.py \\
         --mech-pkl plots/litmus_mech_1M_freesav_*.pkl \\
         --cond-pkl plots/litmus_cond_1M_freesav_*.pkl \\
         --introspect
 
     # Write report to file:
-    python validation/cbam_posthoc_litmus.py \\
+    python cbam/drivers/cbam_posthoc_litmus.py \\
         --mech-pkl plots/litmus_mech_*.pkl --cond-pkl plots/litmus_cond_*.pkl \\
         --out-report auto --introspect
 """
@@ -40,7 +40,6 @@ import pickle
 import sys
 from datetime import datetime
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from _experiment_util import get_output_dir
 
 import matplotlib.pyplot as plt
@@ -93,7 +92,7 @@ def _load_cbam_exposure():
         rice_jax_dir = os.path.dirname(script_dir)
         project_root = os.path.dirname(rice_jax_dir)
         sys.path.insert(0, rice_jax_dir)
-        from rice_jax._rice_mrio import (
+        from rice_jax.mrio.loaders import (
             load_sector_shares,
             load_bilateral_trade_shares,
             load_emissions_intensity,

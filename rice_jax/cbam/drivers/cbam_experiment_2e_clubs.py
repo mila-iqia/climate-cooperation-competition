@@ -3,7 +3,7 @@
 Phase 2E — Endogenous CBAM-club design comparison.
 
 Trains one PPO policy per club scenario and compares them on the critical
-KPIs.  The three designs (see ``rice_jax/_scenarios.py``):
+KPIs.  The three designs (see ``rice_jax/mrio/scenarios.py``):
 
   B1  MRIOClubCBAM     — open-accession single CBAM club anchored on the EU.
   B2  MRIOSectoralClub — single club whose anchor also negotiates which
@@ -32,16 +32,20 @@ Research question: which club architecture best converts CBAM pressure into
 broad membership + high abatement at low diversion and welfare cost?
 
 Usage (from rice_jax/, rice-jax conda env):
-    python validation/cbam_experiment_2e_clubs.py [--timesteps 1000000]
-    python validation/cbam_experiment_2e_clubs.py --scenarios B1 B3
-    python validation/cbam_experiment_2e_clubs.py --replot <pickle.pkl>
+    python cbam/drivers/cbam_experiment_2e_clubs.py [--timesteps 1000000]
+    python cbam/drivers/cbam_experiment_2e_clubs.py --scenarios B1 B3
+    python cbam/drivers/cbam_experiment_2e_clubs.py --replot <pickle.pkl>
 """
+
+import sys
+from pathlib import Path
+
+_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
+if str(_RICE_JAX_ROOT) not in sys.path:
+    sys.path.insert(0, str(_RICE_JAX_ROOT))
 
 import matplotlib
 matplotlib.use("Agg")  # BEFORE any JAX import (macOS Agg backend pollution)
-
-import os as _os, sys as _sys
-_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 
 import argparse
 import pickle
@@ -57,7 +61,7 @@ import numpy as np
 import pandas as pd
 
 import jaxnasium as jym
-from training_monitor import (
+from rice_jax.training import (
     RCPOMonitoredPPO,
     make_combined_log_fn,
     make_csv_log_fn,
