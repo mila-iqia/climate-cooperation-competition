@@ -2,8 +2,8 @@
 
 A reference guide for researchers working on the AAAI CBAM submission.
 
-`RiceMRIO` ([`_rice_mrio.py`](_rice_mrio.py)) is a JAX/Equinox subclass of the base
-`Rice` environment ([`_rice.py`](_rice.py)) that adds **EORA26 multi-region
+`RiceMRIO` ([`mrio/env.py`](mrio/env.py)) is a JAX/Equinox subclass of the base
+`Rice` environment ([`core/env.py`](core/env.py)) that adds **EORA26 multi-region
 input–output (MRIO) trade structure** and a **Carbon Border Adjustment Mechanism
 (CBAM)** on top of the standard RICE climate–economy model. It is the
 single environment behind every CBAM experiment in this repo.
@@ -407,7 +407,7 @@ at the correct stage:
 
 ## 11. The canonical config (use this)
 
-[`validation/canonical_config.py`](../validation/canonical_config.py) is the
+[`cbam/config/canonical_config.py`](../cbam/config/canonical_config.py) is the
 **single source of truth** for the paper-primary setup. Headline experiments must
 import from it rather than redefining kwargs inline.
 
@@ -451,7 +451,7 @@ seed set is not headline-comparable.
 ## 12. Training
 
 Use the monitored PPO subclasses in
-[`training_monitor.py`](../training_monitor.py):
+[`rice_jax/training/`](../rice_jax/training/):
 
 - **`MonitoredPPO`** — logs `action_mean`, `action_var`, `reward_mean`,
   `reward_var`, `reward_sum`, plus the `ep_return_*` keys from `LogWrapper`.
@@ -463,7 +463,7 @@ Use the monitored PPO subclasses in
 
 ```python
 import jax
-from training_monitor import (
+from rice_jax.training import (
     RCPOMonitoredPPO, make_combined_log_fn, make_csv_log_fn,
     make_print_log_fn, rcpo_cbam_log_info_fn,
 )
@@ -507,7 +507,7 @@ eu_dirty_share = dirty_to_eu / (total_dirty + 1e-8)
 ```
 
 Frozen metric functions live in
-[`validation/metrics.py`](../validation/metrics.py) — experiment scripts must call
+[`cbam/config/metrics.py`](../cbam/config/metrics.py) — experiment scripts must call
 these rather than computing inline:
 
 | Function | Returns |
@@ -544,34 +544,34 @@ Run the script yourself from `rice_jax/`. Outputs land in the flat `plots/` and
 ```bash
 conda activate rice-jax
 cd rice_jax
-python validation/cbam_experiment_A_crowdout.py --timesteps 2000000 --seeds 0,1,2
+python cbam/drivers/cbam_experiment_A_crowdout.py --timesteps 2000000 --seeds 0,1,2
 ```
 
-### Option B — managed (`run_experiment.py`, self-contained folder) ← recommended
+### Option B — managed (`run_cbam_experiment.py`, self-contained folder) ← recommended
 
-[`run_experiment.py`](../run_experiment.py) wraps a script in a timestamped,
+[`run_cbam_experiment.py`](../run_cbam_experiment.py) wraps a script in a timestamped,
 self-contained experiment folder and can chain the matching post-hoc analysis.
 
 ```bash
 # train only:
-python run_experiment.py validation/cbam_experiment_A_crowdout.py \
+python run_cbam_experiment.py cbam/drivers/cbam_experiment_A_crowdout.py \
     --depth train --timesteps 2000000
 
 # train + post-hoc scorecard:
-python run_experiment.py validation/cbam_experiment_A_crowdout.py \
+python run_cbam_experiment.py cbam/drivers/cbam_experiment_A_crowdout.py \
     --depth full --timesteps 2000000 --save-agents
 
 # re-run only the post-hoc on an existing folder:
-python run_experiment.py --posthoc-only experiments/cbam_experiment_A_crowdout_20260515_120000
+python run_cbam_experiment.py --posthoc-only cbam/experiment_results/cbam_experiment_A_crowdout_20260515_120000
 
 # resume after Ctrl-C (picks up the latest *_ckpt_*.pkl):
-python run_experiment.py --resume experiments/cbam_experiment_A_crowdout_20260515_120000
+python run_cbam_experiment.py --resume cbam/experiment_results/cbam_experiment_A_crowdout_20260515_120000
 ```
 
-**Folder layout** created under `experiments/<script_stem>_<YYYYMMDD_HHMMSS>/`:
+**Folder layout** created under `cbam/experiment_results/<script_stem>_<YYYYMMDD_HHMMSS>/`:
 
 ```
-experiments/cbam_experiment_A_crowdout_20260515_120000/
+cbam/experiment_results/cbam_experiment_A_crowdout_20260515_120000/
 ├── config.json      frozen args + metadata (script, seeds, timesteps, num_envs)
 ├── plots/           summary PNGs + results/checkpoint PKLs
 ├── logs/            training CSVs (one per condition/seed)
@@ -602,7 +602,7 @@ When unset (direct runs), those helpers fall back to flat `plots/` and `training
 
 ### Anatomy of an experiment script
 
-Every headline script follows the same skeleton so `run_experiment.py`, the
+Every headline script follows the same skeleton so `run_cbam_experiment.py`, the
 registry, and the post-hocs can all consume it. **Copy an existing script** (e.g.
 `cbam_experiment_A_crowdout.py`) rather than starting from scratch.
 
@@ -614,7 +614,7 @@ _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)
 from validation.canonical_config import make_canonical_env, CANONICAL_SEEDS, CANONICAL_TRAIN_KWARGS
 from validation.metrics import crowd_out_attenuation, seed_summary
 from _experiment_util import get_output_dir, get_log_dir, run_single_episode
-from training_monitor import RCPOMonitoredPPO, make_csv_log_fn
+from rice_jax.training import RCPOMonitoredPPO, make_csv_log_fn
 
 OUTPUT_DIR = get_output_dir("plots")               # 2. honours CBAM_EXPERIMENT_DIR
 LOG_DIR    = get_log_dir("training_logs")
@@ -654,7 +654,7 @@ def main():
 - Store **all `num_regions` values** per metric in the bundle (not pre-excluded),
   so plots can be regenerated with different RoW/EU exclusions without retraining.
 - Write periodic `*_ckpt_*.pkl` checkpoints so long runs are `--resume`-able.
-- Add an `ExperimentEntry` to [`validation/registry.py`](../validation/registry.py)
+- Add an `ExperimentEntry` to [`cbam/config/registry.py`](../cbam/config/registry.py)
   and update [`../notes/CBAM_ROADMAP.md`](../notes/CBAM_ROADMAP.md).
 
 ### Results (the PKL bundle)
@@ -679,7 +679,7 @@ They emit a report-ready `scorecard.md` plus diagnostic PNGs into `posthoc/`.
   first-layer weight norms, and counterfactual obs-perturbation (zero the CBAM
   obs dims and compare actions).
 
-`run_experiment.py --depth full` auto-routes each experiment to its post-hoc:
+`run_cbam_experiment.py --depth full` auto-routes each experiment to its post-hoc:
 
 | Experiment script | Post-hoc script | Focus |
 |-------------------|-----------------|-------|
@@ -693,9 +693,9 @@ Run a post-hoc standalone (PKL-flag names vary: `--pkl` for A/C/amplifier;
 `--tier1-pkl`/`--alloc-pkl` for 2B; `--mech-pkl`/`--cond-pkl` for litmus):
 
 ```bash
-python validation/cbam_posthoc_A_crowdout.py \
-    --pkl experiments/cbam_experiment_A_crowdout_*/plots/cbam_A_crowdout_*.pkl \
-    --out-dir experiments/cbam_experiment_A_crowdout_*/posthoc
+python cbam/posthoc/cbam_posthoc_A_crowdout.py \
+    --pkl cbam/experiment_results/cbam_experiment_A_crowdout_*/plots/cbam_A_crowdout_*.pkl \
+    --out-dir cbam/experiment_results/cbam_experiment_A_crowdout_*/posthoc
 ```
 
 ---
@@ -746,7 +746,7 @@ Run with `pytest` from `rice_jax/`.
 
 ## 16. Headline experiment registry
 
-[`validation/registry.py`](../validation/registry.py) is the paper's table of
+[`cbam/config/registry.py`](../cbam/config/registry.py) is the paper's table of
 contents — every headline experiment has an `ExperimentEntry` (question, claim
 bucket, primary metric, pass criterion, script, seeds, interpretation limits).
 Adding a headline experiment without a registry entry is a process violation.
