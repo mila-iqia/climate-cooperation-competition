@@ -206,11 +206,12 @@ CANONICAL_TRAIN_KWARGS: dict[str, Any] = dict(
     total_timesteps=2_000_000,
     num_steps=100,
     num_envs=int(_os.environ.get("CBAM_NUM_ENVS", 8)),
-    learning_rate=3e-4,
+    learning_rate_start=3e-4,
+    learning_rate_end=None,
     num_minibatches=4,
     num_epochs=8,
-    ent_coef=0.01,
-    anneal_ent_coef=0.0,
+    ent_coef_start=0.01,
+    ent_coef_end=None,
     gamma=0.99,
     gae_lambda=0.95,
     max_grad_norm=1.0,
@@ -280,9 +281,11 @@ def canonical_env_kwargs() -> dict[str, Any]:
     return dict(_CANONICAL_ENV_DEFAULTS)
 
 
-def canonical_train_kwargs() -> dict[str, Any]:
-    """Return a copy of the canonical training defaults (for saving to PKL provenance)."""
-    return dict(CANONICAL_TRAIN_KWARGS)
+def canonical_train_kwargs(**overrides: Any) -> dict[str, Any]:
+    """Return canonical PPO kwargs, optionally overriding e.g. ``total_timesteps``."""
+    kwargs = dict(CANONICAL_TRAIN_KWARGS)
+    kwargs.update(overrides)
+    return kwargs
 
 
 __all__ = [

@@ -92,15 +92,15 @@ class EnvSettings:
 
 @dataclass
 class TrainerSettings:
-    """The settings for the PPO trainer to be used."""
+    """PPO trainer settings (jaxnasium 0.1 schedule API)."""
 
     total_timesteps: Annotated[
         int, tyro.conf.arg(aliases=("-t", "--total_timesteps"))
-    ] = 1000000
-    learning_rate: float = 2.5e-4
-    anneal_learning_rate: bool | float = False
-    ent_coef: float = 2.0
-    anneal_ent_coef: bool | float = 0.05  # anneal to 0.05 over traing
+    ] = 1_000_000
+    learning_rate_start: float = 2.5e-4
+    learning_rate_end: float | None = None  # None = constant LR
+    ent_coef_start: float = 2.0
+    ent_coef_end: float | None = 0.05  # None = constant entropy coef
     gamma: float = 0.99
     gae_lambda: float = 0.95
     max_grad_norm: float = 1.0
@@ -114,6 +114,30 @@ class TrainerSettings:
     normalize_observations: bool = True
     normalize_rewards: bool = False
     log_function: str = "tqdm"
+
+
+def trainer_settings_to_ppo_kwargs(settings: TrainerSettings) -> dict:
+    """Map CLI trainer settings to jaxnasium 0.1 PPO constructor kwargs."""
+    return {
+        "total_timesteps": settings.total_timesteps,
+        "learning_rate_start": settings.learning_rate_start,
+        "learning_rate_end": settings.learning_rate_end,
+        "ent_coef_start": settings.ent_coef_start,
+        "ent_coef_end": settings.ent_coef_end,
+        "gamma": settings.gamma,
+        "gae_lambda": settings.gae_lambda,
+        "max_grad_norm": settings.max_grad_norm,
+        "clip_coef": settings.clip_coef,
+        "clip_coef_vf": settings.clip_coef_vf,
+        "vf_coef": settings.vf_coef,
+        "num_steps": settings.num_steps,
+        "num_minibatches": settings.num_minibatches,
+        "num_epochs": settings.num_epochs,
+        "num_envs": settings.num_envs,
+        "normalize_observations": settings.normalize_observations,
+        "normalize_rewards": settings.normalize_rewards,
+        "log_function": settings.log_function,
+    }
 
 
 @dataclass
@@ -253,7 +277,7 @@ if __name__ == "__main__":
         agent = FixedActionAgent(env)
     elif args.agent == "ppo":
         logger.info("Using PPO agent...")
-        agent = PPO(**args.trainer_settings.__dict__)
+        agent = PPO(**trainer_settings_to_ppo_kwargs(args.trainer_settings))
         agent = agent.train(seed, env)
 
         logger.info("Evaluating agent (only rewards)... ")

@@ -96,7 +96,9 @@ Configuration is handled through command-line arguments using `tyro`. Key settin
 - `--env_settings.negotiation_on` - Enable negotiation between regions
 
 ### Training Settings  
-- `--trainer_settings.learning_rate` - Learning rate (default: 2.5e-4)
+- `--trainer_settings.learning_rate_start` - Initial learning rate (default: 2.5e-4)
+- `--trainer_settings.learning_rate_end` - Final LR if annealing; omit for constant LR
+- `--trainer_settings.ent_coef_start` / `ent_coef_end` - Entropy bonus schedule (default: 2.0 → 0.05)
 - `--trainer_settings.num_envs` - Number of parallel environments (default: 4)
 - `--trainer_settings.num_steps` - Steps per update (default: 100)
 

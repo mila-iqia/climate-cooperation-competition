@@ -24,14 +24,16 @@ env_settings:
 
 trainer_settings:
   total_timesteps: 1000000
-  learning_rate: 2.5e-4
+  learning_rate_start: 2.5e-4
+  learning_rate_end: null
   gamma: 0.99
   gae_lambda: 0.95
   max_grad_norm: 1.0
   clip_coef: 0.2
   clip_coef_vf: 0.5 # Depends on reward scaling. I.e. are rewards normalized?
   vf_coef: 0.5
-  ent_coef: 2.0 # main.py currently anneals this linearly to 0.01
+  ent_coef_start: 2.0
+  ent_coef_end: 0.05
   num_steps: 100
   num_minibatches: 4
   num_epochs: 2

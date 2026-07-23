@@ -127,12 +127,12 @@ def log_episode_to_json(
         # For PPO agents, extract relevant parameters
         agent_params = {
             "agent_type": type(agent).__name__,
-            "learning_rate": getattr(agent, "learning_rate", None),
+            "learning_rate_start": getattr(agent, "learning_rate_start", None),
+            "ent_coef_start": getattr(agent, "ent_coef_start", None),
             "batch_size": getattr(agent, "batch_size", None),
             "num_epochs": getattr(agent, "num_epochs", None),
-            "clip_epsilon": getattr(agent, "clip_epsilon", None),
-            "value_loss_coef": getattr(agent, "value_loss_coef", None),
-            "entropy_coef": getattr(agent, "entropy_coef", None),
+            "clip_coef": getattr(agent, "clip_coef", None),
+            "vf_coef": getattr(agent, "vf_coef", None),
         }
         # Remove None values
         agent_params = {k: v for k, v in agent_params.items() if v is not None}
