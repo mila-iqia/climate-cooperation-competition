@@ -5,16 +5,22 @@ from dataclasses import dataclass, field, replace
 from types import SimpleNamespace
 from typing import Annotated, Literal
 
-import numpy as np
-import yaml
-
 import jax
 import jaxnasium as jym
+import numpy as np
 import tyro
+import yaml
 from jaxnasium.algorithms import PPO
 
 from _experiment_util import FixedActionAgent, load_agent, run_single_episode
-from rice_jax import BasicClub, OptimalMitigation, Rice, RiceMRIO, BasicClubTariffAmbition, BasicClubTariffAmbitionFixedSavings
+from rice_jax import (
+    BasicClub,
+    BasicClubTariffAmbition,
+    BasicClubTariffAmbitionFixedSavings,
+    OptimalMitigation,
+    Rice,
+    RiceMRIO,
+)
 from rice_jax.utils import (  # noqa: F401
     create_plots,
     full_state_info_log_fn,
@@ -198,7 +204,9 @@ def _load_region_yamls_from_dir(directory: str) -> tuple:
     region_params["ximport"] = np.array(ximport_)
 
     # Merge with default params (dice + rice constants) from the package default.yml
-    yaml_file_directory = importlib.resources.files("rice_jax").joinpath("./region_yamls/")
+    yaml_file_directory = importlib.resources.files("rice_jax").joinpath(
+        "./region_yamls/"
+    )
     with open(f"{yaml_file_directory}/default.yml") as f:
         default_doc = yaml.safe_load(f)
     dice_params = default_doc["_DICE_CONSTANT"]
@@ -214,7 +222,9 @@ def _load_region_yamls_from_dir(directory: str) -> tuple:
 
 def build_rice_scenario(config: Config) -> Rice:
     if config.region_yamls_dir is not None:
-        region_params, num_regions = _load_region_yamls_from_dir(config.region_yamls_dir)
+        region_params, num_regions = _load_region_yamls_from_dir(
+            config.region_yamls_dir
+        )
     elif config.scenario == "rice_mrio":
         num_regions = config.mrio_settings.num_regions
         region_params = load_region_yamls(num_regions)
