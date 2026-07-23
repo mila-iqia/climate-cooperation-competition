@@ -85,7 +85,11 @@ def run_single_episode(
     def do_step(carry, _):
         key, obs, state = carry
         keys = jax.random.split(key, 3)
-        action = agent.get_action(keys[0], agent.state, obs)
+        action = (
+            agent.get_action(keys[0], obs)
+            if not isinstance(agent, FixedActionAgent)
+            else agent.get_action(keys[0], agent.state, obs)
+        )
         (obs, reward, _, _, info), state = env.step(keys[1], state, action)
         info = {k: v for k, v in info.items() if k not in log_exclude_keys}
         return (keys[2], obs, state), info

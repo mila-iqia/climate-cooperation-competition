@@ -5,14 +5,19 @@ description = "A high-performance implementation of the Rice-N climate-economy m
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "jaxnasium[algs]>=0.0.23",
+    "jaxnasium[algs]>=0.1.0",
     "matplotlib>=3.7.4",
-    "optimistix>=0.0.10",
+    "optimistix>=0.1.0",
     "pyyaml>=6.0.2",
     "tqdm>=4.67.1",
     "wandb>=0.19.10",
-    "tyro"
+    "tyro",
+    "pandas>=3.0.5",
+    "distrax>=0.1.8",
 ]
+
+[tool.uv.sources]
+jaxnasium = { git = "https://github.com/ponseko/jaxnasium.git", branch = "v1" } 
 
 [build-system]
 requires = ["hatchling"]
@@ -31,3 +36,9 @@ extend-select = ["I"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.15.22",
+]
