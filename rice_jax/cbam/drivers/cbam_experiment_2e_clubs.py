@@ -48,6 +48,7 @@ import matplotlib
 matplotlib.use("Agg")  # BEFORE any JAX import (macOS Agg backend pollution)
 
 import argparse
+import os as _os
 import pickle
 import time
 from dataclasses import replace
@@ -81,7 +82,7 @@ from _experiment_util import (
 # ── Config ────────────────────────────────────────────────────────────────────
 
 _SCRIPT_DIR = _os.path.dirname(_os.path.abspath(__file__))
-_REPO_ROOT  = _os.path.abspath(_os.path.join(_SCRIPT_DIR, "..", ".."))
+_REPO_ROOT  = _os.path.abspath(_os.path.join(_SCRIPT_DIR, "..", "..", ".."))
 
 NUM_REGIONS = 7
 EU_IDX      = 5

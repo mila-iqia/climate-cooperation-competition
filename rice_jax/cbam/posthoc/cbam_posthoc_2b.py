@@ -69,8 +69,7 @@ def _fmt(v, precision=3):
 def _read_csv(csv_path):
     if not csv_path:
         return pd.DataFrame()
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    rice_jax_dir = os.path.dirname(script_dir)
+    rice_jax_dir = str(_RICE_JAX_ROOT)
     full = os.path.join(rice_jax_dir, csv_path) if not os.path.isabs(csv_path) else csv_path
     if not os.path.exists(full):
         return pd.DataFrame()

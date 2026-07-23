@@ -39,6 +39,10 @@ import os
 import pickle
 import sys
 from datetime import datetime
+from pathlib import Path
+
+_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 
 from _experiment_util import get_output_dir
 
@@ -88,9 +92,8 @@ def _load_cbam_exposure():
     or None if data can't be loaded.
     """
     try:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        rice_jax_dir = os.path.dirname(script_dir)
-        project_root = os.path.dirname(rice_jax_dir)
+        rice_jax_dir = str(_RICE_JAX_ROOT)
+        project_root = str(_REPO_ROOT)
         sys.path.insert(0, rice_jax_dir)
         from rice_jax.mrio.loaders import (
             load_sector_shares,
@@ -144,8 +147,7 @@ def _read_csv(csv_path):
     if not csv_path:
         return pd.DataFrame()
     # csv_path is stored relative to rice_jax/ working dir
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    rice_jax_dir = os.path.dirname(script_dir)
+    rice_jax_dir = str(_RICE_JAX_ROOT)
     full = os.path.join(rice_jax_dir, csv_path) if not os.path.isabs(csv_path) else csv_path
     if not os.path.exists(full):
         return pd.DataFrame()

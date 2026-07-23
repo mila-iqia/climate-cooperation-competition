@@ -122,9 +122,11 @@ def _read_csv(csv_path):
     """Read a training CSV, resolving relative paths from rice_jax/."""
     if not csv_path:
         return pd.DataFrame()
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    rice_jax_dir = os.path.dirname(script_dir)
-    full = os.path.join(rice_jax_dir, csv_path) if not os.path.isabs(csv_path) else csv_path
+    full = (
+        os.path.join(str(_RICE_JAX_ROOT), csv_path)
+        if not os.path.isabs(csv_path)
+        else csv_path
+    )
     if not os.path.exists(full):
         return pd.DataFrame()
     return pd.read_csv(full)

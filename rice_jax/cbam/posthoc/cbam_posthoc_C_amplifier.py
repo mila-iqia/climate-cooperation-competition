@@ -134,10 +134,11 @@ def _read_csv(csv_path: str) -> pd.DataFrame:
     """Read a training CSV tolerating relative paths from rice_jax/."""
     if not csv_path or not isinstance(csv_path, str):
         return pd.DataFrame()
-    script_dir   = os.path.dirname(os.path.abspath(__file__))
-    rice_jax_dir = os.path.dirname(script_dir)
-    full = (os.path.join(rice_jax_dir, csv_path)
-            if not os.path.isabs(csv_path) else csv_path)
+    full = (
+        os.path.join(str(_RICE_JAX_ROOT), csv_path)
+        if not os.path.isabs(csv_path)
+        else csv_path
+    )
     if not os.path.exists(full):
         return pd.DataFrame()
     return pd.read_csv(full)
