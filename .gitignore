@@ -5,6 +5,10 @@
 /tmp
 /out-tsc
 
+.vscode/
+_dev*
+*.json
+
 data
 
 .github/
