@@ -43,7 +43,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from jaxnasium.algorithms import PPO
 from matplotlib import gridspec
 
 from _experiment_util import get_log_dir, get_output_dir, save_run_config
@@ -62,6 +61,7 @@ from cbam.config.canonical_config import (
     make_canonical_env,
 )
 from rice_jax.training import (
+    LoggingPPO,
     make_combined_log_fn,
     make_csv_log_fn,
     make_print_log_fn,
@@ -201,7 +201,7 @@ def _make_log_fn(label, num_iters):
 def _train(label, env, key, num_iters, total_timesteps=None):
     ts = total_timesteps or TOTAL_TIMESTEPS
     log_fn, csv_path = _make_log_fn(label, num_iters)
-    ppo = PPO(
+    ppo = LoggingPPO(
         total_timesteps=ts,
         log_function=log_fn,
         **_PPO_KWARGS,

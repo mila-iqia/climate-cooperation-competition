@@ -1,4 +1,4 @@
-"""Training log-function factories for PPO callbacks."""
+"""Training log-function factories and a thin PPO wrapper for compact metrics."""
 
 from __future__ import annotations
 
@@ -7,7 +7,58 @@ import os
 from collections.abc import Callable
 
 import jax
+import jax.numpy as jnp
 import numpy as np
+from jaxnasium._environment import ORIGINAL_OBSERVATION_KEY
+from jaxnasium.algorithms import PPO
+
+
+def summarize_info_for_logging(info: dict | None) -> dict:
+    """Reduce bulky per-step info to rollout aggregates (device-side).
+
+    Replaces ``actions`` / ``rewards`` with ``action_mean`` / ``action_var`` /
+    ``reward_mean`` / ``reward_var`` / ``reward_sum``, and drops the terminal
+    observation copy that jaxnasium injects into every info dict. Intended to
+    run inside ``train_iteration`` so ``jax.debug.callback`` only ships small
+    arrays to the host.
+    """
+    info = info or {}
+    out = {
+        k: v
+        for k, v in info.items()
+        if k not in ("actions", "rewards", ORIGINAL_OBSERVATION_KEY)
+    }
+
+    actions = info.get("actions")
+    if actions is not None:
+        out["action_mean"] = jax.tree.map(lambda a: a.mean(axis=(0, 1)), actions)
+        out["action_var"] = jax.tree.map(lambda a: a.var(axis=(0, 1)), actions)
+
+    rewards = info.get("rewards")
+    if rewards is not None:
+        reward_leaves = jax.tree.leaves(rewards)
+        reward_stack = jnp.stack([r.ravel() for r in reward_leaves])
+        out["reward_mean"] = reward_stack.mean()
+        out["reward_var"] = reward_stack.var()
+        out["reward_sum"] = reward_stack.sum()
+
+    return out
+
+
+class LoggingPPO(PPO):
+    """Stock PPO that summarizes trajectory info before log callbacks.
+
+    Only ``train_iteration`` is overridden: call the parent implementation,
+    then :func:`summarize_info_for_logging` on the returned metric so host
+    callbacks never receive full per-step ``actions`` / ``rewards``.
+    """
+
+    @staticmethod
+    def train_iteration(runner_state, train_iter, *, env):
+        runner_state, metric = PPO.train_iteration(
+            runner_state, train_iter, env=env
+        )
+        return runner_state, summarize_info_for_logging(metric)
 
 
 def _flatten_tree(tree) -> np.ndarray:

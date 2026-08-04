@@ -7,13 +7,13 @@ from dataclasses import replace
 import equinox as eqx
 import jax.numpy as jnp
 from jaxnasium import Environment
-from jaxnasium.algorithms import PPO
 
 from ..utils import actions_rewards_info_log_fn
+from .monitor import LoggingPPO
 
 
-class RCPOMonitoredPPO(PPO):
-    """PPO with RCPO Lagrange-multiplier update for CBAM cost.
+class RCPOMonitoredPPO(LoggingPPO):
+    """LoggingPPO with RCPO Lagrange-multiplier update for CBAM cost.
 
     Reference: Tessler et al. (2019), "Reward Constrained Policy Optimization",
     ICLR 2019, §5.2 (mean-value constraint).
@@ -25,11 +25,8 @@ class RCPOMonitoredPPO(PPO):
 
         λ_{k+1} = max(0, λ_k + η_λ · (E[c] - α_target))
 
-    Only ``_collect_rollout`` is overridden: after the parent rollout we
-    update ``cbam_lambda`` in the (LogWrapped) env state and attach
-    ``cbam_lambda`` / ``mean_cbam_cost`` to the trajectory info so stock
-    ``train_iteration`` metrics pick them up. Per-step ``actions`` /
-    ``rewards`` are already provided by ``rcpo_cbam_log_info_fn``.
+    Only ``_collect_rollout`` is overridden here (λ update + cost metrics).
+    Metric summarization for log callbacks comes from :class:`LoggingPPO`.
 
     Requirements on the environment:
     1. ``reward_mode="additive_cbam"`` on ``RiceMRIO``
@@ -63,7 +60,8 @@ class RCPOMonitoredPPO(PPO):
         env_state = eqx.tree_at(lambda s: s.env_state, env_state, updated_inner)
 
         # Metric enrichment for log callbacks; drop bulky per-step cost tensor
-        # (mean_cbam_cost is enough). actions/rewards stay from log_info_fn.
+        # (mean_cbam_cost is enough). actions/rewards stay until LoggingPPO
+        # summarizes them in train_iteration.
         info = {
             k: v
             for k, v in (trajectory_batch.info or {}).items()
