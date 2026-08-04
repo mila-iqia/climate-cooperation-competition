@@ -33,9 +33,8 @@ from rice_jax.training import (  # noqa: E402
     make_print_log_fn,
 )
 from cbam.config.canonical_config import (  # noqa: E402
-    MRIO_DATA_ROOT,
+    CANONICAL_MRIO_ROOT,
     canonical_train_kwargs,
-    ensure_mrio_data_layout,
     make_canonical_env,
 )
 
@@ -46,8 +45,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
-    ensure_mrio_data_layout(MRIO_DATA_ROOT)
-    print(f"MRIO data root: {MRIO_DATA_ROOT}")
+    print(f"MRIO data root: {CANONICAL_MRIO_ROOT}")
     print(f"Training {args.timesteps:,} timesteps, seed={args.seed}")
 
     log_dir = get_log_dir("training_logs")

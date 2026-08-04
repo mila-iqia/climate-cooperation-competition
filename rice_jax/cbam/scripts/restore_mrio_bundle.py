@@ -22,18 +22,17 @@ Usage (run from project root):
     python cbam/scripts/restore_mrio_bundle.py --force   # overwrite existing files
 """
 
+from __future__ import annotations
+
+import argparse
+import os
 import sys
+import zipfile
 from pathlib import Path
 
 _RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
 if str(_RICE_JAX_ROOT) not in sys.path:
     sys.path.insert(0, str(_RICE_JAX_ROOT))
-
-from __future__ import annotations
-
-import argparse
-import os
-import zipfile
 
 
 def restore_bundle(bundle_path: str, target_csv_asset: str, force: bool) -> None:
