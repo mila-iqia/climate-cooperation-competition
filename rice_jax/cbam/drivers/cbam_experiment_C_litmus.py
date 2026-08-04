@@ -16,29 +16,27 @@ Usage (from rice_jax/, rice-jax conda env):
     python cbam/drivers/cbam_experiment_C_litmus.py --replot <pickle.pkl>
 """
 
-import matplotlib
-matplotlib.use("Agg")
-
-import sys
-from pathlib import Path
-
-_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
-if str(_RICE_JAX_ROOT) not in sys.path:
-    sys.path.insert(0, str(_RICE_JAX_ROOT))
-
-
 import argparse
-import cloudpickle
 import math
+import os as _os
 import pickle
+import sys
 import time
 from datetime import datetime
+from pathlib import Path
 
+import cloudpickle
 import jax
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from _experiment_util import get_output_dir, get_log_dir, save_run_config
+import cbam.drivers.cbam_litmus_conditioning as _cond
+
+# These are the actual test runners from the two litmus scripts.
+# They accept a single JAX PRNG key and return (passed, data) tuples.
+import cbam.drivers.cbam_litmus_mechanism as _mech
+from _experiment_util import get_log_dir, get_output_dir, save_run_config
 from cbam.config.canonical_config import (
     CANONICAL_SEEDS,
     CANONICAL_TRAIN_KWARGS,
@@ -47,29 +45,29 @@ from cbam.config.canonical_config import (
 )
 from cbam.config.registry import REGISTRY
 
-# These are the actual test runners from the two litmus scripts.
-# They accept a single JAX PRNG key and return (passed, data) tuples.
-import cbam.drivers.cbam_litmus_mechanism as _mech
-import cbam.drivers.cbam_litmus_conditioning as _cond
-
+matplotlib.use("Agg")
+_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
+if str(_RICE_JAX_ROOT) not in sys.path:
+    sys.path.insert(0, str(_RICE_JAX_ROOT))
 
 EXPERIMENT_ID = "C_litmus_multiseed"
-_REGISTRY     = REGISTRY[EXPERIMENT_ID]
+_REGISTRY = REGISTRY[EXPERIMENT_ID]
 
-OUTPUT_DIR    = get_output_dir("plots")
-LOG_DIR       = get_log_dir("training_logs")
+OUTPUT_DIR = get_output_dir("plots")
+LOG_DIR = get_log_dir("training_logs")
 
 _DEFAULT_TIMESTEPS = canonical_train_kwargs()["total_timesteps"]
 
 # ── Test catalogue ──────────────────────────────────────────────────────────
 
-ALL_MECHANISM_TESTS    = ("m1", "m2", "m3", "m4")
+ALL_MECHANISM_TESTS = ("m1", "m2", "m3", "m4")
 ALL_CONDITIONING_TESTS = ("c1", "c2", "c3")
 ALL_TESTS = ALL_MECHANISM_TESTS + ALL_CONDITIONING_TESTS
 DEFAULT_TESTS = ALL_CONDITIONING_TESTS  # M tests available via --tests m1,m2,m3,m4 but not run by default
 
 
 # ── Runner ──────────────────────────────────────────────────────────────────
+
 
 def _run_mechanism_suite(key, tests):
     """Run Part I (mechanism) tests for one seed. Returns {test_id: {passed, data}}."""
@@ -142,9 +140,9 @@ def run_all_seeds(seeds, tests, timesteps):
     all_results = {}  # {seed: {test_id: {passed, data}}}
 
     for seed in seeds:
-        print(f"\n{'═'*60}")
+        print(f"\n{'═' * 60}")
         print(f"  SEED {seed}")
-        print(f"{'═'*60}")
+        print(f"{'═' * 60}")
         key = jax.random.PRNGKey(seed)
         seed_results = {}
 
@@ -162,6 +160,7 @@ def run_all_seeds(seeds, tests, timesteps):
 
 
 # ── Summary & criterion checking ───────────────────────────────────────────
+
 
 def compute_summary(all_results, tests):
     """Aggregate per-seed results into pass rates and seed-robustness verdict."""
@@ -201,6 +200,7 @@ def overall_verdict(summary):
 
 # ── Plotting ────────────────────────────────────────────────────────────────
 
+
 def plot_summary(summary, file_tag):
     """Simple heatmap: tests × seeds → pass/fail."""
     tests = sorted(summary.keys())
@@ -233,16 +233,25 @@ def plot_summary(summary, file_tag):
         for j in range(n_seeds):
             label = "PASS" if matrix[i, j] > 0.5 else "FAIL"
             color = "white"
-            ax.text(j, i, label, ha="center", va="center",
-                    fontsize=9, fontweight="bold", color=color)
+            ax.text(
+                j,
+                i,
+                label,
+                ha="center",
+                va="center",
+                fontsize=9,
+                fontweight="bold",
+                color=color,
+            )
 
     # Title with overall verdict
     verdict = overall_verdict(summary)
     verdict_str = "PASS ✅" if verdict else "FAIL ❌"
     ax.set_title(
         f"Experiment C: Multi-seed Litmus Robustness  [{verdict_str}]\n"
-        f"Criterion: each test passes on ≥ ceil(N/2) = {math.ceil(n_seeds/2)} seeds",
-        fontsize=11, fontweight="bold",
+        f"Criterion: each test passes on ≥ ceil(N/2) = {math.ceil(n_seeds / 2)} seeds",
+        fontsize=11,
+        fontweight="bold",
     )
 
     _os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -255,25 +264,43 @@ def plot_summary(summary, file_tag):
 
 # ── CLI ─────────────────────────────────────────────────────────────────────
 
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Experiment C — Multi-seed litmus freeze (registry C_litmus_multiseed)")
+        description="Experiment C — Multi-seed litmus freeze (registry C_litmus_multiseed)"
+    )
     parser.add_argument("--timesteps", type=int, default=_DEFAULT_TIMESTEPS)
-    parser.add_argument("--seeds", type=str, default=",".join(str(s) for s in CANONICAL_SEEDS),
-                        help="Comma-separated seed list (default: canonical seeds)")
-    parser.add_argument("--tests", type=str, default=",".join(DEFAULT_TESTS),
-                        help="Comma-separated test subset (default: c1,c2,c3; M tests available but not default)")
-    parser.add_argument("--replot", type=str, default=None,
-                        help="Path to existing .pkl — skip training, re-plot only")
-    parser.add_argument("--fixed-savings", dest="fixed_savings",
-                        action="store_true", default=False)
-    parser.add_argument("--free-savings", dest="fixed_savings",
-                        action="store_false")
-    parser.add_argument("--env-override", action="append", default=[],
-                        metavar="KEY=VALUE",
-                        help="Override a sensitivity param (from SENSITIVITY_PARAMS). "
-                             "e.g. --env-override action_window_size=10. "
-                             "Can be repeated. Logged in config.json for provenance.")
+    parser.add_argument(
+        "--seeds",
+        type=str,
+        default=",".join(str(s) for s in CANONICAL_SEEDS),
+        help="Comma-separated seed list (default: canonical seeds)",
+    )
+    parser.add_argument(
+        "--tests",
+        type=str,
+        default=",".join(DEFAULT_TESTS),
+        help="Comma-separated test subset (default: c1,c2,c3; M tests available but not default)",
+    )
+    parser.add_argument(
+        "--replot",
+        type=str,
+        default=None,
+        help="Path to existing .pkl — skip training, re-plot only",
+    )
+    parser.add_argument(
+        "--fixed-savings", dest="fixed_savings", action="store_true", default=False
+    )
+    parser.add_argument("--free-savings", dest="fixed_savings", action="store_false")
+    parser.add_argument(
+        "--env-override",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Override a sensitivity param (from SENSITIVITY_PARAMS). "
+        "e.g. --env-override action_window_size=10. "
+        "Can be repeated. Logged in config.json for provenance.",
+    )
     args = parser.parse_args()
 
     # Parse env overrides
@@ -314,7 +341,7 @@ def main():
     _cond.ENV_OVERRIDES = env_overrides
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    file_tag = f"{len(seeds)}seeds_{timesteps//1_000_000}M_{timestamp}"
+    file_tag = f"{len(seeds)}seeds_{timesteps // 1_000_000}M_{timestamp}"
 
     if args.replot:
         with open(args.replot, "rb") as f:
@@ -343,45 +370,52 @@ def main():
     _os.makedirs(OUTPUT_DIR, exist_ok=True)
     pkl_path = _os.path.join(OUTPUT_DIR, f"cbam_C_litmus_{file_tag}.pkl")
     with open(pkl_path, "wb") as f:
-        cloudpickle.dump({
-            "all_results": all_results,
-            "summary": summary,
-            "verdict": verdict,
-            "seeds": seeds,
-            "tests": sorted(tests),
-            "timesteps": timesteps,
-            "elapsed_s": elapsed,
-            "env_overrides": env_overrides,
-        }, f)
+        cloudpickle.dump(
+            {
+                "all_results": all_results,
+                "summary": summary,
+                "verdict": verdict,
+                "seeds": seeds,
+                "tests": sorted(tests),
+                "timesteps": timesteps,
+                "elapsed_s": elapsed,
+                "env_overrides": env_overrides,
+            },
+            f,
+        )
     print(f"\n  Results saved: {pkl_path}")
 
-    save_run_config({
-        "script": "cbam/drivers/cbam_experiment_C_litmus.py",
-        "experiment_id": EXPERIMENT_ID,
-        "timesteps": timesteps,
-        "seeds": seeds,
-        "tests": sorted(tests),
-        "fixed_savings": args.fixed_savings,
-        "env_overrides": env_overrides,
-        "pkl_path": pkl_path,
-        "elapsed_s": elapsed,
-    })
+    save_run_config(
+        {
+            "script": "cbam/drivers/cbam_experiment_C_litmus.py",
+            "experiment_id": EXPERIMENT_ID,
+            "timesteps": timesteps,
+            "seeds": seeds,
+            "tests": sorted(tests),
+            "fixed_savings": args.fixed_savings,
+            "env_overrides": env_overrides,
+            "pkl_path": pkl_path,
+            "elapsed_s": elapsed,
+        }
+    )
 
     # Plot
     plot_summary(summary, file_tag)
 
     # Print summary
-    print(f"\n{'═'*60}")
+    print(f"\n{'═' * 60}")
     print(f"  EXPERIMENT C — MULTI-SEED LITMUS SUMMARY")
-    print(f"{'═'*60}")
+    print(f"{'═' * 60}")
     print(f"  Seeds: {seeds}  |  Timesteps: {timesteps:,}")
-    print(f"  Elapsed: {elapsed/3600:.1f}h")
+    print(f"  Elapsed: {elapsed / 3600:.1f}h")
     print()
 
     for test_id, s in summary.items():
         status = "✅" if s["majority_pass"] else "❌"
-        print(f"  {test_id.upper():4s}  {s['n_pass']}/{s['n_seeds']} seeds pass  "
-              f"{'(majority)' if s['majority_pass'] else '(BELOW majority)'}  {status}")
+        print(
+            f"  {test_id.upper():4s}  {s['n_pass']}/{s['n_seeds']} seeds pass  "
+            f"{'(majority)' if s['majority_pass'] else '(BELOW majority)'}  {status}"
+        )
         if s["seeds_failed"]:
             print(f"        failed on seeds: {s['seeds_failed']}")
 

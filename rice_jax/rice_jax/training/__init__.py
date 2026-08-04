@@ -1,7 +1,6 @@
-"""PPO training utilities: monitored rollouts, logging, and RCPO for CBAM."""
+"""PPO training utilities: logging helpers and RCPO for CBAM."""
 
 from .monitor import (
-    MonitoredPPO,
     make_combined_log_fn,
     make_csv_log_fn,
     make_print_log_fn,
@@ -9,7 +8,6 @@ from .monitor import (
 from .rcpo import RCPOMonitoredPPO, rcpo_cbam_log_info_fn
 
 __all__ = [
-    "MonitoredPPO",
     "RCPOMonitoredPPO",
     "make_combined_log_fn",
     "make_csv_log_fn",

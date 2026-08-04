@@ -2,15 +2,15 @@ import json
 import os
 import time
 from copy import copy
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import equinox as eqx
 import jax
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
+from matplotlib import gridspec
 
 
-def empty_info_log_fn(state: dict, actions: dict) -> dict:
+def empty_info_log_fn(*args, **kwargs) -> dict:
     """Simply returns an empty dict. When the training algorithm logs
     all the info dicts per step, this is useful to avoid massive memory requirements.
     Note that env.wrappers could still insert info into the info dict.
@@ -18,7 +18,28 @@ def empty_info_log_fn(state: dict, actions: dict) -> dict:
     return {}
 
 
-def full_state_info_log_fn(state: dict, actions: dict) -> dict:
+def _transpose_actions(actions: dict) -> dict:
+    """Transpose agent-keyed actions to action-keyed form.
+
+    Input:  ``{agent_id: {action_key: value, ...}, ...}``
+    Output: ``{action_key: {agent_id: value, ...}, ...}``
+    """
+    all_actions, agent_structure = eqx.tree_flatten_one_level(actions)
+    action_structure = jax.tree.structure(all_actions[0])
+    return jax.tree.transpose(agent_structure, action_structure, actions)
+
+
+def actions_rewards_info_log_fn(state: dict, actions: dict, rewards, **kwargs) -> dict:
+    """Minimal per-step logger: transposed actions and bare rewards.
+
+    Default ``log_info_fn`` for the base Rice env.
+    """
+    info = {"actions": _transpose_actions(actions)}
+    info["rewards"] = rewards
+    return info
+
+
+def full_state_info_log_fn(state: dict, actions: dict, rewards=None, **kwargs) -> dict:
     info = copy(state)
 
     keys = [key for key in info.keys()]
@@ -56,18 +77,11 @@ def full_state_info_log_fn(state: dict, actions: dict) -> dict:
         "lower_ocean": info["global_carbon_mass"][2],
     }
 
-    # actions
-    # Actions are in form {'agent_id': {action_key: action_value, ...}, ...}
-    # We want to transpose that to {action_key: {region_id: action_value, ...}, ...}
-    all_actions, agent_structure = eqx.tree_flatten_one_level(actions)
-    action_structure = jax.tree.structure(all_actions[0])
-    actions = jax.tree.transpose(agent_structure, action_structure, actions)
-    info["actions"] = actions
-
+    info.update(actions_rewards_info_log_fn(state, actions, rewards=rewards, **kwargs))
     return info
 
 
-def _validate_full_state_logging(episode_log: Dict[str, Any]) -> None:
+def _validate_full_state_logging(episode_log: dict[str, Any]) -> None:
     """Validates that episode_log contains keys that indicate full_state_info_log_fn was used.
 
     Args:
@@ -87,12 +101,12 @@ def _validate_full_state_logging(episode_log: Dict[str, Any]) -> None:
 
 
 def log_episode_to_json(
-    episode_log: Dict[str, Any],
+    episode_log: dict[str, Any],
     output_folder: str,
     agent: Any,
     env: Any,
     episode_id: int = 0,
-    additional_metadata: Dict[str, Any] = None,
+    additional_metadata: dict[str, Any] = None,
 ) -> str:
     """Logs episode data to a JSON file with agent and environment parameters.
 
@@ -208,11 +222,11 @@ def log_episode_to_json(
 
 def create_plots(
     json_log_path: str,
-    parameter_keys: List[str],
+    parameter_keys: list[str],
     output_dir: str = "plots",
     figsize: tuple = (12, 8),
     dpi: int = 300,
-) -> List[str]:
+) -> list[str]:
     """Creates matplotlib plots from JSON episode log data.
 
     Args:
@@ -230,7 +244,7 @@ def create_plots(
         KeyError: If required keys are missing from the log data
     """
 
-    #known number of true timesteps
+    # known number of true timesteps
     N = 20
 
     # Load JSON data
@@ -266,13 +280,20 @@ def create_plots(
 
     # Create single combined plot with grid layout
     plot_file = _create_combined_plot(
-        episode_data, parameter_keys, years, output_dir, base_filename, figsize, dpi, number_negotiation_steps
+        episode_data,
+        parameter_keys,
+        years,
+        output_dir,
+        base_filename,
+        figsize,
+        dpi,
+        number_negotiation_steps,
     )
 
     return [plot_file] if plot_file else []
 
 
-def _get_actual_timesteps(episode_data: Dict[str, Any]) -> int:
+def _get_actual_timesteps(episode_data: dict[str, Any]) -> int:
     """Gets the actual number of timesteps from the episode data."""
     # Try to find a data array to determine the actual length
     for key, data in episode_data.items():
@@ -295,15 +316,15 @@ def _get_actual_timesteps(episode_data: Dict[str, Any]) -> int:
 
 
 def _create_combined_plot(
-    episode_data: Dict[str, Any],
-    parameter_keys: List[str],
-    years: List[int],
+    episode_data: dict[str, Any],
+    parameter_keys: list[str],
+    years: list[int],
     output_dir: str,
     base_filename: str,
     figsize: tuple,
     dpi: int,
-    number_negotiation_steps: int
-) -> Optional[str]:
+    number_negotiation_steps: int,
+) -> str | None:
     """Creates a single combined plot with grid layout for all parameters."""
 
     # Calculate grid dimensions (2 columns)
@@ -350,8 +371,12 @@ def _create_combined_plot(
             if param_key == "global_temperature":
                 temp_data = episode_data["global_temperature"]
 
-                #use every Nth value depending on number of negotiation steps.
-                temp_data_atmosphere = values = [x for i, x in enumerate(temp_data["atmosphere"], 1) if i % number_negotiation_steps == 0]
+                # use every Nth value depending on number of negotiation steps.
+                temp_data_atmosphere = values = [
+                    x
+                    for i, x in enumerate(temp_data["atmosphere"], 1)
+                    if i % number_negotiation_steps == 0
+                ]
                 ax.plot(
                     years,
                     temp_data_atmosphere,
@@ -360,9 +385,13 @@ def _create_combined_plot(
                     linestyle="-",
                     color="#1f77b4",
                 )
-                
-                #use every Nth value depending on number of negotiation steps.
-                temp_data_lower_ocean = [x for i, x in enumerate(temp_data["lower_ocean"], 1) if i % number_negotiation_steps == 0]
+
+                # use every Nth value depending on number of negotiation steps.
+                temp_data_lower_ocean = [
+                    x
+                    for i, x in enumerate(temp_data["lower_ocean"], 1)
+                    if i % number_negotiation_steps == 0
+                ]
                 ax.plot(
                     years,
                     temp_data_lower_ocean,
@@ -388,9 +417,12 @@ def _create_combined_plot(
                     if all(isinstance(v, list) for v in data.values()):
                         # Data is organized by region
                         for j, (region_id, values) in enumerate(data.items()):
-
-                            #get every Nth value depending on number of intermediate negotiation steps
-                            values = [x for i, x in enumerate(values, 1) if i % number_negotiation_steps == 0]
+                            # get every Nth value depending on number of intermediate negotiation steps
+                            values = [
+                                x
+                                for i, x in enumerate(values, 1)
+                                if i % number_negotiation_steps == 0
+                            ]
 
                             style = line_styles[j % len(line_styles)]
                             color = colors[j % len(colors)]
@@ -452,7 +484,9 @@ def _create_combined_plot(
 
     return filepath
 
+
 import numpy as np
+
 
 def compute_consumption_breakdown(
     json_log_path: str,
@@ -519,13 +553,15 @@ def compute_consumption_breakdown(
 
     # Get every Nth value depending on number of negotiation steps
     imports_sampled = imports_array[
-        [(i - 1) % number_negotiation_steps == 0 for i in range(1, actual_timesteps + 1)]
+        [
+            (i - 1) % number_negotiation_steps == 0
+            for i in range(1, actual_timesteps + 1)
+        ]
     ]
-    
+
     num_regions = imports_sampled.shape[1]
 
     # We'll combine the bar charts and heatmap in a single figure using gridspec
-    import matplotlib.gridspec as gridspec
 
     # calculate height ratio: 3 for bars, 1 for heatmap
     fig = plt.figure(figsize=figsize)
@@ -541,7 +577,8 @@ def compute_consumption_breakdown(
         region_key = str(region_id)
         consumption_data = aggregate_consumption[region_key]
         consumption_sampled = [
-            x for i, x in enumerate(consumption_data, 1)
+            x
+            for i, x in enumerate(consumption_data, 1)
             if i % number_negotiation_steps == 0
         ]
         consumption_array = np.array(consumption_sampled)
@@ -559,11 +596,9 @@ def compute_consumption_breakdown(
         # Calculate percentages
         total_consumption = domestic_consumption + imported_consumption
         domestic_pct = (
-            (domestic_consumption / np.maximum(total_consumption, 1e-8)) * 100
-        )
-        foreign_pct = (
-            (imported_consumption / np.maximum(total_consumption, 1e-8)) * 100
-        )
+            domestic_consumption / np.maximum(total_consumption, 1e-8)
+        ) * 100
+        foreign_pct = (imported_consumption / np.maximum(total_consumption, 1e-8)) * 100
 
         # Create stacked bar chart
         ax.bar(years, domestic_pct, label="Domestic", color=colors[0], alpha=0.8)
@@ -580,7 +615,8 @@ def compute_consumption_breakdown(
         if "export_limit_all_regions" in episode_data:
             export_data = episode_data["export_limit_all_regions"][str(region_id)]
             export_sampled = [
-                x for i, x in enumerate(export_data, 1)
+                x
+                for i, x in enumerate(export_data, 1)
                 if i % number_negotiation_steps == 0
             ]
             ax2 = ax.twinx()
@@ -613,13 +649,23 @@ def compute_consumption_breakdown(
     avg_imports = imports_sampled.mean(axis=0)  # shape (from, to)
 
     # average consumption per receiving region
-    avg_consumption_per_region = np.array([
-        np.mean([x for i, x in enumerate(aggregate_consumption[str(r)]) if i % number_negotiation_steps == 0])
-        for r in range(num_regions)
-    ])
+    avg_consumption_per_region = np.array(
+        [
+            np.mean(
+                [
+                    x
+                    for i, x in enumerate(aggregate_consumption[str(r)])
+                    if i % number_negotiation_steps == 0
+                ]
+            )
+            for r in range(num_regions)
+        ]
+    )
 
     # percentage of receiving region consumption
-    heatmap_data = (avg_imports / np.maximum(avg_consumption_per_region[np.newaxis, :], 1e-8)) * 100
+    heatmap_data = (
+        avg_imports / np.maximum(avg_consumption_per_region[np.newaxis, :], 1e-8)
+    ) * 100
 
     im = ax_heat.imshow(heatmap_data, cmap="viridis", aspect="auto")
     ax_heat.set_title("Average imports (% of recipient consumption)")

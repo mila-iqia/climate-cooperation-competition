@@ -17,41 +17,47 @@ Usage (from rice_jax/):
 
 from __future__ import annotations
 
-import matplotlib
-matplotlib.use("Agg")
-
-import sys
-from pathlib import Path
-
-_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
-if str(_RICE_JAX_ROOT) not in sys.path:
-    sys.path.insert(0, str(_RICE_JAX_ROOT))
-
-
 import argparse
 import os
 import pickle
+import sys
 from datetime import datetime
+from pathlib import Path
 
-import matplotlib.pyplot as plt
+import matplotlib
 import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.colors import TwoSlopeNorm
 
 from _experiment_util import get_output_dir
 
+matplotlib.use("Agg")
+
+
+_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
+if str(_RICE_JAX_ROOT) not in sys.path:
+    sys.path.insert(0, str(_RICE_JAX_ROOT))
+
 
 # ── Region config (9-region vulnerability) ──────────────────────────────────
 
 NUM_REGIONS = 9
-EU_IDX      = 3
+EU_IDX = 3
 REGION_NAMES = {
-    0: "RoW", 1: "Russia+Eur.", 2: "MENA", 3: "EU",
-    4: "SSA-Mining", 5: "Americas", 6: "SE Asia", 7: "China", 8: "India",
+    0: "RoW",
+    1: "Russia+Eur.",
+    2: "MENA",
+    3: "EU",
+    4: "SSA-Mining",
+    5: "Americas",
+    6: "SE Asia",
+    7: "China",
+    8: "India",
 }
-NON_EU            = [r for r in range(NUM_REGIONS) if r != EU_IDX]
-CBAM_PLOT_REGIONS = [r for r in NON_EU if r != 0]   # exclude RoW (catch-all)
+NON_EU = [r for r in range(NUM_REGIONS) if r != EU_IDX]
+CBAM_PLOT_REGIONS = [r for r in NON_EU if r != 0]  # exclude RoW (catch-all)
 
 
 # ── Test metadata ───────────────────────────────────────────────────────────
@@ -109,7 +115,51 @@ TEST_INFO = {
 }
 
 
+# ── Seed-count scaling helpers ──────────────────────────────────────────────
+#
+# The figures below were written for the 3-seed canonical set.  With a 50-seed
+# sweep (see cbam_merge_C_litmus.py) a tick or an annotation per seed overplots
+# into an unreadable smear, so both degrade gracefully past these limits.
+
+ANNOTATE_MAX_SEEDS = 10  # per-cell numbers in heatmaps
+SEED_LEGEND_MAX = 6  # one legend entry per seed
+
+
+def _seed_xticks(ax, seeds, fontsize=9):
+    """Label the seed axis, thinning to ~12 ticks when there are many seeds."""
+    n = len(seeds)
+    if n <= 12:
+        ax.set_xticks(range(n))
+        ax.set_xticklabels([f"seed {s}" for s in seeds], fontsize=fontsize)
+        return
+    step = max(1, n // 12)
+    idx = list(range(0, n, step))
+    ax.set_xticks(idx)
+    ax.set_xticklabels([str(seeds[j]) for j in idx], fontsize=fontsize)
+    ax.set_xlabel("seed", fontsize=fontsize)
+
+
+def _annotate_cells(ax, matrix, vmax, fmt="{:+.3f}", fontsize=8):
+    """Write per-cell values, but only while they still fit."""
+    if matrix.shape[1] > ANNOTATE_MAX_SEEDS:
+        return
+    for i in range(matrix.shape[0]):
+        for j in range(matrix.shape[1]):
+            val = matrix[i, j]
+            color = "white" if abs(val) > vmax * 0.6 else "black"
+            ax.text(
+                j,
+                i,
+                fmt.format(val),
+                ha="center",
+                va="center",
+                fontsize=fontsize,
+                color=color,
+            )
+
+
 # ── Helper: dict-keyed-by-int → array ──────────────────────────────────────
+
 
 def _dict_to_array(d, regions=None):
     """Convert {int: float} dict to array ordered by region list."""
@@ -120,10 +170,13 @@ def _dict_to_array(d, regions=None):
 
 # ── Metric extraction ──────────────────────────────────────────────────────
 
+
 def _extract_metric(test_id, data):
     """Extract the primary metric value from a test's data dict."""
     if test_id == "m1":
-        return data.get("rel_drop", data.get("share_ctrl", 0) - data.get("share_diff", 0))
+        return data.get(
+            "rel_drop", data.get("share_ctrl", 0) - data.get("share_diff", 0)
+        )
     elif test_id in ("m2", "m3", "m4"):
         return data.get("mean_mu", float("nan"))
     elif test_id == "c1":
@@ -185,6 +238,7 @@ def _extract_pass_margin(test_id, data, all_seed_results=None, seed=None):
 
 # ── Analysis ────────────────────────────────────────────────────────────────
 
+
 def build_diagnostic_table(all_results, tests):
     """Build a table of per-seed per-test metric values and pass margins."""
     seeds = sorted(all_results.keys())
@@ -209,15 +263,17 @@ def build_diagnostic_table(all_results, tests):
             else:
                 passed_bool = bool(passed)
 
-            rows.append({
-                "test": test_id,
-                "test_name": TEST_INFO[test_id]["name"],
-                "seed": seed,
-                "metric": metric_val,
-                "margin": margin,
-                "passed": passed_bool,
-                "raw_passed": passed,
-            })
+            rows.append(
+                {
+                    "test": test_id,
+                    "test_name": TEST_INFO[test_id]["name"],
+                    "seed": seed,
+                    "metric": metric_val,
+                    "margin": margin,
+                    "passed": passed_bool,
+                    "raw_passed": passed,
+                }
+            )
 
             # For C2, also extract sub-test details
             if test_id == "c2":
@@ -230,6 +286,7 @@ def build_diagnostic_table(all_results, tests):
 
 
 # ── Per-region extraction ───────────────────────────────────────────────────
+
 
 def _extract_regional_data(all_results):
     """Extract per-region metrics for all seeds and tests that have them.
@@ -328,7 +385,9 @@ def _extract_utility_jacobian(all_results):
             if "util_traj" in d3 and "util_traj" in d2:
                 u3 = np.array(d3["util_traj"]).mean(axis=0)
                 u2 = np.array(d2["util_traj"]).mean(axis=0)
-                jac["Costly_mit→Utility (M3−M2)"] = (u3 - u2)[np.array(CBAM_PLOT_REGIONS)]
+                jac["Costly_mit→Utility (M3−M2)"] = (u3 - u2)[
+                    np.array(CBAM_PLOT_REGIONS)
+                ]
 
         # M4 vs M3: opening export channel (crowd-out) effect on utility
         if "m4" in sr and "m3" in sr:
@@ -337,7 +396,9 @@ def _extract_utility_jacobian(all_results):
             if "util_traj" in d4 and "util_traj" in d3:
                 u4 = np.array(d4["util_traj"]).mean(axis=0)
                 u3 = np.array(d3["util_traj"]).mean(axis=0)
-                jac["Exports_open→Utility (M4−M3)"] = (u4 - u3)[np.array(CBAM_PLOT_REGIONS)]
+                jac["Exports_open→Utility (M4−M3)"] = (u4 - u3)[
+                    np.array(CBAM_PLOT_REGIONS)
+                ]
 
         if jac:
             jacobians[seed] = jac
@@ -346,6 +407,7 @@ def _extract_utility_jacobian(all_results):
 
 
 # ── Printing ────────────────────────────────────────────────────────────────
+
 
 def print_diagnostic(df, summary, regional, jacobians):
     """Print detailed diagnostic to stdout."""
@@ -359,23 +421,31 @@ def print_diagnostic(df, summary, regional, jacobians):
 
     # ── Per-test summary ──
     print("\n─── Per-test metric values and pass margins ───")
-    print(f"{'Test':<6} {'Seed':<6} {'Metric':>8} {'Margin':>8} {'Pass?':<6} {'Detail'}")
+    print(
+        f"{'Test':<6} {'Seed':<6} {'Metric':>8} {'Margin':>8} {'Pass?':<6} {'Detail'}"
+    )
     print("─" * 70)
     for test_id in tests:
         tdf = df[df["test"] == test_id]
         for _, row in tdf.iterrows():
             detail = ""
             if test_id == "c2":
-                detail = (f"gap_a={row.get('gap_a', 0):.3f} "
-                          f"gap_b={row.get('gap_b', 0):.3f} "
-                          f"({row.get('grade_a','?')}/{row.get('grade_b','?')})")
+                detail = (
+                    f"gap_a={row.get('gap_a', 0):.3f} "
+                    f"gap_b={row.get('gap_b', 0):.3f} "
+                    f"({row.get('grade_a', '?')}/{row.get('grade_b', '?')})"
+                )
             tag = "✅" if row["passed"] else "❌"
-            print(f"{test_id.upper():<6} {row['seed']:<6} {row['metric']:>8.4f} "
-                  f"{row['margin']:>+8.4f} {tag:<6} {detail}")
+            print(
+                f"{test_id.upper():<6} {row['seed']:<6} {row['metric']:>8.4f} "
+                f"{row['margin']:>+8.4f} {tag:<6} {detail}"
+            )
         mean_margin = tdf["margin"].mean()
         n_pass = tdf["passed"].sum()
-        print(f"  {'mean':<10} {tdf['metric'].mean():>8.4f} {mean_margin:>+8.4f} "
-              f"{n_pass}/{len(tdf)} pass")
+        print(
+            f"  {'mean':<10} {tdf['metric'].mean():>8.4f} {mean_margin:>+8.4f} "
+            f"{n_pass}/{len(tdf)} pass"
+        )
         print()
 
     # ── Failure clustering ──
@@ -385,14 +455,18 @@ def print_diagnostic(df, summary, regional, jacobians):
         n_fail = (~sdf["passed"]).sum()
         failed_tests = sdf[~sdf["passed"]]["test"].tolist()
         if failed_tests:
-            print(f"  Seed {seed}: {n_fail} failures — "
-                  f"{', '.join(t.upper() for t in failed_tests)}")
+            print(
+                f"  Seed {seed}: {n_fail} failures — "
+                f"{', '.join(t.upper() for t in failed_tests)}"
+            )
         else:
             print(f"  Seed {seed}: all pass")
 
     # ── Per-region C2 conditioning gap ──
     print("\n─── Per-region C2 mitigation conditioning (μ_on − μ_off) ───")
-    header = f"{'Region':<14}" + "".join(f"{'s' + str(s) + ' gap_a':>10}" for s in seeds)
+    header = f"{'Region':<14}" + "".join(
+        f"{'s' + str(s) + ' gap_a':>10}" for s in seeds
+    )
     header += "".join(f"{'s' + str(s) + ' gap_b':>10}" for s in seeds)
     print(header)
     print("─" * len(header))
@@ -438,13 +512,19 @@ def print_diagnostic(df, summary, regional, jacobians):
         print("─── Utility Jacobian (ΔU per region, mean over episode) ───")
         for comp_name in list(next(iter(jacobians.values())).keys()):
             print(f"\n  {comp_name}:")
-            header = f"  {'Region':<14}" + "".join(f"{'seed ' + str(s):>10}" for s in seeds) + f"{'  mean':>10}"
+            header = (
+                f"  {'Region':<14}"
+                + "".join(f"{'seed ' + str(s):>10}" for s in seeds)
+                + f"{'  mean':>10}"
+            )
             print(header)
             for i, r in enumerate(CBAM_PLOT_REGIONS):
                 row_str = f"  {REGION_NAMES[r]:<14}"
                 vals = []
                 for seed in seeds:
-                    jac = jacobians.get(seed, {}).get(comp_name, np.zeros(len(CBAM_PLOT_REGIONS)))
+                    jac = jacobians.get(seed, {}).get(
+                        comp_name, np.zeros(len(CBAM_PLOT_REGIONS))
+                    )
                     row_str += f"{jac[i]:>+10.4f}"
                     vals.append(jac[i])
                 row_str += f"{np.mean(vals):>+10.4f}"
@@ -461,13 +541,19 @@ def print_diagnostic(df, summary, regional, jacobians):
             mean_margin = tdf["margin"].mean()
             min_margin = tdf["margin"].min()
             if min_margin > -0.01:
-                print(f"  {test_id.upper()}: BORDERLINE — worst margin = {min_margin:+.4f}")
+                print(
+                    f"  {test_id.upper()}: BORDERLINE — worst margin = {min_margin:+.4f}"
+                )
             elif mean_margin > 0:
-                print(f"  {test_id.upper()}: SEED-SENSITIVE — mean positive ({mean_margin:+.4f}) "
-                      f"worst = {min_margin:+.4f}")
+                print(
+                    f"  {test_id.upper()}: SEED-SENSITIVE — mean positive ({mean_margin:+.4f}) "
+                    f"worst = {min_margin:+.4f}"
+                )
             else:
-                print(f"  {test_id.upper()}: STRUCTURAL WEAKNESS — mean negative "
-                      f"({mean_margin:+.4f}), worst = {min_margin:+.4f}")
+                print(
+                    f"  {test_id.upper()}: STRUCTURAL WEAKNESS — mean negative "
+                    f"({mean_margin:+.4f}), worst = {min_margin:+.4f}"
+                )
 
     # ── Regional attribution for failing tests ──
     print("\n─── Regional attribution (who drives failures?) ───")
@@ -484,29 +570,49 @@ def print_diagnostic(df, summary, regional, jacobians):
                 if "gap_b" in reg:
                     gaps = reg["gap_b"]
                     # Which regions respond (positive gap) vs don't
-                    responders = [(REGION_NAMES[CBAM_PLOT_REGIONS[i]], gaps[i])
-                                  for i in range(len(gaps)) if gaps[i] > 0.01]
-                    non_resp = [(REGION_NAMES[CBAM_PLOT_REGIONS[i]], gaps[i])
-                                for i in range(len(gaps)) if gaps[i] <= 0.01]
-                    print(f"    Seed {seed}: Responders (gap>0.01): "
-                          f"{[(n, f'{g:+.3f}') for n, g in responders]}")
-                    print(f"             Non-responders: "
-                          f"{[(n, f'{g:+.3f}') for n, g in non_resp]}")
+                    responders = [
+                        (REGION_NAMES[CBAM_PLOT_REGIONS[i]], gaps[i])
+                        for i in range(len(gaps))
+                        if gaps[i] > 0.01
+                    ]
+                    non_resp = [
+                        (REGION_NAMES[CBAM_PLOT_REGIONS[i]], gaps[i])
+                        for i in range(len(gaps))
+                        if gaps[i] <= 0.01
+                    ]
+                    print(
+                        f"    Seed {seed}: Responders (gap>0.01): "
+                        f"{[(n, f'{g:+.3f}') for n, g in responders]}"
+                    )
+                    print(
+                        f"             Non-responders: "
+                        f"{[(n, f'{g:+.3f}') for n, g in non_resp]}"
+                    )
 
         elif test_id == "c1":
             for seed in failing_seeds:
                 reg = regional.get(seed, {}).get("c1", {})
                 if "share_gap" in reg:
                     gaps = reg["share_gap"]
-                    diverters = [(REGION_NAMES[CBAM_PLOT_REGIONS[i]], gaps[i])
-                                 for i in range(len(gaps)) if gaps[i] > 0.005]
-                    wrong_way = [(REGION_NAMES[CBAM_PLOT_REGIONS[i]], gaps[i])
-                                 for i in range(len(gaps)) if gaps[i] < -0.005]
-                    print(f"    Seed {seed}: Diverters (share↓ under CBAM): "
-                          f"{[(n, f'{g:+.3f}') for n, g in diverters]}")
+                    diverters = [
+                        (REGION_NAMES[CBAM_PLOT_REGIONS[i]], gaps[i])
+                        for i in range(len(gaps))
+                        if gaps[i] > 0.005
+                    ]
+                    wrong_way = [
+                        (REGION_NAMES[CBAM_PLOT_REGIONS[i]], gaps[i])
+                        for i in range(len(gaps))
+                        if gaps[i] < -0.005
+                    ]
+                    print(
+                        f"    Seed {seed}: Diverters (share↓ under CBAM): "
+                        f"{[(n, f'{g:+.3f}') for n, g in diverters]}"
+                    )
                     if wrong_way:
-                        print(f"             Wrong-way (share↑ under CBAM): "
-                              f"{[(n, f'{g:+.3f}') for n, g in wrong_way]}")
+                        print(
+                            f"             Wrong-way (share↑ under CBAM): "
+                            f"{[(n, f'{g:+.3f}') for n, g in wrong_way]}"
+                        )
 
         elif test_id == "m4":
             for seed in failing_seeds:
@@ -516,19 +622,30 @@ def print_diagnostic(df, summary, regional, jacobians):
                     mu3 = reg_m3["mu"]
                     mu4 = reg_m4["mu"]
                     crowd_out = mu3 - mu4  # positive = crowd-out present
-                    positive = [(REGION_NAMES[CBAM_PLOT_REGIONS[i]], crowd_out[i])
-                                for i in range(len(crowd_out)) if crowd_out[i] > 0.01]
-                    negative = [(REGION_NAMES[CBAM_PLOT_REGIONS[i]], crowd_out[i])
-                                for i in range(len(crowd_out)) if crowd_out[i] < -0.01]
-                    print(f"    Seed {seed}: Crowd-out (μ drops M3→M4): "
-                          f"{[(n, f'{v:+.3f}') for n, v in positive]}")
-                    print(f"             Anti-crowd-out (μ rises M3→M4): "
-                          f"{[(n, f'{v:+.3f}') for n, v in negative]}")
+                    positive = [
+                        (REGION_NAMES[CBAM_PLOT_REGIONS[i]], crowd_out[i])
+                        for i in range(len(crowd_out))
+                        if crowd_out[i] > 0.01
+                    ]
+                    negative = [
+                        (REGION_NAMES[CBAM_PLOT_REGIONS[i]], crowd_out[i])
+                        for i in range(len(crowd_out))
+                        if crowd_out[i] < -0.01
+                    ]
+                    print(
+                        f"    Seed {seed}: Crowd-out (μ drops M3→M4): "
+                        f"{[(n, f'{v:+.3f}') for n, v in positive]}"
+                    )
+                    print(
+                        f"             Anti-crowd-out (μ rises M3→M4): "
+                        f"{[(n, f'{v:+.3f}') for n, v in negative]}"
+                    )
 
     print("\n" + "═" * 80)
 
 
 # ── Plotting ────────────────────────────────────────────────────────────────
+
 
 def plot_diagnostic(df, summary, out_dir, timestamp):
     """Two-panel figure: margin dot plot + heatmap."""
@@ -541,7 +658,8 @@ def plot_diagnostic(df, summary, out_dir, timestamp):
     fig.suptitle(
         "Experiment C Post-Hoc: Multi-seed Litmus Robustness\n"
         "Per-seed pass margins (positive = pass, negative = fail)",
-        fontsize=11, fontweight="bold",
+        fontsize=11,
+        fontweight="bold",
     )
     gs = gridspec.GridSpec(1, 2, figure=fig, wspace=0.35, width_ratios=[2, 1])
 
@@ -551,17 +669,32 @@ def plot_diagnostic(df, summary, out_dir, timestamp):
     for i, test_id in enumerate(tests):
         tdf = df[df["test"] == test_id]
         for _, row in tdf.iterrows():
-            ax.scatter(row["margin"], i, color=colors[row["passed"]],
-                       s=80, alpha=0.8, zorder=3,
-                       edgecolors="black", linewidths=0.5)
+            ax.scatter(
+                row["margin"],
+                i,
+                color=colors[row["passed"]],
+                s=80,
+                alpha=0.8,
+                zorder=3,
+                edgecolors="black",
+                linewidths=0.5,
+            )
         # Mean marker
-        ax.scatter(tdf["margin"].mean(), i, marker="|", s=200, color="black",
-                   zorder=4, linewidths=2)
+        ax.scatter(
+            tdf["margin"].mean(),
+            i,
+            marker="|",
+            s=200,
+            color="black",
+            zorder=4,
+            linewidths=2,
+        )
 
     ax.axvline(0, color="black", lw=1.5, ls="--", alpha=0.7, label="Pass threshold")
     ax.set_yticks(range(n_tests))
-    ax.set_yticklabels([TEST_INFO.get(t, {}).get("name", t.upper()) for t in tests],
-                       fontsize=9)
+    ax.set_yticklabels(
+        [TEST_INFO.get(t, {}).get("name", t.upper()) for t in tests], fontsize=9
+    )
     ax.set_xlabel("Pass margin (positive = passes criterion)")
     ax.set_title("Per-seed pass margins\n(green=pass, red=fail, bar=mean)")
     ax.grid(alpha=0.3, axis="x")
@@ -578,15 +711,23 @@ def plot_diagnostic(df, summary, out_dir, timestamp):
 
     cmap = plt.cm.colors.ListedColormap(["#e74c3c", "#27ae60"])
     ax.imshow(matrix, cmap=cmap, aspect="auto", vmin=0, vmax=1)
-    ax.set_xticks(range(n_seeds))
-    ax.set_xticklabels([f"seed {s}" for s in seeds], fontsize=9)
+    _seed_xticks(ax, seeds)
     ax.set_yticks(range(n_tests))
     ax.set_yticklabels([t.upper() for t in tests], fontsize=9)
-    for i in range(n_tests):
-        for j in range(n_seeds):
-            label = "P" if matrix[i, j] > 0.5 else "F"
-            ax.text(j, i, label, ha="center", va="center",
-                    fontsize=10, fontweight="bold", color="white")
+    if n_seeds <= ANNOTATE_MAX_SEEDS:
+        for i in range(n_tests):
+            for j in range(n_seeds):
+                label = "P" if matrix[i, j] > 0.5 else "F"
+                ax.text(
+                    j,
+                    i,
+                    label,
+                    ha="center",
+                    va="center",
+                    fontsize=10,
+                    fontweight="bold",
+                    color="white",
+                )
     ax.set_title("Pass / Fail heatmap")
 
     os.makedirs(out_dir, exist_ok=True)
@@ -604,24 +745,25 @@ def plot_c2_detail(df, out_dir, timestamp):
         return None
 
     seeds = sorted(c2_df["seed"].unique())
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(max(8, 0.28 * len(seeds)), 4))
 
     x = np.arange(len(seeds))
     w = 0.35
     gaps_a = [c2_df[c2_df["seed"] == s]["gap_a"].iloc[0] for s in seeds]
     gaps_b = [c2_df[c2_df["seed"] == s]["gap_b"].iloc[0] for s in seeds]
 
-    ax.bar(x - w/2, gaps_a, w, label="C2a (costless)", color="tab:blue", alpha=0.7)
-    ax.bar(x + w/2, gaps_b, w, label="C2b (costly)", color="tab:orange", alpha=0.7)
+    ax.bar(x - w / 2, gaps_a, w, label="C2a (costless)", color="tab:blue", alpha=0.7)
+    ax.bar(x + w / 2, gaps_b, w, label="C2b (costly)", color="tab:orange", alpha=0.7)
     ax.axhline(0.05, color="green", ls="--", lw=1, label="Strong threshold (0.05)")
     ax.axhline(0.01, color="orange", ls="--", lw=1, label="Weak threshold (0.01)")
     ax.axhline(0, color="black", lw=0.5)
 
-    ax.set_xticks(x)
-    ax.set_xticklabels([f"seed {s}" for s in seeds])
+    _seed_xticks(ax, seeds)
     ax.set_ylabel("μ_on − μ_off")
-    ax.set_title("C2: Mitigation conditioning gap per seed\n"
-                 "(must be > 0.01 for 'weak', > 0.05 for 'strong')")
+    ax.set_title(
+        "C2: Mitigation conditioning gap per seed\n"
+        "(must be > 0.01 for 'weak', > 0.05 for 'strong')"
+    )
     ax.legend(fontsize=8)
     ax.grid(alpha=0.3, axis="y")
 
@@ -649,7 +791,8 @@ def plot_regional_response(regional, jacobians, out_dir, timestamp):
     fig.suptitle(
         "Experiment C Post-Hoc: Per-Region Decomposition & Sensitivity\n"
         "Which regions respond to the CBAM signal?",
-        fontsize=12, fontweight="bold",
+        fontsize=12,
+        fontweight="bold",
     )
     gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.45, wspace=0.35)
 
@@ -665,18 +808,15 @@ def plot_regional_response(regional, jacobians, out_dir, timestamp):
     vmax = max(abs(c2_gap_matrix.min()), abs(c2_gap_matrix.max()), 0.06)
     norm = TwoSlopeNorm(vmin=-vmax, vcenter=0, vmax=vmax)
     im = ax.imshow(c2_gap_matrix, aspect="auto", cmap="RdYlGn", norm=norm)
-    ax.set_xticks(range(n_seeds))
-    ax.set_xticklabels([f"seed {s}" for s in seeds], fontsize=9)
+    _seed_xticks(ax, seeds)
     ax.set_yticks(range(nr))
     ax.set_yticklabels(rnames, fontsize=8)
-    for i in range(nr):
-        for j in range(n_seeds):
-            val = c2_gap_matrix[i, j]
-            color = "white" if abs(val) > vmax * 0.6 else "black"
-            ax.text(j, i, f"{val:+.3f}", ha="center", va="center",
-                    fontsize=8, color=color)
-    ax.set_title("C2: Per-region μ conditioning gap (costly)\n"
-                 "green > 0.01 = responds to CBAM signal", fontsize=9)
+    _annotate_cells(ax, c2_gap_matrix, vmax)
+    ax.set_title(
+        "C2: Per-region μ conditioning gap (costly)\n"
+        "green > 0.01 = responds to CBAM signal",
+        fontsize=9,
+    )
     plt.colorbar(im, ax=ax, fraction=0.04)
     # Draw threshold lines
     ax.axhline(-0.5, color="orange", ls="--", lw=0.5)  # visual separator
@@ -692,18 +832,15 @@ def plot_regional_response(regional, jacobians, out_dir, timestamp):
     vmax_c1 = max(abs(c1_gap_matrix.min()), abs(c1_gap_matrix.max()), 0.05)
     norm_c1 = TwoSlopeNorm(vmin=-vmax_c1, vcenter=0, vmax=vmax_c1)
     im = ax.imshow(c1_gap_matrix, aspect="auto", cmap="RdYlGn", norm=norm_c1)
-    ax.set_xticks(range(n_seeds))
-    ax.set_xticklabels([f"seed {s}" for s in seeds], fontsize=9)
+    _seed_xticks(ax, seeds)
     ax.set_yticks(range(nr))
     ax.set_yticklabels(rnames, fontsize=8)
-    for i in range(nr):
-        for j in range(n_seeds):
-            val = c1_gap_matrix[i, j]
-            color = "white" if abs(val) > vmax_c1 * 0.6 else "black"
-            ax.text(j, i, f"{val:+.3f}", ha="center", va="center",
-                    fontsize=8, color=color)
-    ax.set_title("C1: Per-region EU dirty share gap (off − on)\n"
-                 "green > 0 = diverts away from EU under CBAM", fontsize=9)
+    _annotate_cells(ax, c1_gap_matrix, vmax_c1)
+    ax.set_title(
+        "C1: Per-region EU dirty share gap (off − on)\n"
+        "green > 0 = diverts away from EU under CBAM",
+        fontsize=9,
+    )
     plt.colorbar(im, ax=ax, fraction=0.04)
 
     # ── Panel 3: Mitigation levels (M2/M3/M4 seed-averaged per region) ──
@@ -733,8 +870,9 @@ def plot_regional_response(regional, jacobians, out_dir, timestamp):
     ax.set_xticks(x)
     ax.set_xticklabels(rnames, rotation=30, ha="right", fontsize=8)
     ax.set_ylabel("Mitigation rate μ")
-    ax.set_title("Per-region mitigation (seed-averaged)\n"
-                 "M4 < M3 = crowd-out present", fontsize=9)
+    ax.set_title(
+        "Per-region mitigation (seed-averaged)\nM4 < M3 = crowd-out present", fontsize=9
+    )
     ax.legend(fontsize=7)
     ax.tick_params(labelsize=8)
 
@@ -750,18 +888,15 @@ def plot_regional_response(regional, jacobians, out_dir, timestamp):
     vmax_co = max(abs(crowd_out_matrix.min()), abs(crowd_out_matrix.max()), 0.05)
     norm_co = TwoSlopeNorm(vmin=-vmax_co, vcenter=0, vmax=vmax_co)
     im = ax.imshow(crowd_out_matrix, aspect="auto", cmap="RdYlGn", norm=norm_co)
-    ax.set_xticks(range(n_seeds))
-    ax.set_xticklabels([f"seed {s}" for s in seeds], fontsize=9)
+    _seed_xticks(ax, seeds)
     ax.set_yticks(range(nr))
     ax.set_yticklabels(rnames, fontsize=8)
-    for i in range(nr):
-        for j in range(n_seeds):
-            val = crowd_out_matrix[i, j]
-            color = "white" if abs(val) > vmax_co * 0.6 else "black"
-            ax.text(j, i, f"{val:+.3f}", ha="center", va="center",
-                    fontsize=8, color=color)
-    ax.set_title("Crowd-out per region (M3μ − M4μ)\n"
-                 "green > 0 = crowd-out present (export channel lowers μ)", fontsize=9)
+    _annotate_cells(ax, crowd_out_matrix, vmax_co)
+    ax.set_title(
+        "Crowd-out per region (M3μ − M4μ)\n"
+        "green > 0 = crowd-out present (export channel lowers μ)",
+        fontsize=9,
+    )
     plt.colorbar(im, ax=ax, fraction=0.04)
 
     # ── Panel 5: Utility Jacobian heatmap ──
@@ -791,10 +926,20 @@ def plot_regional_response(regional, jacobians, out_dir, timestamp):
             for k in range(n_comp):
                 val = jac_matrix[i, k]
                 color = "white" if abs(val) > vmax_j * 0.6 else "black"
-                ax.text(k, i, f"{val:+.3f}", ha="center", va="center",
-                        fontsize=8, color=color)
-        ax.set_title("Utility Jacobian: ΔU per region across test conditions\n"
-                     "(finite-difference sensitivity, seed-averaged)", fontsize=9)
+                ax.text(
+                    k,
+                    i,
+                    f"{val:+.3f}",
+                    ha="center",
+                    va="center",
+                    fontsize=8,
+                    color=color,
+                )
+        ax.set_title(
+            "Utility Jacobian: ΔU per region across test conditions\n"
+            "(finite-difference sensitivity, seed-averaged)",
+            fontsize=9,
+        )
         plt.colorbar(im, ax=ax, fraction=0.02)
 
     out_path = os.path.join(out_dir, f"posthoc_C_regional_{timestamp}.png")
@@ -824,7 +969,7 @@ def plot_response_scatter(regional, out_dir, timestamp):
         if "diversion" in reg_m1:
             diversion += reg_m1["diversion"]
         if "mu" in reg_m3 and "mu" in reg_m4:
-            crowd_out += (reg_m3["mu"] - reg_m4["mu"])
+            crowd_out += reg_m3["mu"] - reg_m4["mu"]
         count += 1
     if count > 0:
         diversion /= count
@@ -836,23 +981,43 @@ def plot_response_scatter(regional, out_dir, timestamp):
 
     for i, r in enumerate(CBAM_PLOT_REGIONS):
         ax.scatter(diversion[i], crowd_out[i], s=150, zorder=5)
-        ax.annotate(REGION_NAMES[r], (diversion[i], crowd_out[i]),
-                    fontsize=9, xytext=(5, 5), textcoords="offset points")
+        ax.annotate(
+            REGION_NAMES[r],
+            (diversion[i], crowd_out[i]),
+            fontsize=9,
+            xytext=(5, 5),
+            textcoords="offset points",
+        )
 
-    ax.set_xlabel("Diversion strength (share_ctrl − share_diff)\n"
-                  "positive = diverts exports away from EU under CBAM", fontsize=9)
-    ax.set_ylabel("Crowd-out strength (M3μ − M4μ)\n"
-                  "positive = opening exports reduces mitigation", fontsize=9)
-    ax.set_title("Regional Response Classification\n"
-                 "Who diverts? Who has crowd-out? (seed-averaged)", fontsize=10)
+    ax.set_xlabel(
+        "Diversion strength (share_ctrl − share_diff)\n"
+        "positive = diverts exports away from EU under CBAM",
+        fontsize=9,
+    )
+    ax.set_ylabel(
+        "Crowd-out strength (M3μ − M4μ)\npositive = opening exports reduces mitigation",
+        fontsize=9,
+    )
+    ax.set_title(
+        "Regional Response Classification\n"
+        "Who diverts? Who has crowd-out? (seed-averaged)",
+        fontsize=10,
+    )
 
     # Shade quadrants
     xl, xr = ax.get_xlim()
     yb, yt = ax.get_ylim()
-    ax.fill_between([0, xr], 0, yt, alpha=0.04, color="red",
-                    label="Diverter + crowd-out (worst)")
-    ax.fill_between([xl, 0], yb, 0, alpha=0.04, color="green",
-                    label="No diversion + no crowd-out (best)")
+    ax.fill_between(
+        [0, xr], 0, yt, alpha=0.04, color="red", label="Diverter + crowd-out (worst)"
+    )
+    ax.fill_between(
+        [xl, 0],
+        yb,
+        0,
+        alpha=0.04,
+        color="green",
+        label="No diversion + no crowd-out (best)",
+    )
     ax.legend(fontsize=8, loc="lower right")
     ax.grid(alpha=0.3)
     ax.tick_params(labelsize=8)
@@ -893,7 +1058,8 @@ def plot_per_test_per_region_errorbars(regional, out_dir, timestamp):
     fig.suptitle(
         "Per-Region Metrics — Mean ± Std across Seeds\n"
         "(bars = seed mean, error bars = ±1 std, dots = individual seeds)",
-        fontsize=11, fontweight="bold",
+        fontsize=11,
+        fontweight="bold",
     )
 
     seed_dot_colors = ["tab:blue", "tab:orange", "tab:green", "tab:purple", "tab:brown"]
@@ -906,29 +1072,75 @@ def plot_per_test_per_region_errorbars(regional, out_dir, timestamp):
             ]
             arr = np.array(data_per_seed)
             mean, std = arr.mean(0), arr.std(0)
-            ax.bar(x, mean, yerr=std, capsize=4, color="tab:blue", alpha=0.65,
-                   error_kw=dict(lw=1.5, capthick=1.5), label="mean ± std")
+            ax.bar(
+                x,
+                mean,
+                yerr=std,
+                capsize=4,
+                color="tab:blue",
+                alpha=0.65,
+                error_kw=dict(lw=1.5, capthick=1.5),
+                label="mean ± std",
+            )
+            many = len(seeds) > SEED_LEGEND_MAX
             for i_s, (s, vals) in enumerate(zip(seeds, data_per_seed)):
-                ax.scatter(x, vals, color=seed_dot_colors[i_s % len(seed_dot_colors)],
-                           s=30, zorder=5, label=f"seed {s}")
-            ax.axhline(0.15, color="green", ls="--", lw=1.5, label="Pass threshold (0.15)")
+                # One legend entry per seed swallows the panel past ~6 seeds;
+                # collapse to a single anonymous handle instead.
+                ax.scatter(
+                    x,
+                    vals,
+                    color="#2c3e50"
+                    if many
+                    else seed_dot_colors[i_s % len(seed_dot_colors)],
+                    s=12 if many else 30,
+                    alpha=0.5 if many else 1.0,
+                    zorder=5,
+                    label=("individual seeds" if i_s == 0 else None)
+                    if many
+                    else f"seed {s}",
+                )
+            ax.axhline(
+                0.15, color="green", ls="--", lw=1.5, label="Pass threshold (0.15)"
+            )
             ax.axhline(0, color="black", lw=0.5)
             ax.set_ylabel("EU dirty export share gap (off − on)")
             ax.set_title("C1: Export Conditioning\nper-region EU share gap")
 
         elif test_id == "c2":
-            gap_a = [regional.get(s, {}).get("c2", {}).get("gap_a", np.zeros(nr)) for s in seeds]
-            gap_b = [regional.get(s, {}).get("c2", {}).get("gap_b", np.zeros(nr)) for s in seeds]
+            gap_a = [
+                regional.get(s, {}).get("c2", {}).get("gap_a", np.zeros(nr))
+                for s in seeds
+            ]
+            gap_b = [
+                regional.get(s, {}).get("c2", {}).get("gap_b", np.zeros(nr))
+                for s in seeds
+            ]
             arr_a, arr_b = np.array(gap_a), np.array(gap_b)
             mean_a, std_a = arr_a.mean(0), arr_a.std(0)
             mean_b, std_b = arr_b.mean(0), arr_b.std(0)
             w = 0.38
-            ax.bar(x - w / 2, mean_a, w, yerr=std_a, capsize=3,
-                   color="tab:blue", alpha=0.65, label="C2a costless",
-                   error_kw=dict(lw=1.5, capthick=1.5))
-            ax.bar(x + w / 2, mean_b, w, yerr=std_b, capsize=3,
-                   color="tab:orange", alpha=0.65, label="C2b costly",
-                   error_kw=dict(lw=1.5, capthick=1.5))
+            ax.bar(
+                x - w / 2,
+                mean_a,
+                w,
+                yerr=std_a,
+                capsize=3,
+                color="tab:blue",
+                alpha=0.65,
+                label="C2a costless",
+                error_kw=dict(lw=1.5, capthick=1.5),
+            )
+            ax.bar(
+                x + w / 2,
+                mean_b,
+                w,
+                yerr=std_b,
+                capsize=3,
+                color="tab:orange",
+                alpha=0.65,
+                label="C2b costly",
+                error_kw=dict(lw=1.5, capthick=1.5),
+            )
             for i_s, (a, b) in enumerate(zip(gap_a, gap_b)):
                 ax.scatter(x - w / 2, a, color="navy", s=20, zorder=5, alpha=0.8)
                 ax.scatter(x + w / 2, b, color="darkorange", s=20, zorder=5, alpha=0.8)
@@ -939,24 +1151,48 @@ def plot_per_test_per_region_errorbars(regional, out_dir, timestamp):
             ax.set_title("C2: Mitigation Conditioning\nper-region gap (μ_on − μ_off)")
 
         elif test_id == "c3":
-            c2b = [regional.get(s, {}).get("c2", {}).get("mu_b_on", np.zeros(nr)) for s in seeds]
-            c3  = [regional.get(s, {}).get("c3", {}).get("mu_on",   np.zeros(nr)) for s in seeds]
+            c2b = [
+                regional.get(s, {}).get("c2", {}).get("mu_b_on", np.zeros(nr))
+                for s in seeds
+            ]
+            c3 = [
+                regional.get(s, {}).get("c3", {}).get("mu_on", np.zeros(nr))
+                for s in seeds
+            ]
             arr_c2b, arr_c3 = np.array(c2b), np.array(c3)
             mean_c2b, std_c2b = arr_c2b.mean(0), arr_c2b.std(0)
-            mean_c3,  std_c3  = arr_c3.mean(0),  arr_c3.std(0)
+            mean_c3, std_c3 = arr_c3.mean(0), arr_c3.std(0)
             w = 0.38
-            ax.bar(x - w / 2, mean_c2b, w, yerr=std_c2b, capsize=3,
-                   color="tab:green", alpha=0.65, label="C2b: exports pinned",
-                   error_kw=dict(lw=1.5, capthick=1.5))
-            ax.bar(x + w / 2, mean_c3,  w, yerr=std_c3,  capsize=3,
-                   color="tab:red", alpha=0.65, label="C3: both channels",
-                   error_kw=dict(lw=1.5, capthick=1.5))
+            ax.bar(
+                x - w / 2,
+                mean_c2b,
+                w,
+                yerr=std_c2b,
+                capsize=3,
+                color="tab:green",
+                alpha=0.65,
+                label="C2b: exports pinned",
+                error_kw=dict(lw=1.5, capthick=1.5),
+            )
+            ax.bar(
+                x + w / 2,
+                mean_c3,
+                w,
+                yerr=std_c3,
+                capsize=3,
+                color="tab:red",
+                alpha=0.65,
+                label="C3: both channels",
+                error_kw=dict(lw=1.5, capthick=1.5),
+            )
             for i_s, (p, b) in enumerate(zip(c2b, c3)):
                 ax.scatter(x - w / 2, p, color="darkgreen", s=20, zorder=5, alpha=0.8)
-                ax.scatter(x + w / 2, b, color="darkred",   s=20, zorder=5, alpha=0.8)
+                ax.scatter(x + w / 2, b, color="darkred", s=20, zorder=5, alpha=0.8)
             ax.axhline(0, color="black", lw=0.5)
             ax.set_ylabel("μ_on (CBAM signal on)")
-            ax.set_title("C3: Conditioned Crowd-out\nC3 < C2b → crowd-out confirmed per region")
+            ax.set_title(
+                "C3: Conditioned Crowd-out\nC3 < C2b → crowd-out confirmed per region"
+            )
 
         ax.set_xticks(x)
         ax.set_xticklabels(rnames, rotation=30, ha="right", fontsize=8)
@@ -994,26 +1230,54 @@ def plot_per_test_per_region_absolute(regional, out_dir, timestamp):
     panels = []  # list of (label, off_key, on_key, test_id, ylabel, title)
     s0 = seeds[0]
     if "c1" in regional.get(s0, {}) and "share_off" in regional[s0].get("c1", {}):
-        panels.append(("c1",  "share_off", "share_on",
-                        "c1",
-                        "EU dirty export share",
-                        "C1: EU Dirty Share\nCBAM off vs on"))
+        panels.append(
+            (
+                "c1",
+                "share_off",
+                "share_on",
+                "c1",
+                "EU dirty export share",
+                "C1: EU Dirty Share\nCBAM off vs on",
+            )
+        )
     if "c2" in regional.get(s0, {}) and "mu_a_off" in regional[s0].get("c2", {}):
-        panels.append(("c2a", "mu_a_off",  "mu_a_on",
-                        "c2",
-                        "Mitigation rate μ",
-                        "C2a: Mitigation (costless)\nCBAM off vs on"))
+        panels.append(
+            (
+                "c2a",
+                "mu_a_off",
+                "mu_a_on",
+                "c2",
+                "Mitigation rate μ",
+                "C2a: Mitigation (costless)\nCBAM off vs on",
+            )
+        )
     if "c2" in regional.get(s0, {}) and "mu_b_off" in regional[s0].get("c2", {}):
-        panels.append(("c2b", "mu_b_off",  "mu_b_on",
-                        "c2",
-                        "Mitigation rate μ",
-                        "C2b: Mitigation (costly)\nCBAM off vs on"))
-    if ("c2" in regional.get(s0, {}) and "mu_b_on" in regional[s0].get("c2", {})
-            and "c3" in regional.get(s0, {}) and "mu_on" in regional[s0].get("c3", {})):
-        panels.append(("c3",  None,        None,
-                        None,
-                        "μ under CBAM signal",
-                        "C3: Crowd-out\nC2b pinned vs C3 both channels"))
+        panels.append(
+            (
+                "c2b",
+                "mu_b_off",
+                "mu_b_on",
+                "c2",
+                "Mitigation rate μ",
+                "C2b: Mitigation (costly)\nCBAM off vs on",
+            )
+        )
+    if (
+        "c2" in regional.get(s0, {})
+        and "mu_b_on" in regional[s0].get("c2", {})
+        and "c3" in regional.get(s0, {})
+        and "mu_on" in regional[s0].get("c3", {})
+    ):
+        panels.append(
+            (
+                "c3",
+                None,
+                None,
+                None,
+                "μ under CBAM signal",
+                "C3: Crowd-out\nC2b pinned vs C3 both channels",
+            )
+        )
 
     if not panels:
         return None
@@ -1025,50 +1289,87 @@ def plot_per_test_per_region_absolute(regional, out_dir, timestamp):
     fig.suptitle(
         "Per-Region Absolute Levels — CBAM On vs Off (Mean ± Std across Seeds)\n"
         "(bars = seed mean, error bars = ±1 std, dots = individual seeds)",
-        fontsize=11, fontweight="bold",
+        fontsize=11,
+        fontweight="bold",
     )
 
-    OFF_COLOR = "#5b9bd5"   # blue-grey for CBAM off
-    ON_COLOR  = "#e06c2a"   # orange for CBAM on
-    OFF_DOT   = "#1a4f8a"
-    ON_DOT    = "#8b2500"
+    OFF_COLOR = "#5b9bd5"  # blue-grey for CBAM off
+    ON_COLOR = "#e06c2a"  # orange for CBAM on
+    OFF_DOT = "#1a4f8a"
+    ON_DOT = "#8b2500"
 
     for ax, (panel_id, off_key, on_key, test_id, ylabel, title) in zip(axes, panels):
         if panel_id == "c3":
             # Special: C2b mu_on vs C3 mu_on (both are "on", different conditions)
-            c2b_vals = [regional.get(s, {}).get("c2", {}).get("mu_b_on", np.zeros(nr)) for s in seeds]
-            c3_vals  = [regional.get(s, {}).get("c3", {}).get("mu_on",   np.zeros(nr)) for s in seeds]
+            c2b_vals = [
+                regional.get(s, {}).get("c2", {}).get("mu_b_on", np.zeros(nr))
+                for s in seeds
+            ]
+            c3_vals = [
+                regional.get(s, {}).get("c3", {}).get("mu_on", np.zeros(nr))
+                for s in seeds
+            ]
             arr_off = np.array(c2b_vals)
-            arr_on  = np.array(c3_vals)
+            arr_on = np.array(c3_vals)
             off_label = "C2b: exports pinned"
-            on_label  = "C3: both channels"
+            on_label = "C3: both channels"
             off_dot_c = "#2a6e3f"
-            on_dot_c  = "#7a1010"
-            off_c     = "#4caf6e"
-            on_c      = "#e05252"
+            on_dot_c = "#7a1010"
+            off_c = "#4caf6e"
+            on_c = "#e05252"
         else:
-            arr_off = np.array([regional.get(s, {}).get(test_id, {}).get(off_key, np.zeros(nr)) for s in seeds])
-            arr_on  = np.array([regional.get(s, {}).get(test_id, {}).get(on_key,  np.zeros(nr)) for s in seeds])
+            arr_off = np.array(
+                [
+                    regional.get(s, {}).get(test_id, {}).get(off_key, np.zeros(nr))
+                    for s in seeds
+                ]
+            )
+            arr_on = np.array(
+                [
+                    regional.get(s, {}).get(test_id, {}).get(on_key, np.zeros(nr))
+                    for s in seeds
+                ]
+            )
             off_label = "CBAM off"
-            on_label  = "CBAM on"
+            on_label = "CBAM on"
             off_dot_c = OFF_DOT
-            on_dot_c  = ON_DOT
-            off_c     = OFF_COLOR
-            on_c      = ON_COLOR
+            on_dot_c = ON_DOT
+            off_c = OFF_COLOR
+            on_c = ON_COLOR
 
         mean_off, std_off = arr_off.mean(0), arr_off.std(0)
-        mean_on,  std_on  = arr_on.mean(0),  arr_on.std(0)
+        mean_on, std_on = arr_on.mean(0), arr_on.std(0)
 
-        ax.bar(x - w / 2, mean_off, w, yerr=std_off, capsize=4,
-               color=off_c, alpha=0.75, label=off_label,
-               error_kw=dict(lw=1.5, capthick=1.5))
-        ax.bar(x + w / 2, mean_on,  w, yerr=std_on,  capsize=4,
-               color=on_c,  alpha=0.75, label=on_label,
-               error_kw=dict(lw=1.5, capthick=1.5))
+        ax.bar(
+            x - w / 2,
+            mean_off,
+            w,
+            yerr=std_off,
+            capsize=4,
+            color=off_c,
+            alpha=0.75,
+            label=off_label,
+            error_kw=dict(lw=1.5, capthick=1.5),
+        )
+        ax.bar(
+            x + w / 2,
+            mean_on,
+            w,
+            yerr=std_on,
+            capsize=4,
+            color=on_c,
+            alpha=0.75,
+            label=on_label,
+            error_kw=dict(lw=1.5, capthick=1.5),
+        )
 
         for s_idx in range(len(seeds)):
-            ax.scatter(x - w / 2, arr_off[s_idx], color=off_dot_c, s=20, zorder=5, alpha=0.85)
-            ax.scatter(x + w / 2, arr_on[s_idx],  color=on_dot_c,  s=20, zorder=5, alpha=0.85)
+            ax.scatter(
+                x - w / 2, arr_off[s_idx], color=off_dot_c, s=20, zorder=5, alpha=0.85
+            )
+            ax.scatter(
+                x + w / 2, arr_on[s_idx], color=on_dot_c, s=20, zorder=5, alpha=0.85
+            )
 
         ax.axhline(0, color="black", lw=0.5)
         ax.set_ylabel(ylabel)
@@ -1089,13 +1390,15 @@ def plot_per_test_per_region_absolute(regional, out_dir, timestamp):
 
 # ── Main ────────────────────────────────────────────────────────────────────
 
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Post-hoc diagnostic for Experiment C (multi-seed litmus)")
-    parser.add_argument("--pkl", required=True,
-                        help="Path to the Experiment C pkl")
-    parser.add_argument("--out-dir", default=None,
-                        help="Output directory (default: same dir as pkl)")
+        description="Post-hoc diagnostic for Experiment C (multi-seed litmus)"
+    )
+    parser.add_argument("--pkl", required=True, help="Path to the Experiment C pkl")
+    parser.add_argument(
+        "--out-dir", default=None, help="Output directory (default: same dir as pkl)"
+    )
     args = parser.parse_args()
 
     with open(args.pkl, "rb") as f:

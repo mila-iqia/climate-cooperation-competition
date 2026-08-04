@@ -33,39 +33,25 @@ Usage (from rice_jax/, rice-jax conda env):
     python cbam/drivers/cbam_litmus_mechanism.py --replot <pickle.pkl>
 """
 
-import matplotlib
-
-matplotlib.use("Agg")
-
-import sys
-from pathlib import Path
-
-_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
-if str(_RICE_JAX_ROOT) not in sys.path:
-    sys.path.insert(0, str(_RICE_JAX_ROOT))
-
-
 import argparse
+import os as _os
 import pickle
+import sys
 import time
 from dataclasses import replace
 from datetime import datetime
+from pathlib import Path
 
 import cloudpickle
 import jax
-import matplotlib.gridspec as gridspec
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from jaxnasium.algorithms import PPO
+from matplotlib import gridspec
 
 from _experiment_util import get_log_dir, get_output_dir, save_run_config
-from rice_jax.utils import full_state_info_log_fn
-from rice_jax.training import (
-    MonitoredPPO,
-    make_combined_log_fn,
-    make_csv_log_fn,
-    make_print_log_fn,
-)
 from cbam.config import metrics as _metrics
 from cbam.config.canonical_config import (
     CANONICAL_TRAIN_KWARGS,
@@ -80,6 +66,19 @@ from cbam.config.canonical_config import (
     canonical_train_kwargs as _canonical_train_kwargs,
     make_canonical_env,
 )
+from rice_jax.training import (
+    make_combined_log_fn,
+    make_csv_log_fn,
+    make_print_log_fn,
+)
+from rice_jax.utils import full_state_info_log_fn
+
+matplotlib.use("Agg")
+
+
+_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]
+if str(_RICE_JAX_ROOT) not in sys.path:
+    sys.path.insert(0, str(_RICE_JAX_ROOT))
 
 # ── Config ─────────────────────────────────────────────────────────────────
 # Region indexing, env defaults, and PPO kwargs are sourced from
@@ -159,7 +158,7 @@ def _make_log_fn(label, num_iters):
     tag = _config_tag()
     csv_path = _os.path.join(LOG_DIR, f"litmus_mech_{tag}_{label}.csv")
     _print_fn = make_print_log_fn(num_iterations=num_iters)
-    _DROP = {"action_mean", "action_var"}
+    _DROP = {"actions", "action_mean", "action_var"}
 
     def _compact(data, iteration):
         _print_fn({k: v for k, v in data.items() if k not in _DROP}, iteration)
@@ -173,7 +172,7 @@ def _make_log_fn(label, num_iters):
 def _train(label, env, key, num_iters, total_timesteps=None):
     ts = total_timesteps or TOTAL_TIMESTEPS
     log_fn, csv_path = _make_log_fn(label, num_iters)
-    ppo = MonitoredPPO(
+    ppo = PPO(
         total_timesteps=ts,
         log_function=log_fn,
         **_PPO_KWARGS,
@@ -321,8 +320,8 @@ def run_m1(key):
         util_diff=ev_diff["utility"].mean(0),
         csv_ctrl=csv_ctrl,
         csv_diff=csv_diff,
-        _agent_ctrl=agent_ctrl.state,
-        _agent_diff=agent_diff.state,
+        _agent_ctrl=agent_ctrl.agent,
+        _agent_diff=agent_diff.agent,
     )
 
 
@@ -376,7 +375,7 @@ def run_m2(key):
         pr_mu=pr_mu,
         util_traj=ev["utility"].mean(0),
         csv_path=csv_path,
-        _agent=agent.state,
+        _agent=agent.agent,
     )
 
 
@@ -444,7 +443,7 @@ def run_m3(key, m2_mu=None):
         pr_mu=pr_mu,
         util_traj=ev["utility"].mean(0),
         csv_path=csv_path,
-        _agent=agent.state,
+        _agent=agent.agent,
     )
 
 
@@ -496,7 +495,7 @@ def run_m4(key, m3_mu):
         pr_share=pr_share,
         util_traj=ev["utility"].mean(0),
         csv_path=csv_path,
-        _agent=agent.state,
+        _agent=agent.agent,
     )
 
 

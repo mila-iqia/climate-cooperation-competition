@@ -1,93 +1,61 @@
-"""MonitoredPPO and training log-function factories."""
+"""Training log-function factories for PPO callbacks."""
 
 from __future__ import annotations
 
 import csv
 import os
-from dataclasses import replace
-from typing import Callable, Optional
+from collections.abc import Callable
 
-import equinox as eqx
 import jax
-import jax.numpy as jnp
 import numpy as np
 
-from jaxnasium import Environment
-from jaxnasium.algorithms import PPO
-from jaxnasium.algorithms.utils import scan_callback
+
+def _flatten_tree(tree) -> np.ndarray:
+    leaves = jax.tree.leaves(tree)
+    if not leaves:
+        return np.array([])
+    return np.concatenate([np.asarray(l).ravel() for l in leaves])
 
 
-class MonitoredPPO(PPO):
-    """PPO subclass that adds action / reward statistics to the training metric.
+def _reduce_leading_axes(x, op: str):
+    """Reduce over leading (steps, envs) axes when present."""
+    arr = np.asarray(x)
+    axes = (0, 1) if arr.ndim >= 2 else None
+    return getattr(arr, op)(axis=axes)
 
-    The additional keys injected into the metric dict each iteration are:
 
-      ``action_mean``  — JAX array, mean of actions over (steps × envs), one
-                         value per action dimension (or a pytree if action is
-                         a pytree).
-      ``action_var``   — same shape, variance over (steps × envs).
-      ``reward_mean``  — scalar, mean reward across all steps and envs.
-      ``reward_sum``   — scalar, sum of rewards across all steps and envs.
+def _rollout_action_reward_stats(
+    data: dict,
+) -> tuple[np.ndarray, np.ndarray, float, float, float]:
+    """Action/reward rollout stats for log callbacks.
 
-    These are then visible inside the ``log_function`` callback alongside the
-    standard ``returned_episode_returns`` / ``returned_episode`` keys that
-    ``jym.LogWrapper`` provides.
+    Prefers per-step ``actions`` / ``rewards`` from ``log_info_fn`` (mean/var
+    over steps × envs). Falls back to pre-averaged ``action_mean`` /
+    ``reward_mean`` keys when those are absent.
     """
-
-    def train(self, key, env: Environment, **hyperparams) -> MonitoredPPO:
-        @scan_callback(
-            callback_fn=self.log_function,
-            callback_interval=self.log_interval,
-            n=self.num_iterations,
+    if data.get("actions") is not None:
+        act_mean = _flatten_tree(
+            jax.tree.map(lambda a: _reduce_leading_axes(a, "mean"), data["actions"])
         )
-        def train_iteration(runner_state, _):
-            self_: MonitoredPPO = runner_state[0]
-            rollout_state = runner_state[1:]
-            (env_state, last_obs, rng), trajectory_batch = self_._collect_rollout(
-                rollout_state, env
-            )
-
-            base_info = trajectory_batch.info or {}
-            action_mean = jax.tree.map(
-                lambda a: a.mean(axis=(0, 1)), trajectory_batch.action
-            )
-            action_var = jax.tree.map(
-                lambda a: a.var(axis=(0, 1)), trajectory_batch.action
-            )
-            reward_leaves = jax.tree.leaves(trajectory_batch.reward)
-            reward_stack = jnp.stack([r.ravel() for r in reward_leaves])
-            metric = {
-                **base_info,
-                "action_mean": action_mean,
-                "action_var": action_var,
-                "reward_mean": reward_stack.mean(),
-                "reward_var": reward_stack.var(),
-                "reward_sum": reward_stack.sum(),
-            }
-
-            trajectory_batch, updated_state = self_._postprocess_rollout(
-                trajectory_batch, self_.state
-            )
-            updated_state = self_._update_agent_state(
-                rng, updated_state, trajectory_batch
-            )
-            self_ = replace(self_, state=updated_state)
-
-            runner_state = (self_, env_state, last_obs, rng)
-            return runner_state, metric
-
-        env = self.__check_env__(env, vectorized=True)
-        self = replace(self, **hyperparams)
-
-        if not self.is_initialized:
-            self = self.init_state(key, env)
-
-        obsv, env_state = env.reset(jax.random.split(key, self.num_envs))
-        runner_state = (self, env_state, obsv, key)
-        runner_state, _metrics = jax.lax.scan(
-            train_iteration, runner_state, jnp.arange(self.num_iterations)
+        act_var = _flatten_tree(
+            jax.tree.map(lambda a: _reduce_leading_axes(a, "var"), data["actions"])
         )
-        return runner_state[0]
+    else:
+        act_mean = _flatten_tree(data.get("action_mean", np.array([])))
+        act_var = _flatten_tree(data.get("action_var", np.array([])))
+
+    if data.get("rewards") is not None:
+        reward_leaves = jax.tree.leaves(data["rewards"])
+        reward_stack = np.stack([np.asarray(r).ravel() for r in reward_leaves])
+        reward_mean = float(reward_stack.mean())
+        reward_var = float(reward_stack.var())
+        reward_sum = float(reward_stack.sum())
+    else:
+        reward_mean = float(np.array(data.get("reward_mean", np.nan)))
+        reward_var = float(np.array(data.get("reward_var", np.nan)))
+        reward_sum = float(np.array(data.get("reward_sum", np.nan)))
+
+    return act_mean, act_var, reward_mean, reward_var, reward_sum
 
 
 def make_csv_log_fn(csv_path: str) -> Callable:
@@ -95,16 +63,9 @@ def make_csv_log_fn(csv_path: str) -> Callable:
     state = {"writer": None, "file": None, "initialized": False}
 
     def log_fn(data: dict, iteration: int):
-        def _flatten(tree):
-            leaves = jax.tree.leaves(tree)
-            return np.concatenate([np.array(l).ravel() for l in leaves])
-
-        act_mean = _flatten(data.get("action_mean", np.array([])))
-        act_var = _flatten(data.get("action_var", np.array([])))
-
-        reward_mean = float(np.array(data.get("reward_mean", np.nan)))
-        reward_var = float(np.array(data.get("reward_var", np.nan)))
-        reward_sum = float(np.array(data.get("reward_sum", np.nan)))
+        act_mean, act_var, reward_mean, reward_var, reward_sum = (
+            _rollout_action_reward_stats(data)
+        )
 
         iter_int = int(np.array(iteration))
         if "timestep" in data:
@@ -132,8 +93,12 @@ def make_csv_log_fn(csv_path: str) -> Callable:
             "reward_mean": round(reward_mean, 6),
             "reward_var": round(reward_var, 6) if not np.isnan(reward_var) else "",
             "reward_sum": round(reward_sum, 4),
-            "ep_return_mean": round(ep_return_mean, 4) if not np.isnan(ep_return_mean) else "",
-            "ep_return_std": round(ep_return_std, 4) if not np.isnan(ep_return_std) else "",
+            "ep_return_mean": round(ep_return_mean, 4)
+            if not np.isnan(ep_return_mean)
+            else "",
+            "ep_return_std": round(ep_return_std, 4)
+            if not np.isnan(ep_return_std)
+            else "",
         }
 
         cbam_lambda = data.get("cbam_lambda")
@@ -172,13 +137,23 @@ def make_csv_log_fn(csv_path: str) -> Callable:
                 for _r, _v in enumerate(_region_means):
                     row[f"{_col_prefix}_r{_r}"] = round(float(_v), 6)
 
-        row.update({
-            **{f"action_mean_{i}": round(float(v), 6) for i, v in enumerate(act_mean)},
-            **{f"action_var_{i}": round(float(v), 6) for i, v in enumerate(act_var)},
-        })
+        row.update(
+            {
+                **{
+                    f"action_mean_{i}": round(float(v), 6)
+                    for i, v in enumerate(act_mean)
+                },
+                **{
+                    f"action_var_{i}": round(float(v), 6) for i, v in enumerate(act_var)
+                },
+            }
+        )
 
         if not state["initialized"]:
-            os.makedirs(os.path.dirname(csv_path) if os.path.dirname(csv_path) else ".", exist_ok=True)
+            os.makedirs(
+                os.path.dirname(csv_path) if os.path.dirname(csv_path) else ".",
+                exist_ok=True,
+            )
             state["file"] = open(csv_path, "w", newline="")
             state["writer"] = csv.DictWriter(state["file"], fieldnames=list(row.keys()))
             state["writer"].writeheader()
@@ -191,24 +166,16 @@ def make_csv_log_fn(csv_path: str) -> Callable:
 
 
 def make_print_log_fn(
-    action_labels: Optional[list[str]] = None,
-    num_iterations: Optional[int] = None,
+    action_labels: list[str] | None = None,
+    num_iterations: int | None = None,
 ) -> Callable:
     """Return a log-function that prints a compact summary to stdout."""
     tqdm_bar: list = []
 
     def log_fn(data: dict, iteration: int):
-        def _flatten(tree):
-            leaves = jax.tree.leaves(tree)
-            if not leaves:
-                return np.array([])
-            return np.concatenate([np.array(l).ravel() for l in leaves])
-
         iter_int = int(np.array(iteration))
-        act_mean = _flatten(data.get("action_mean", []))
-        act_var = _flatten(data.get("action_var", []))
-        rew_mean = float(np.array(data.get("reward_mean", np.nan)))
-        rew_std = float(np.sqrt(np.array(data.get("reward_var", np.nan))))
+        act_mean, act_var, rew_mean, rew_var, _ = _rollout_action_reward_stats(data)
+        rew_std = float(np.sqrt(rew_var)) if not np.isnan(rew_var) else float("nan")
 
         ep_str = ""
         if "returned_episode_returns" in data and "returned_episode" in data:
@@ -243,7 +210,9 @@ def make_print_log_fn(
 
                 if not tqdm_bar:
                     tqdm_bar.append(
-                        _tqdm_mod.tqdm(total=num_iterations, desc="Training", unit=" iters")
+                        _tqdm_mod.tqdm(
+                            total=num_iterations, desc="Training", unit=" iters"
+                        )
                     )
                 tqdm_bar[0].set_postfix_str(line)
                 tqdm_bar[0].n = min(iter_int + 1, num_iterations)

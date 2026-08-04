@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from types import SimpleNamespace
-from typing import Any, Callable, Literal, Tuple
+from typing import Any, Literal
 
 import chex
 import equinox as eqx
@@ -10,7 +11,7 @@ import numpy as np
 import optax
 from jaxnasium import Discrete, MultiDiscrete
 
-from ..utils import empty_info_log_fn, i_to_agent_str, solve_for_alpha
+from ..utils import actions_rewards_info_log_fn, i_to_agent_str, solve_for_alpha
 
 
 class Rice(jym.Environment):
@@ -42,7 +43,9 @@ class Rice(jym.Environment):
     preference_for_domestic: float = 0.5
 
     baseline_rewards: chex.Array = None
-    log_info_fn: Callable[..., dict] = empty_info_log_fn
+    log_info_fn: Callable[..., dict] = (
+        actions_rewards_info_log_fn  # `empty_info_log_fn` for less memory usage
+    )
 
     # default discount factor, variable gamma can be returned from
     # "generate_terminated_truncated_discount" function
@@ -96,7 +99,7 @@ class Rice(jym.Environment):
 
         object.__setattr__(self, "baseline_rewards", jnp.array(rewards))
 
-    def reset_env(self, key: chex.PRNGKey) -> Tuple[dict, dict]:
+    def reset_env(self, key: chex.PRNGKey) -> tuple[dict, dict]:
         state = self._get_initial_state(key)
         obs_dict = self.generate_observation_and_action_mask(state)
         return obs_dict, state
@@ -202,7 +205,7 @@ class Rice(jym.Environment):
 
     def step_env(
         self, key: chex.PRNGKey, prev_state: dict, actions: dict
-    ) -> Tuple[jym.TimeStep, dict]:
+    ) -> tuple[jym.TimeStep, dict]:
         state = prev_state.copy()
 
         pre_processed_actions = actions  # For easier logging
@@ -224,7 +227,7 @@ class Rice(jym.Environment):
         obs_dict = self.generate_observation_and_action_mask(state)
         reward = self.generate_rewards(state, prev_state)  # proposal step rewards = 0
         terminated, truncated = self.generate_terminated_truncated(state)
-        info = self.generate_info(state, pre_processed_actions)
+        info = self.generate_info(state, pre_processed_actions, reward)
         # info["ENV_GAMMA"] = self.generate_discount(state)
 
         return (obs_dict, reward, terminated, truncated, info), state
@@ -448,7 +451,8 @@ class Rice(jym.Environment):
                 # apply windowing also to export_limit (if available)
                 if "export_limit" in mask[i_to_agent_str(agent_id)]:
                     prev_export_actions = jnp.round(
-                        state.get("export_limit_all_regions", 0) * DISCRETE_ACTION_LEVELS
+                        state.get("export_limit_all_regions", 0)
+                        * DISCRETE_ACTION_LEVELS
                     )
                     _export_mask = create_windowed_mask(prev_export_actions[agent_id])
                     mask[i_to_agent_str(agent_id)]["export_limit"] = (
@@ -469,7 +473,7 @@ class Rice(jym.Environment):
 
         return {i_to_agent_str(i): reward[i] for i in range(self.num_regions)}
 
-    def generate_terminated_truncated(self, state: dict) -> Tuple[bool, bool]:
+    def generate_terminated_truncated(self, state: dict) -> tuple[bool, bool]:
         """Generate a terminated and truncated flag"""
         terminated = False  # never terminate, only truncate (stop due to time limit)
         truncated = state["current_timestep"] >= self.episode_length
@@ -483,8 +487,8 @@ class Rice(jym.Environment):
     #     discount = discount**self.years_per_step
     #     return {i_to_agent_str(i): discount for i in range(self.num_regions)}
 
-    def generate_info(self, state, actions) -> dict:
-        return self.log_info_fn(state, actions)
+    def generate_info(self, state, actions, rewards) -> dict:
+        return self.log_info_fn(state, actions, rewards=rewards)
 
     def process_actions(self, actions: dict[str, Any], state: dict[str, chex.Array]):
         """ """
@@ -530,7 +534,7 @@ class Rice(jym.Environment):
         # (PyTorch increments before calculations, not after)
         state = state.copy()
         state["activity_timestep"] = state["activity_timestep"] + 1
-        
+
         damages = self.calc_damages(state)
         abatement_costs = self.calc_abatement_costs(state, actions)
         productions = self.calc_productions(state)
@@ -551,7 +555,7 @@ class Rice(jym.Environment):
         consumptions = self.calc_consumptions(
             gross_outputs, investments, gross_imports, net_imports
         )
-        utilities = self.calc_utilities(state, consumptions)  #
+        utilities = self.calc_utilities(state, consumptions)
         # social_welfare = self.calc_social_welfares(state, utilities) #
         labors = self.calc_labors(state)
         capitals = self.calc_capitals(state, investments)
@@ -798,7 +802,7 @@ class Rice(jym.Environment):
 
     def calc_trade_sanctions(
         self, state: dict, gross_imports: chex.Array, actions: dict
-    ) -> Tuple[chex.Array, chex.Array]:
+    ) -> tuple[chex.Array, chex.Array]:
         # NOTE: Original used: self.get_prev_state("import_tariffs_all_regions")
         # this delays the action one step? here, this is changed to current step (current action)
         net_imports = gross_imports * (1 - actions["import_tariff"])
@@ -815,14 +819,14 @@ class Rice(jym.Environment):
         welfare_gain_per_unit_exported=None,
     ) -> chex.Array:
         if not self.apply_welfloss:
-            return np.ones((self.num_regions))
+            return np.ones(self.num_regions)
 
         if welfare_loss_per_unit_tariff is None:
             welfare_loss_per_unit_tariff = 0.4  # From Nordhaus 2015
         if welfare_gain_per_unit_exported is None:
             welfare_gain_per_unit_exported = 0.4
 
-        welfloss = jnp.ones((self.num_regions)) - (
+        welfloss = jnp.ones(self.num_regions) - (
             (gross_imports.sum(axis=0) / gross_outputs)
             * state["import_tariffs"].sum(
                 axis=0
@@ -945,7 +949,7 @@ class Rice(jym.Environment):
 
     def calc_global_carbon_mass(
         self, state: dict, productions: chex.Array, mitigation_rates: chex.Array
-    ) -> Tuple[chex.Array, dict]:
+    ) -> tuple[chex.Array, dict]:
         prev_global_carbon_mass = state["global_carbon_mass"]
         carbon_updates = {}
 
@@ -1236,7 +1240,6 @@ class Rice(jym.Environment):
         actions = {
             "import_bid": MultiDiscrete([N_DISCRETIZATION] * N_REGIONS),
             "import_tariff": MultiDiscrete([N_DISCRETIZATION] * N_REGIONS),
-            #
             "savings_rate": Discrete(N_DISCRETIZATION),
             "mitigation_rate": Discrete(N_DISCRETIZATION),
             "export_limit": Discrete(N_DISCRETIZATION),

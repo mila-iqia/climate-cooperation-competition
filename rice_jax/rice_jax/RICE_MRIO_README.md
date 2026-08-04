@@ -450,16 +450,18 @@ seed set is not headline-comparable.
 
 ## 12. Training
 
-Use the monitored PPO subclasses in
-[`rice_jax/training/`](../rice_jax/training/):
+Use jaxnasium ``PPO`` with the log helpers in
+[`rice_jax/training/`](../rice_jax/training/), or ``RCPOMonitoredPPO`` when
+training under the CBAM cost constraint:
 
-- **`MonitoredPPO`** — logs `action_mean`, `action_var`, `reward_mean`,
-  `reward_var`, `reward_sum`, plus the `ep_return_*` keys from `LogWrapper`.
-- **`RCPOMonitoredPPO`** — adds the RCPO λ update (Tessler et al. 2019) for the
-  CBAM cost constraint. Additionally logs `cbam_lambda`, `mean_cbam_cost`.
-  Requires `reward_mode="additive_cbam"` and `log_info_fn=rcpo_cbam_log_info_fn`
-  on the env. Hyperparams: `rcpo_eta_lambda` (default `5e-7`), `rcpo_alpha_target`
-  (default `0.01`).
+- **`PPO`** (jaxnasium) — stock trainer; per-step ``actions`` / ``rewards`` come
+  from ``log_info_fn``, and ``make_csv_log_fn`` / ``make_print_log_fn`` average
+  them. Episode returns come from ``LogWrapper``.
+- **`RCPOMonitoredPPO`** — PPO subclass with the RCPO λ update (Tessler et al.
+  2019) for the CBAM cost constraint. Additionally logs `cbam_lambda`,
+  `mean_cbam_cost`. Requires `reward_mode="additive_cbam"` and
+  `log_info_fn=rcpo_cbam_log_info_fn` on the env. Hyperparams:
+  `rcpo_eta_lambda` (default `5e-7`), `rcpo_alpha_target` (default `0.01`).
 
 ```python
 import jax

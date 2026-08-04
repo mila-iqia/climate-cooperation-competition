@@ -17,7 +17,7 @@ rice_jax/
 ├── rice_jax/                  # Library (import only)
 │   ├── core/                  # Rice env + club scenarios (bid/limit trade)
 │   ├── mrio/                  # RiceMRIO + CBAM trade + club scenarios
-│   └── training/              # MonitoredPPO, RCPOMonitoredPPO, log helpers
+│   └── training/              # RCPOMonitoredPPO, log helpers
 │
 └── cbam/                      # CBAM paper experiments (scripts, not imported as package)
     ├── config/                # canonical_config.py, metrics.py, registry.py
