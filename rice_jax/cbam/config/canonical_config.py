@@ -38,11 +38,10 @@ from __future__ import annotations
 import os as _os
 from typing import Any
 
-import jaxnasium as jym
-
+from _experiment_util import wrap_rice_env
 from rice_jax import RiceMRIO
-from rice_jax.utils import load_region_yamls
 from rice_jax.training import rcpo_cbam_log_info_fn
+from rice_jax.utils import load_region_yamls
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 
@@ -258,8 +257,8 @@ def make_canonical_env(
     Parameters
     ----------
     for_training : bool
-        If True, wrap in jym.LogWrapper (the training wrapper).  If False,
-        return the raw env for evaluation rollouts.
+        If True, also wrap in ``LogWrapper``.  Eval envs still get
+        ``StackActionSpaceWrapper`` so action spaces match training.
     **overrides
         Either a sensitivity-eligible kwarg (see SENSITIVITY_PARAMS) or an
         experiment-level kwarg (see _EXPERIMENT_LEVEL_OVERRIDES).  Passing any
@@ -268,8 +267,8 @@ def make_canonical_env(
 
     Returns
     -------
-    RiceMRIO or LogWrapper
-        The configured environment.
+    Wrapped RiceMRIO
+        ``StackActionSpaceWrapper`` always; ``LogWrapper`` when training.
     """
     bad = set(overrides) - SENSITIVITY_PARAMS - _EXPERIMENT_LEVEL_OVERRIDES
     if bad:
@@ -289,7 +288,7 @@ def make_canonical_env(
         log_info_fn=rcpo_cbam_log_info_fn,
         **kwargs,
     )
-    return jym.LogWrapper(env) if for_training else env
+    return wrap_rice_env(env, for_training=for_training)
 
 
 def canonical_env_kwargs() -> dict[str, Any]:

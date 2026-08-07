@@ -47,7 +47,6 @@ from datetime import datetime
 from pathlib import Path
 
 import jax
-import jaxnasium as jym
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -59,6 +58,7 @@ from _experiment_util import (
     get_log_dir,
     get_output_dir,
     run_single_episode,
+    wrap_rice_env,
 )
 from rice_jax import MRIOClubCBAM, MRIOMultiClub, MRIOSectoralClub
 from rice_jax.training import (
@@ -212,7 +212,7 @@ def _build_env(label, for_training=True):
         **_BASE_ENV,
         **extra,
     )
-    return jym.LogWrapper(env) if for_training else env
+    return wrap_rice_env(env, for_training=for_training)
 
 
 def _make_log_fn(label, num_iters):

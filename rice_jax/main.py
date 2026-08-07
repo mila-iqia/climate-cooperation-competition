@@ -6,13 +6,17 @@ from types import SimpleNamespace
 from typing import Annotated, Literal
 
 import jax
-import jaxnasium as jym
 import numpy as np
 import tyro
 import yaml
 from jaxnasium.algorithms import PPO
 
-from _experiment_util import FixedActionAgent, load_agent, run_single_episode
+from _experiment_util import (
+    FixedActionAgent,
+    load_agent,
+    run_single_episode,
+    wrap_rice_env,
+)
 from rice_jax import (
     BasicClub,
     BasicClubTariffAmbition,
@@ -268,7 +272,7 @@ def build_rice_scenario(config: Config) -> Rice:
     else:
         raise ValueError(f"Scenario {config.scenario} not recognized")
 
-    return jym.LogWrapper(env)
+    return wrap_rice_env(env, for_training=True)
 
 
 if __name__ == "__main__":

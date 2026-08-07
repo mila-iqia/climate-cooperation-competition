@@ -45,7 +45,7 @@ class FixedActionAgent:
         return self.default_actions
 
 
-def save_agent(agent: RLAlgorithm | FixedActionAgent, config: "Config") -> None:
+def save_agent(agent: RLAgent | FixedActionAgent, config: "Config") -> None:
     SAVE_MODEL_PATH = "saved_models/"
     if not os.path.exists(SAVE_MODEL_PATH):
         os.makedirs(SAVE_MODEL_PATH)
@@ -60,7 +60,7 @@ def save_agent(agent: RLAlgorithm | FixedActionAgent, config: "Config") -> None:
     # agent.save(f"{SAVE_MODEL_PATH}{model_name}.eqx")
 
 
-def load_agent(path: str) -> RLAlgorithm | FixedActionAgent:
+def load_agent(path: str) -> RLAgent | FixedActionAgent:
     logger.info(f"loading model from {path}")
     with open(path, "rb") as f:
         return cloudpickle.load(f)
@@ -102,6 +102,22 @@ def run_single_episode(
         length=env.episode_length,
     )
     return info_stack
+
+
+def wrap_rice_env(env, *, for_training: bool = True):
+    """Apply standard experiment wrappers around a Rice / RiceMRIO env.
+
+    Always stacks homogeneous discrete actions into ``MultiDiscrete`` (faster multi-agent PPO).
+    Optionally adds ``LogWrapper`` for training metrics.
+    Eval envs must use the same stack wrapper so the trained policy's action
+    space still matches.
+    """
+    import jaxnasium as jym
+
+    env = jym.StackActionSpaceWrapper(env)
+    if for_training:
+        env = jym.LogWrapper(env)
+    return env
 
 
 # ── Experiment directory helpers ─────────────────────────────────────────────
@@ -151,4 +167,3 @@ def save_run_config(config: dict) -> None:
     os.makedirs(base, exist_ok=True)
     with open(os.path.join(base, "config.json"), "w") as fh:
         json.dump(config, fh, indent=2, default=str)
-
