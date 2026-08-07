@@ -815,10 +815,9 @@ def _has_agents(data):
 
 
 def _get_agents(data):
-    """Extract {label: state_dict} from a data dict.
+    """Extract {label: agent} from a data dict.
 
-    Values are multi-agent state dicts: {"region-00": PPOState, ...}.
-    (Saved as agent.state from PPO, not the full PPO object.)
+    Values are trained ``PPOAgent`` instances (jaxnasium agent/trainer split).
     """
     return {k.lstrip("_"): v for k, v in data.items() if k.startswith("_agent")}
 
@@ -901,7 +900,7 @@ def _collect_obs_from_agent(agent, env_builder_fn):
 
         act_key, step_key = jax.random.split(key)
         key = step_key
-        actions = agent.get_action(act_key, agent.state, obs_dict, deterministic=True)
+        actions = agent.get_action(act_key, obs_dict, deterministic=True)
         (obs_dict, *_), env_state = eval_env.step(step_key, env_state, actions)
 
     return np.stack(obs_list, axis=0) if obs_list else np.zeros((1, OBS_DIM))

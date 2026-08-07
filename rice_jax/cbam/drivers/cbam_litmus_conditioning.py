@@ -380,7 +380,7 @@ def run_c1(key):
         sector_names=list(raw_on.sector_names),
         sector_granularity=ENV_OVERRIDES.get("sector_granularity", "emissions-simple"),
         csv_path=csv_path,
-        _agent=agent.agent,
+        _agent=agent,
     )
 
 
@@ -507,7 +507,7 @@ def run_c2(key):
         pr_mu_a_on=_per_region_mu(ev_a_on["mitigation"]),
         pr_mu_a_off=_per_region_mu(ev_a_off["mitigation"]),
         csv_a=csv_a,
-        _agent_a=agent_a.agent,
+        _agent_a=agent_a,
         # C2b
         mu_b_on=mu_b_on,
         mu_b_off=mu_b_off,
@@ -516,7 +516,7 @@ def run_c2(key):
         pr_mu_b_on=_per_region_mu(ev_b_on["mitigation"]),
         pr_mu_b_off=_per_region_mu(ev_b_off["mitigation"]),
         csv_b=csv_b,
-        _agent_b=agent_b.agent,
+        _agent_b=agent_b,
         # Overall
         overall_grade=overall_grade,
     )
@@ -593,7 +593,7 @@ def run_c3(key, c2b_mu_on):
         pr_mu_on=_per_region_mu(ev_on["mitigation"]),
         pr_share_on=pr_share_on,
         csv_path=csv_path,
-        _agent=agent.agent,
+        _agent=agent,
     )
 
 

@@ -478,7 +478,7 @@ ppo = RCPOMonitoredPPO(
     log_fn=make_combined_log_fn([make_print_log_fn(),
                                  make_csv_log_fn("training_logs/run.csv")]),
 )
-ppo = ppo.train(jax.random.PRNGKey(0), env)   # CRITICAL: reassign — train() returns a NEW object
+agent = ppo.train(jax.random.PRNGKey(0), env)   # returns PPOAgent (not the trainer)
 ```
 
 > `train()` returns a new PPO object. **Do not discard the return value** —
@@ -625,7 +625,7 @@ def train_and_eval(cfg, seed):                     # 3. one cell = (condition, s
     env = make_canonical_env(**cfg)                #    vary ONLY whitelisted knobs
     ppo = RCPOMonitoredPPO(**CANONICAL_TRAIN_KWARGS,
                            log_fn=make_csv_log_fn(f"{LOG_DIR}/..._{seed}.csv"))
-    ppo = ppo.train(key, env)                      #    reassign the return value!
+    agent = ppo.train(key, env)                    #    returns PPOAgent
     raw = make_canonical_env(**cfg, for_training=False)
     info = run_single_episode(eval_key, raw, ppo)  #    trained ppo is the agent
     return {...per-region arrays for ALL regions...}
@@ -793,7 +793,7 @@ Aggregated with `csv_asset/aggregate_local_mrio.py`. See
    7-region→5, 9-region→3. ([§6](#6-region-indexing-the-1-footgun))
 2. **`dest_alloc_baseline_decay` must be `0.0` in headline runs.** Non-zero makes
    the 2016 anchor decay to nothing by mid-episode and fakes diversion.
-3. **`ppo = ppo.train(...)`** — `train()` returns a new object; reassign it.
+3. **`agent = ppo.train(...)`** — `train()` returns a ``PPOAgent``; keep that for eval.
 4. **`fixed_savings_rate=False` for headline runs** — fixing savings kills the C2
    conditioning result regardless of transition cost.
 5. **`replace`, never mutate.** `RiceMRIO` is a frozen pytree; use

@@ -320,8 +320,8 @@ def run_m1(key):
         util_diff=ev_diff["utility"].mean(0),
         csv_ctrl=csv_ctrl,
         csv_diff=csv_diff,
-        _agent_ctrl=agent_ctrl.agent,
-        _agent_diff=agent_diff.agent,
+        _agent_ctrl=agent_ctrl,
+        _agent_diff=agent_diff,
     )
 
 
@@ -375,7 +375,7 @@ def run_m2(key):
         pr_mu=pr_mu,
         util_traj=ev["utility"].mean(0),
         csv_path=csv_path,
-        _agent=agent.agent,
+        _agent=agent,
     )
 
 
@@ -443,7 +443,7 @@ def run_m3(key, m2_mu=None):
         pr_mu=pr_mu,
         util_traj=ev["utility"].mean(0),
         csv_path=csv_path,
-        _agent=agent.agent,
+        _agent=agent,
     )
 
 
@@ -495,7 +495,7 @@ def run_m4(key, m3_mu):
         pr_share=pr_share,
         util_traj=ev["utility"].mean(0),
         csv_path=csv_path,
-        _agent=agent.agent,
+        _agent=agent,
     )
 
 

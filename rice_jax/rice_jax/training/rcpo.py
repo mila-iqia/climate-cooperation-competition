@@ -27,6 +27,7 @@ class RCPOMonitoredPPO(LoggingPPO):
 
     Only ``_collect_rollout`` is overridden here (λ update + cost metrics).
     Metric summarization for log callbacks comes from :class:`LoggingPPO`.
+    ``train()`` returns a ``PPOAgent`` (jaxnasium agent/trainer split).
 
     Requirements on the environment:
     1. ``reward_mode="additive_cbam"`` on ``RiceMRIO``
@@ -38,9 +39,9 @@ class RCPOMonitoredPPO(LoggingPPO):
     rcpo_eta_lambda: float = eqx.field(static=True, default=5e-7)
     rcpo_alpha_target: float = eqx.field(static=True, default=0.01)
 
-    def _collect_rollout(self, rollout_state, env: Environment, length=None):
+    def _collect_rollout(self, agent, rollout_state, env: Environment, length=None):
         (env_state, last_obs, rng), trajectory_batch = super()._collect_rollout(
-            rollout_state, env, length=length
+            agent, rollout_state, env, length=length
         )
 
         cbam_costs = trajectory_batch.info["cbam_cost_all_regions"]

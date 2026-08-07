@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 import cloudpickle
 import jax
 import optax
-from jaxnasium.algorithms import RLAlgorithm
+from jaxnasium.algorithms import RLAgent
 from jaxtyping import Array, PRNGKeyArray
 
 from rice_jax import Rice
@@ -27,7 +27,7 @@ class FixedActionAgent:
 
     def __init__(self, env: Rice):
         self.env = env
-        self.state = 0  # Unused, but makes it compatible with RLAlgorithms
+        self.state = 0  # Unused; kept for the FixedActionAgent get_action branch
 
         random_action = env.sample_action(jax.random.PRNGKey(0))
         random_action_one_agent = random_action[i_to_agent_str(0)]
@@ -67,7 +67,7 @@ def load_agent(path: str) -> RLAlgorithm | FixedActionAgent:
 
 
 def run_single_episode(
-    key: PRNGKeyArray, env: Rice, agent: RLAlgorithm | FixedActionAgent
+    key: PRNGKeyArray, env: Rice, agent: RLAgent | FixedActionAgent
 ) -> Array:
     """Play an episode in the environment using the agent.
     Returns the info dicts per step as a stacked dictionary.

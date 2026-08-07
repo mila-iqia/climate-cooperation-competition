@@ -51,11 +51,13 @@ class LoggingPPO(PPO):
     Only ``train_iteration`` is overridden: call the parent implementation,
     then :func:`summarize_info_for_logging` on the returned metric so host
     callbacks never receive full per-step ``actions`` / ``rewards``.
+
+    Note: ``train()`` returns a :class:`~jaxnasium.algorithms.ppo.PPOAgent`
+    (jaxnasium ≥ overhaul), not a new trainer instance.
     """
 
-    @staticmethod
-    def train_iteration(runner_state, train_iter, *, env):
-        runner_state, metric = PPO.train_iteration(
+    def train_iteration(self, runner_state, train_iter, *, env):
+        runner_state, metric = super().train_iteration(
             runner_state, train_iter, env=env
         )
         return runner_state, summarize_info_for_logging(metric)
