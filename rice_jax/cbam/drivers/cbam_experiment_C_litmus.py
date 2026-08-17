@@ -63,7 +63,7 @@ _DEFAULT_TIMESTEPS = canonical_train_kwargs()["total_timesteps"]
 ALL_MECHANISM_TESTS = ("m1", "m2", "m3", "m4")
 ALL_CONDITIONING_TESTS = ("c1", "c2", "c3")
 ALL_TESTS = ALL_MECHANISM_TESTS + ALL_CONDITIONING_TESTS
-DEFAULT_TESTS = ALL_CONDITIONING_TESTS  # M tests available via --tests m1,m2,m3,m4 but not run by default
+DEFAULT_TESTS = ALL_TESTS
 
 
 # ── Runner ──────────────────────────────────────────────────────────────────
