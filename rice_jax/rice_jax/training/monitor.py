@@ -45,6 +45,24 @@ def summarize_info_for_logging(info: dict | None) -> dict:
     return out
 
 
+def episode_return_curve(metrics) -> np.ndarray:
+    """Host 1-D mean-episode-return curve from jaxnasium ``train()`` metrics.
+
+    With the default ``reduce_metrics_fn="mean"``, ``train`` returns per-iteration
+    mean episode returns (a scalar array, or a per-agent pytree of them).  Multi-
+    agent dicts are averaged across agents into a single learning curve.
+    """
+    host = jax.tree.map(lambda x: np.asarray(jax.device_get(x)), metrics)
+    if isinstance(host, dict):
+        leaves = [v for v in host.values() if isinstance(v, np.ndarray) and v.size]
+        if not leaves:
+            return np.array([], dtype=float)
+        return np.stack([np.asarray(v, dtype=float).ravel() for v in leaves], axis=0).mean(
+            axis=0
+        )
+    return np.asarray(host, dtype=float).ravel()
+
+
 class LoggingPPO(PPO):
     """Stock PPO that summarizes trajectory info before log callbacks.
 
@@ -52,8 +70,9 @@ class LoggingPPO(PPO):
     then :func:`summarize_info_for_logging` on the returned metric so host
     callbacks never receive full per-step ``actions`` / ``rewards``.
 
-    Note: ``train()`` returns a :class:`~jaxnasium.algorithms.ppo.PPOAgent`
-    (jaxnasium ≥ overhaul), not a new trainer instance.
+    Note: ``train()`` returns ``(agent, metrics)`` — a
+    :class:`~jaxnasium.algorithms.ppo.PPOAgent` plus the reduced per-iteration
+    training metrics (default: mean episode returns).
     """
 
     def train_iteration(self, runner_state, train_iter, *, env):

@@ -1,7 +1,7 @@
 import importlib.resources
 import logging
 import os
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Annotated, Literal
 
@@ -15,6 +15,7 @@ from _experiment_util import (
     FixedActionAgent,
     load_agent,
     run_single_episode,
+    with_log_info_fn,
     wrap_rice_env,
 )
 from rice_jax import (
@@ -292,7 +293,7 @@ if __name__ == "__main__":
     elif args.agent == "ppo":
         logger.info("Using PPO agent...")
         agent = PPO(**trainer_settings_to_ppo_kwargs(args.trainer_settings))
-        agent = agent.train(seed, env)
+        agent, _metrics = agent.train(seed, env)
 
         logger.info("Evaluating agent (only rewards)... ")
         avg_reward = agent.evaluate(seed, env, num_eval_episodes=10)
@@ -300,7 +301,7 @@ if __name__ == "__main__":
 
     NUM_EPISODES = 3
     OUTPUT_DIR = "episode_logs"
-    env = replace(env._env, log_info_fn=full_state_info_log_fn)
+    env = with_log_info_fn(env, full_state_info_log_fn)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     logger.info(
         f"Running {NUM_EPISODES} episodes to collect state logs per step. Logging to {OUTPUT_DIR}"

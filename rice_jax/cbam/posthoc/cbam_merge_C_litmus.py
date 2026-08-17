@@ -333,6 +333,132 @@ def plot_merged(all_results: dict, summary: dict, tests: list, out_path: str) ->
     return out_path
 
 
+# Friendly labels for training-run series stored under data["train_metrics"].
+_CURVE_LABELS = {
+    "c1_export_cond": "C1 export conditioning",
+    "c2a_costless": "C2a costless μ",
+    "c2b_costly": "C2b costly μ",
+    "c3_both": "C3 both channels",
+    "m1_ctrl": "M1 control (τ=0)",
+    "m1_diff": "M1 differential CBAM",
+    "m2_costless_mu": "M2 costless μ",
+    "m3_costly_mu": "M3 costly μ",
+    "m4_both": "M4 both open",
+}
+
+_CURVE_COLORS = [
+    "#1f4e79",
+    "#c1441e",
+    "#1a7f5a",
+    "#7a5c00",
+    "#5b3d8a",
+    "#0b6e6e",
+]
+
+
+def collect_train_curves(all_results: dict, tests: list) -> dict[str, dict[str, list]]:
+    """Gather per-seed episode-return curves keyed by test → run label.
+
+    Expects each test's ``data["train_metrics"]`` to be ``{label: 1d array}``,
+    as written by the litmus drivers after jaxnasium ``train()``.
+    """
+    out: dict[str, dict[str, list]] = {}
+    for test_id in tests:
+        by_label: dict[str, list] = {}
+        for seed in sorted(all_results.keys()):
+            entry = all_results[seed].get(test_id)
+            if not entry:
+                continue
+            metrics = (entry.get("data") or {}).get("train_metrics") or {}
+            if not isinstance(metrics, dict):
+                continue
+            for label, curve in metrics.items():
+                arr = np.asarray(curve, dtype=float).ravel()
+                if arr.size == 0 or not np.isfinite(arr).any():
+                    continue
+                by_label.setdefault(label, []).append(arr)
+        if by_label:
+            out[test_id] = by_label
+    return out
+
+
+def plot_learning_curves(
+    all_results: dict,
+    tests: list,
+    out_path: str,
+    *,
+    steps_per_iter: int | None = None,
+) -> str | None:
+    """Mean ± std learning curves across seeds, one panel per litmus test.
+
+    Uses the same ``train_metrics`` that came from the litmus trainings — no
+    extra training runs.  Returns ``None`` if no curves are present (e.g. older
+    pkls from before metrics were saved).
+    """
+    curves = collect_train_curves(all_results, tests)
+    if not curves:
+        return None
+
+    n_panels = len(curves)
+    ncols = min(3, n_panels)
+    nrows = int(np.ceil(n_panels / ncols))
+    fig, axes = plt.subplots(
+        nrows,
+        ncols,
+        figsize=(5.2 * ncols, 3.6 * nrows),
+        squeeze=False,
+        sharey=False,
+    )
+    fig.suptitle(
+        "Experiment C — Learning curves (same litmus trainings)\n"
+        f"mean ± std episode return across {len(all_results)} seeds",
+        fontsize=12,
+        fontweight="bold",
+        color=INK,
+        y=1.02,
+    )
+
+    for ax, (test_id, by_label) in zip(axes.ravel(), curves.items()):
+        for i, (label, seed_curves) in enumerate(sorted(by_label.items())):
+            # Align to shortest curve if any seed truncated early.
+            n = min(len(c) for c in seed_curves)
+            stack = np.stack([c[:n] for c in seed_curves], axis=0)
+            mean = np.nanmean(stack, axis=0)
+            std = np.nanstd(stack, axis=0)
+            x = (
+                np.arange(n) * steps_per_iter
+                if steps_per_iter
+                else np.arange(n)
+            )
+            color = _CURVE_COLORS[i % len(_CURVE_COLORS)]
+            ax.plot(
+                x,
+                mean,
+                color=color,
+                lw=1.8,
+                label=_CURVE_LABELS.get(label, label),
+            )
+            ax.fill_between(
+                x, mean - std, mean + std, color=color, alpha=0.18, linewidth=0
+            )
+
+        ax.set_title(TEST_INFO.get(test_id, {}).get("name", test_id.upper()), fontsize=10)
+        ax.set_xlabel("env steps" if steps_per_iter else "train iteration", fontsize=9)
+        ax.set_ylabel("mean episode return", fontsize=9)
+        ax.legend(fontsize=8, frameon=False, loc="best")
+        _recede(ax, axis="both")
+        ax.spines["left"].set_visible(True)
+        ax.spines["left"].set_color(GRID_C)
+
+    for ax in axes.ravel()[n_panels:]:
+        ax.set_visible(False)
+
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return out_path
+
+
 def _hbox(ax, vals: np.ndarray, y: float, height: float = 0.5) -> None:
     """Horizontal quartile box with 1.5·IQR whiskers.
 
@@ -501,6 +627,35 @@ def main() -> None:
         all_results, summary, tests, os.path.join(out_dir, f"cbam_C_litmus_{tag}.png")
     )
     print(f"  Merged plot → {png_path}")
+
+    steps_per_iter = None
+    if timesteps:
+        # Canonical litmus uses CANONICAL_TRAIN_KWARGS num_envs×num_steps per iter;
+        # recover from timesteps / curve length when available.
+        sample_curves = collect_train_curves(all_results, tests)
+        for by_label in sample_curves.values():
+            for seed_curves in by_label.values():
+                if seed_curves:
+                    n_iter = min(len(c) for c in seed_curves)
+                    if n_iter > 0:
+                        steps_per_iter = max(1, int(round(timesteps / n_iter)))
+                    break
+            if steps_per_iter:
+                break
+
+    curves_path = plot_learning_curves(
+        all_results,
+        tests,
+        os.path.join(out_dir, f"cbam_C_litmus_{tag}_learning_curves.png"),
+        steps_per_iter=steps_per_iter,
+    )
+    if curves_path:
+        print(f"  Learning curves → {curves_path}")
+    else:
+        print(
+            "  Learning curves → skipped (no train_metrics in merged pkls; "
+            "re-run seeds after the jaxnasium metrics update)"
+        )
 
     # ── Text summary ────────────────────────────────────────────────────────
     print(f"\n{'=' * 66}")

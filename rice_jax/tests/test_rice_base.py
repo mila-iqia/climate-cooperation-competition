@@ -116,9 +116,10 @@ class TestBaseRiceSmoke:
         obs, state = wrapped_env.reset(key)
 
         ppo = PPO(**_PPO_KWARGS)
-        agent = ppo.train(key, wrapped_env)
+        agent, metrics = ppo.train(key, wrapped_env)
 
         assert hasattr(agent, "get_action")
+        assert metrics is not None
 
         act_key, step_key = jax.random.split(key)
         actions = agent.get_action(act_key, obs)

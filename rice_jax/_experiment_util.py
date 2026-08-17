@@ -120,6 +120,30 @@ def wrap_rice_env(env, *, for_training: bool = True):
     return env
 
 
+def with_log_info_fn(env, log_info_fn):
+    """Set ``log_info_fn`` on the base Rice env, preserving outer wrappers.
+
+    ``dataclasses.replace(env, log_info_fn=...)`` only works on the base
+    ``RiceMRIO``.  Canonical eval envs are wrapped in
+    ``StackActionSpaceWrapper`` (and training envs also in ``LogWrapper``),
+    so a top-level replace raises
+    ``unexpected keyword argument 'log_info_fn'``.
+    """
+    import equinox as eqx
+    from dataclasses import replace as dc_replace
+
+    names = getattr(env, "__dataclass_fields__", {})
+    if "log_info_fn" in names:
+        return dc_replace(env, log_info_fn=log_info_fn)
+    if "_env" in names:
+        return eqx.tree_at(
+            lambda e: e._env, env, with_log_info_fn(env._env, log_info_fn)
+        )
+    raise TypeError(
+        f"with_log_info_fn: no log_info_fn field under {type(env).__name__}"
+    )
+
+
 # ── Experiment directory helpers ─────────────────────────────────────────────
 #
 # Validation scripts call get_output_dir() / get_log_dir() instead of hard-

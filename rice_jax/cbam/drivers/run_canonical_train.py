@@ -63,7 +63,7 @@ def main() -> None:
     ppo = RCPOMonitoredPPO(**train_kw, log_function=log_fn)
 
     key = jax.random.PRNGKey(args.seed)
-    ppo = ppo.train(key, env)
+    _agent, _metrics = ppo.train(key, env)
     print(f"Done. Log: {csv_path}")
 
 

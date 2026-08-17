@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "jaxnasium[algs]>=0.1.0",
+    "jax[cuda13]",
     "matplotlib>=3.7.4",
     "optimistix>=0.1.0",
     "pyyaml>=6.0.2",

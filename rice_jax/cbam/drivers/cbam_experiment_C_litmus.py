@@ -355,7 +355,8 @@ def main():
     all_results = run_all_seeds(seeds, tests, timesteps)
     elapsed = time.perf_counter() - t0
 
-    # Strip agents from results to keep pkl small
+    # Strip agents / csv paths from results to keep pkl small; keep train_metrics
+    # (1-D episode-return curves from jaxnasium train()) for learning-curve plots.
     for seed_results in all_results.values():
         for test_id, res in seed_results.items():
             d = res.get("data", {})

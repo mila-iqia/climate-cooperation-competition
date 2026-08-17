@@ -38,7 +38,6 @@ import os as _os
 import pickle
 import sys
 import time
-from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
@@ -67,6 +66,7 @@ from cbam.config.canonical_config import (
 )
 from rice_jax.training import (
     LoggingPPO,
+    episode_return_curve,
     make_combined_log_fn,
     make_csv_log_fn,
     make_print_log_fn,
@@ -181,18 +181,18 @@ def _train(label, env, key, num_iters, total_timesteps=None):
     print(f"  Training: {label}")
     print(f"{'━' * 55}")
     t0 = time.perf_counter()
-    ppo = ppo.train(key, env)
+    agent, metrics = ppo.train(key, env)
     print(f"  Done in {time.perf_counter() - t0:.0f}s")
-    return ppo, csv_path
+    return agent, episode_return_curve(metrics), csv_path
 
 
 # ── Eval helpers ────────────────────────────────────────────────────────────
 
 
 def _eval_episode(key, raw_env, agent):
-    from _experiment_util import run_single_episode
+    from _experiment_util import run_single_episode, with_log_info_fn
 
-    eval_env = replace(raw_env, log_info_fn=full_state_info_log_fn)
+    eval_env = with_log_info_fn(raw_env, full_state_info_log_fn)
 
     def _to_arr(d):
         return np.stack([np.array(d[i]) for i in range(NUM_REGIONS)], axis=-1)
@@ -273,13 +273,13 @@ def run_m1(key):
 
     # ctrl: no CBAM
     env_ctrl = _build_env("flat", False, True, FIXED_SAVINGS, cbam_tariff_rate=0.0)
-    agent_ctrl, csv_ctrl = _train("m1_ctrl", env_ctrl, key_ctrl, num_iters)
+    agent_ctrl, metrics_ctrl, csv_ctrl = _train("m1_ctrl", env_ctrl, key_ctrl, num_iters)
 
     # treat: differential CBAM
     env_diff = _build_env(
         "differential", False, True, FIXED_SAVINGS, cbam_lambda_init=CBAM_LAMBDA_INIT
     )
-    agent_diff, csv_diff = _train("m1_diff", env_diff, key_diff, num_iters)
+    agent_diff, metrics_diff, csv_diff = _train("m1_diff", env_diff, key_diff, num_iters)
 
     eval_key = jax.random.fold_in(key, 10)
     raw_ctrl = _build_env(
@@ -320,6 +320,7 @@ def run_m1(key):
         util_diff=ev_diff["utility"].mean(0),
         csv_ctrl=csv_ctrl,
         csv_diff=csv_diff,
+        train_metrics={"m1_ctrl": metrics_ctrl, "m1_diff": metrics_diff},
         _agent_ctrl=agent_ctrl,
         _agent_diff=agent_diff,
     )
@@ -349,7 +350,7 @@ def run_m2(key):
         delta_max=0.0,
         cbam_lambda_init=CBAM_LAMBDA_INIT,
     )
-    agent, csv_path = _train("m2_costless_mu", env, key, num_iters)
+    agent, train_metrics, csv_path = _train("m2_costless_mu", env, key, num_iters)
 
     eval_key = jax.random.fold_in(key, 20)
     raw_env = _build_env(
@@ -375,6 +376,7 @@ def run_m2(key):
         pr_mu=pr_mu,
         util_traj=ev["utility"].mean(0),
         csv_path=csv_path,
+        train_metrics={"m2_costless_mu": train_metrics},
         _agent=agent,
     )
 
@@ -408,7 +410,7 @@ def run_m3(key, m2_mu=None):
         delta_max=0.0,
         cbam_lambda_init=CBAM_LAMBDA_INIT,
     )
-    agent, csv_path = _train("m3_costly_mu", env, key, num_iters)
+    agent, train_metrics, csv_path = _train("m3_costly_mu", env, key, num_iters)
 
     eval_key = jax.random.fold_in(key, 30)
     raw_env = _build_env(
@@ -443,6 +445,7 @@ def run_m3(key, m2_mu=None):
         pr_mu=pr_mu,
         util_traj=ev["utility"].mean(0),
         csv_path=csv_path,
+        train_metrics={"m3_costly_mu": train_metrics},
         _agent=agent,
     )
 
@@ -466,7 +469,7 @@ def run_m4(key, m3_mu):
     env = _build_env(
         "differential", False, False, FIXED_SAVINGS, cbam_lambda_init=CBAM_LAMBDA_INIT
     )
-    agent, csv_path = _train("m4_both", env, key, num_iters)
+    agent, train_metrics, csv_path = _train("m4_both", env, key, num_iters)
 
     eval_key = jax.random.fold_in(key, 40)
     raw_env = _build_env(
@@ -495,6 +498,7 @@ def run_m4(key, m3_mu):
         pr_share=pr_share,
         util_traj=ev["utility"].mean(0),
         csv_path=csv_path,
+        train_metrics={"m4_both": train_metrics},
         _agent=agent,
     )
 
@@ -513,7 +517,7 @@ def run_n1(key):
     """
     import optax
 
-    from _experiment_util import FixedActionAgent, run_single_episode
+    from _experiment_util import FixedActionAgent, run_single_episode, with_log_info_fn
 
     print("\n" + "=" * 55)
     print("  N1  Mechanical Tariff-Relief Null (no RL)")
@@ -530,7 +534,7 @@ def run_n1(key):
         for_training=False,
     )
 
-    eval_env = replace(raw_env, log_info_fn=full_state_info_log_fn)
+    eval_env = with_log_info_fn(raw_env, full_state_info_log_fn)
 
     # Build two FixedActionAgents with different mitigation levels
     from rice_jax.utils import i_to_agent_str

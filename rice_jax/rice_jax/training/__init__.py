@@ -2,6 +2,7 @@
 
 from .monitor import (
     LoggingPPO,
+    episode_return_curve,
     make_combined_log_fn,
     make_csv_log_fn,
     make_print_log_fn,
@@ -12,6 +13,7 @@ from .rcpo import RCPOMonitoredPPO, rcpo_cbam_log_info_fn
 __all__ = [
     "LoggingPPO",
     "RCPOMonitoredPPO",
+    "episode_return_curve",
     "make_combined_log_fn",
     "make_csv_log_fn",
     "make_print_log_fn",

@@ -27,7 +27,7 @@ class RCPOMonitoredPPO(LoggingPPO):
 
     Only ``_collect_rollout`` is overridden here (λ update + cost metrics).
     Metric summarization for log callbacks comes from :class:`LoggingPPO`.
-    ``train()`` returns a ``PPOAgent`` (jaxnasium agent/trainer split).
+    ``train()`` returns ``(agent, metrics)`` (jaxnasium agent/trainer split).
 
     Requirements on the environment:
     1. ``reward_mode="additive_cbam"`` on ``RiceMRIO``

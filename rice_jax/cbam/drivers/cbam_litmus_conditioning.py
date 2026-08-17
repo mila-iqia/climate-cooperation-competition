@@ -33,7 +33,6 @@ import os as _os
 import pickle
 import sys
 import time
-from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
@@ -62,6 +61,7 @@ from cbam.config.canonical_config import (
 )
 from rice_jax.training import (
     LoggingPPO,
+    episode_return_curve,
     make_combined_log_fn,
     make_csv_log_fn,
     make_print_log_fn,
@@ -210,18 +210,18 @@ def _train(label, env, key, num_iters, total_timesteps=None):
     print(f"  Training: {label}")
     print(f"{'━' * 55}")
     t0 = time.perf_counter()
-    ppo = ppo.train(key, env)
+    agent, metrics = ppo.train(key, env)
     print(f"  Done in {time.perf_counter() - t0:.0f}s")
-    return ppo, csv_path
+    return agent, episode_return_curve(metrics), csv_path
 
 
 # ── Eval helpers ────────────────────────────────────────────────────────────
 
 
 def _eval_episode(key, raw_env, agent):
-    from _experiment_util import run_single_episode
+    from _experiment_util import run_single_episode, with_log_info_fn
 
-    eval_env = replace(raw_env, log_info_fn=full_state_info_log_fn)
+    eval_env = with_log_info_fn(raw_env, full_state_info_log_fn)
 
     def _to_arr(d):
         return np.stack([np.array(d[i]) for i in range(NUM_REGIONS)], axis=-1)
@@ -329,7 +329,7 @@ def run_c1(key):
         cbam_lambda_init=CBAM_LAMBDA_INIT,
         randomize=True,
     )
-    agent, csv_path = _train("c1_export_cond", env, key, num_iters)
+    agent, train_metrics, csv_path = _train("c1_export_cond", env, key, num_iters)
 
     eval_key = jax.random.fold_in(key, 10)
     raw_on = _build_eval_env(
@@ -380,6 +380,7 @@ def run_c1(key):
         sector_names=list(raw_on.sector_names),
         sector_granularity=ENV_OVERRIDES.get("sector_granularity", "emissions-simple"),
         csv_path=csv_path,
+        train_metrics={"c1_export_cond": train_metrics},
         _agent=agent,
     )
 
@@ -413,7 +414,7 @@ def run_c2(key):
         cbam_lambda_init=CBAM_LAMBDA_INIT,
         randomize=True,
     )
-    agent_a, csv_a = _train("c2a_costless", env_a, key_a, num_iters)
+    agent_a, metrics_a, csv_a = _train("c2a_costless", env_a, key_a, num_iters)
 
     eval_key = jax.random.fold_in(key, 20)
     raw_a_on = _build_eval_env(
@@ -458,7 +459,7 @@ def run_c2(key):
         cbam_lambda_init=CBAM_LAMBDA_INIT,
         randomize=True,
     )
-    agent_b, csv_b = _train("c2b_costly", env_b, key_b, num_iters)
+    agent_b, metrics_b, csv_b = _train("c2b_costly", env_b, key_b, num_iters)
 
     raw_b_on = _build_eval_env(
         "differential",
@@ -519,6 +520,7 @@ def run_c2(key):
         _agent_b=agent_b,
         # Overall
         overall_grade=overall_grade,
+        train_metrics={"c2a_costless": metrics_a, "c2b_costly": metrics_b},
     )
 
 
@@ -549,7 +551,7 @@ def run_c3(key, c2b_mu_on):
         cbam_lambda_init=CBAM_LAMBDA_INIT,
         randomize=True,
     )
-    agent, csv_path = _train("c3_both", env, key, num_iters)
+    agent, train_metrics, csv_path = _train("c3_both", env, key, num_iters)
 
     eval_key = jax.random.fold_in(key, 30)
     raw_on = _build_eval_env(
@@ -593,6 +595,7 @@ def run_c3(key, c2b_mu_on):
         pr_mu_on=_per_region_mu(ev_on["mitigation"]),
         pr_share_on=pr_share_on,
         csv_path=csv_path,
+        train_metrics={"c3_both": train_metrics},
         _agent=agent,
     )
 

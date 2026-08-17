@@ -42,7 +42,6 @@ import os as _os
 import pickle
 import sys
 import time
-from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
@@ -58,6 +57,7 @@ from _experiment_util import (
     get_log_dir,
     get_output_dir,
     run_single_episode,
+    with_log_info_fn,
     wrap_rice_env,
 )
 from rice_jax import MRIOClubCBAM, MRIOMultiClub, MRIOSectoralClub
@@ -243,9 +243,9 @@ def _train(label, key, total_timesteps):
     print(f"  Training {label} — {long_name}  (RCPO λ auto-tune)")
     print(f"{'━' * 60}")
     t0 = time.perf_counter()
-    ppo = ppo.train(key, env)  # CRITICAL: keep the returned object
+    agent, metrics = ppo.train(key, env)  # CRITICAL: keep the returned agent
     print(f"  Done in {time.perf_counter() - t0:.0f}s")
-    return ppo, csv_path
+    return agent, csv_path
 
 
 # ── Evaluation ────────────────────────────────────────────────────────────────
@@ -258,7 +258,7 @@ def _per_region_arr(d):
 
 def _eval(label, key, raw_env, agent):
     """Return a dict of critical KPIs averaged over evaluation episodes."""
-    eval_env = replace(raw_env, log_info_fn=full_state_info_log_fn)
+    eval_env = with_log_info_fn(raw_env, full_state_info_log_fn)
 
     club_sizes, club_ambitions, mu_all, dirty_all, cost_all, welfare_all, temp_all = (
         [],

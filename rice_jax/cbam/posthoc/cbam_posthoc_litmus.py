@@ -881,11 +881,11 @@ def _collect_obs_from_agent(agent, env_builder_fn):
     Returns array of shape (T, obs_dim).
     """
     jax, jnp = _import_jax()
-    from dataclasses import replace as dc_replace
+    from _experiment_util import with_log_info_fn
     from rice_jax.utils import full_state_info_log_fn
 
     raw_env = env_builder_fn(for_training=False)
-    eval_env = dc_replace(raw_env, log_info_fn=full_state_info_log_fn)
+    eval_env = with_log_info_fn(raw_env, full_state_info_log_fn)
 
     key = jax.random.PRNGKey(999)
     obs_dict, env_state = eval_env.reset(key)
