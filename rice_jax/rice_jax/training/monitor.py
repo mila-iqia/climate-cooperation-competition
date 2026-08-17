@@ -175,10 +175,10 @@ def make_csv_log_fn(csv_path: str) -> Callable:
 
         cbam_lambda = data.get("cbam_lambda")
         if cbam_lambda is not None:
-            row["cbam_lambda"] = round(float(np.array(cbam_lambda)), 8)
+            row["cbam_lambda"] = round(float(np.asarray(cbam_lambda).mean()), 8)
         mean_cbam_cost = data.get("mean_cbam_cost")
         if mean_cbam_cost is not None:
-            row["mean_cbam_cost"] = round(float(np.array(mean_cbam_cost)), 8)
+            row["mean_cbam_cost"] = round(float(np.asarray(mean_cbam_cost).mean()), 8)
 
         mean_utility_step = data.get("mean_utility_step")
         if mean_utility_step is not None:
@@ -262,8 +262,8 @@ def make_print_log_fn(
 
         rcpo_str = ""
         if "cbam_lambda" in data:
-            lam = float(np.array(data["cbam_lambda"]))
-            cost = float(np.array(data.get("mean_cbam_cost", np.nan)))
+            lam = float(np.asarray(data["cbam_lambda"]).mean())
+            cost = float(np.asarray(data.get("mean_cbam_cost", np.nan)).mean())
             rcpo_str = f"  λ={lam:.6f} c̄={cost:.6f}"
 
         if act_mean.size > 0:

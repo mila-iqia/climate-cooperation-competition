@@ -26,6 +26,7 @@ class FixedActionAgent:
     """
 
     def __init__(self, env: Rice):
+        env = unwrap_rice_env(env)
         self.env = env
         self.state = 0  # Unused; kept for the FixedActionAgent get_action branch
 
@@ -102,6 +103,15 @@ def run_single_episode(
         length=env.episode_length,
     )
     return info_stack
+
+
+def unwrap_rice_env(env):
+    """Strip every wrapper and return the underlying Rice / RiceMRIO env."""
+    import jaxnasium as jym
+
+    while isinstance(env, jym.Wrapper):
+        env = env._env
+    return env
 
 
 def wrap_rice_env(env, *, for_training: bool = True):

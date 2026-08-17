@@ -958,22 +958,40 @@ def plot_response_scatter(regional, out_dir, timestamp):
     rnames = [REGION_NAMES[r] for r in CBAM_PLOT_REGIONS]
     nr = len(CBAM_PLOT_REGIONS)
 
-    # Compute seed-averaged diversion and crowd-out per region
     diversion = np.zeros(nr)
     crowd_out = np.zeros(nr)
-    count = 0
+    n_diversion = 0
+    n_crowd_out = 0
     for seed in seeds:
         reg_m1 = regional.get(seed, {}).get("m1", {})
         reg_m3 = regional.get(seed, {}).get("m3", {})
         reg_m4 = regional.get(seed, {}).get("m4", {})
         if "diversion" in reg_m1:
             diversion += reg_m1["diversion"]
+            n_diversion += 1
         if "mu" in reg_m3 and "mu" in reg_m4:
             crowd_out += reg_m3["mu"] - reg_m4["mu"]
-        count += 1
-    if count > 0:
-        diversion /= count
-        crowd_out /= count
+            n_crowd_out += 1
+
+    if n_diversion == 0 and n_crowd_out == 0:
+        print(
+            "  Response scatter → SKIPPED: needs mechanism tests m1/m3/m4, "
+            "none present in this run (re-run with --tests m1,m2,m3,m4,c1,c2,c3)"
+        )
+        return None
+    if n_diversion == 0 or n_crowd_out == 0:
+        missing = "m1 (diversion)" if n_diversion == 0 else "m3/m4 (crowd-out)"
+        print(f"  Response scatter → WARNING: {missing} absent; that axis is all zero")
+
+    if n_diversion > 0:
+        diversion /= n_diversion
+    if n_crowd_out > 0:
+        crowd_out /= n_crowd_out
+    if 0 < n_diversion < len(seeds) or 0 < n_crowd_out < len(seeds):
+        print(
+            f"  Response scatter → note: averaged over {n_diversion}/{len(seeds)} seeds "
+            f"(diversion) and {n_crowd_out}/{len(seeds)} seeds (crowd-out)"
+        )
 
     fig, ax = plt.subplots(figsize=(9, 7))
     ax.axhline(0, color="grey", lw=0.8, ls="--")

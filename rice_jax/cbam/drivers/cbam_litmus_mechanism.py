@@ -517,7 +517,12 @@ def run_n1(key):
     """
     import optax
 
-    from _experiment_util import FixedActionAgent, run_single_episode, with_log_info_fn
+    from _experiment_util import (
+        FixedActionAgent,
+        run_single_episode,
+        unwrap_rice_env,
+        with_log_info_fn,
+    )
 
     print("\n" + "=" * 55)
     print("  N1  Mechanical Tariff-Relief Null (no RL)")
@@ -534,7 +539,8 @@ def run_n1(key):
         for_training=False,
     )
 
-    eval_env = with_log_info_fn(raw_env, full_state_info_log_fn)
+
+    eval_env = with_log_info_fn(unwrap_rice_env(raw_env), full_state_info_log_fn)
 
     # Build two FixedActionAgents with different mitigation levels
     from rice_jax.utils import i_to_agent_str

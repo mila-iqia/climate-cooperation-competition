@@ -60,6 +60,7 @@ from _experiment_util import (
     with_log_info_fn,
     wrap_rice_env,
 )
+from cbam.config.canonical_config import CANONICAL_TRAIN_KWARGS
 from rice_jax import MRIOClubCBAM, MRIOMultiClub, MRIOSectoralClub
 from rice_jax.training import (
     RCPOMonitoredPPO,
@@ -179,25 +180,9 @@ _BASE_ENV = dict(
     # inside the club base class — do not override here.
 )
 
-_PPO_KWARGS = dict(
-    num_steps=NUM_STEPS,
-    num_envs=NUM_ENVS,
-    learning_rate_start=3e-4,
-    learning_rate_end=None,
-    num_minibatches=4,
-    num_epochs=8,
-    ent_coef_start=0.01,
-    ent_coef_end=None,
-    gamma=0.99,
-    gae_lambda=0.95,
-    max_grad_norm=1.0,
-    clip_coef=0.2,
-    clip_coef_vf=0.5,
-    vf_coef=0.5,
-    normalize_observations=True,
-    normalize_rewards=True,
-    log_interval=50,
-)
+_PPO_KWARGS = {
+    k: v for k, v in CANONICAL_TRAIN_KWARGS.items() if k != "total_timesteps"
+}
 
 
 # ── Build / train helpers ─────────────────────────────────────────────────────

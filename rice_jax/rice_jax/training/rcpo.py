@@ -60,16 +60,14 @@ class RCPOMonitoredPPO(LoggingPPO):
         }
         env_state = eqx.tree_at(lambda s: s.env_state, env_state, updated_inner)
 
-        # Metric enrichment for log callbacks; drop bulky per-step cost tensor
-        # (mean_cbam_cost is enough). actions/rewards stay until LoggingPPO
-        # summarizes them in train_iteration.
+        leading_shape = cbam_costs.shape[:2]
         info = {
             k: v
             for k, v in (trajectory_batch.info or {}).items()
             if k != "cbam_cost_all_regions"
         }
-        info["cbam_lambda"] = new_lambda
-        info["mean_cbam_cost"] = mean_cost
+        info["cbam_lambda"] = jnp.full(leading_shape, new_lambda)
+        info["mean_cbam_cost"] = jnp.full(leading_shape, mean_cost)
         trajectory_batch = replace(trajectory_batch, info=info)
 
         return (env_state, last_obs, rng), trajectory_batch

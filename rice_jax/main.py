@@ -15,6 +15,7 @@ from _experiment_util import (
     FixedActionAgent,
     load_agent,
     run_single_episode,
+    unwrap_rice_env,
     with_log_info_fn,
     wrap_rice_env,
 )
@@ -289,6 +290,7 @@ if __name__ == "__main__":
 
     elif args.agent == "fixed_action":
         logger.info("Using fixed action agent...")
+        env = unwrap_rice_env(env)
         agent = FixedActionAgent(env)
     elif args.agent == "ppo":
         logger.info("Using PPO agent...")
