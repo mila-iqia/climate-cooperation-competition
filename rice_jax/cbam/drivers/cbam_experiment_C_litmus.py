@@ -44,6 +44,9 @@ from cbam.config.canonical_config import (
     canonical_train_kwargs,
 )
 from cbam.config.registry import REGISTRY
+import jaxnasium as jym
+
+jym.enable_compilation_cache()
 
 matplotlib.use("Agg")
 _RICE_JAX_ROOT = Path(__file__).resolve().parents[2]

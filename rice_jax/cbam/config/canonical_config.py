@@ -200,25 +200,8 @@ _EXPERIMENT_LEVEL_OVERRIDES: frozenset[str] = frozenset(
 
 
 # ── Canonical PPO / training kwargs ────────────────────────────────────────
-
-# Learning-rate schedule (restored 2026-08-04).  jaxnasium 0.0.23 defaulted
-# `anneal_learning_rate=True`, so pre-restructure runs annealed 3e-4 -> 0; the
-# 0.1.0 port spelled that as `learning_rate_end=None`, which means CONSTANT
-# (Schedule.__call__ returns `start` when `end is None`).  Training therefore
-# never settled and the C-litmus tests sampled a still-moving policy, which is
-# where the seed-to-seed noise came from.  `learning_rate_end=0.0` restores the
-# anneal.
-#
-# On total_timesteps: 0.0.23 also computed the schedule's transition_steps as
-# num_iterations * num_epochs while the optimizer steps once per *minibatch*,
-# i.e. 4x too few, so optax clamped the LR to 0 after 20_000 updates — a
-# quarter of a 2M-step run.  500_000 steps here gives
-# 625 iters * 8 epochs * 4 minibatches = 20_000 optimizer steps, so the LR now
-# traverses 3e-4 -> 0 over exactly the same number of updates the old runs
-# learned over, without the 1.5M frozen-policy steps that followed.  (Not bit
-# identical: those extra steps still refined the observation normalizer.)
 CANONICAL_TRAIN_KWARGS: dict[str, Any] = dict(
-    total_timesteps=500_000,
+    total_timesteps=1_000_000,
     num_steps=100,
     num_envs=int(_os.environ.get("CBAM_NUM_ENVS", 8)),
     learning_rate_start=3e-4,
