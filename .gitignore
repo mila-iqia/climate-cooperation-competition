@@ -5,6 +5,10 @@
 /tmp
 /out-tsc
 
+.vscode/
+_dev*
+*.json
+
 data
 
 .github/
@@ -170,6 +174,8 @@ instance/
 # Scrapy stuff:
 .scrapy
 
+**.__pycache__
+
 # Sphinx documentation
 docs/_build/
 
@@ -235,7 +241,6 @@ Colab_Tutorial-Copy1.ipynb
 Draw_graphs.ipynb
 100_rounds.pkl
 *.pdf
-core
 .tmp
 Submissions/*
 .vscode/*

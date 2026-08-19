@@ -4,6 +4,39 @@
 
 This subfolder contains a high-performance implementation of the Rice-N climate-economy model based on Jax and JymKit.
 
+**Run everything from `rice_jax/`** (`cd rice_jax && uv run …`).
+
+### Layout & entrypoints
+
+```text
+rice_jax/
+├── main.py                    # Core RICE: train/eval PPO on Rice scenarios (3/7/20 regions)
+├── run_cbam_experiment.py     # CBAM: managed runs → cbam/experiment_results/<name>_<ts>/
+├── train_damage_parameter.py  # Demo: calibrate damage param xa_updated (base Rice, no PPO)
+│
+├── rice_jax/                  # Library (import only)
+│   ├── core/                  # Rice env + club scenarios (bid/limit trade)
+│   ├── mrio/                  # RiceMRIO + CBAM trade + club scenarios
+│   └── training/              # RCPOMonitoredPPO, log helpers
+│
+└── cbam/                      # CBAM paper experiments (scripts, not imported as package)
+    ├── config/                # canonical_config.py, metrics.py, registry.py
+    ├── drivers/               # Trainers — produce pkls + CSVs under a run folder
+    ├── posthoc/               # Scorecards — read pkls, no retraining
+    ├── scripts/               # Data prep (e.g. restore_mrio_bundle.py)
+    └── experiment_results/    # Timestamped run folders (gitignored)
+```
+
+| What you want | Command |
+|---------------|---------|
+| Quick core RICE train | `uv run python main.py -t 1000000` |
+| Quick CBAM smoke train | `uv run python cbam/drivers/run_canonical_train.py --timesteps 50000` |
+| Full CBAM experiment + logs | `uv run python run_cbam_experiment.py cbam/drivers/cbam_litmus_mechanism.py --depth train --timesteps 1_000_000` |
+| Train + post-hoc scorecard | add `--depth full` to the above |
+| Re-run post-hoc only | `uv run python run_cbam_experiment.py --posthoc-only cbam/experiment_results/<run_folder>` |
+
+Standalone drivers write to `plots/` and `training_logs/` by default; `run_cbam_experiment.py` redirects them into `cbam/experiment_results/<script>_<timestamp>/` via `CBAM_EXPERIMENT_DIR`. More detail: [`rice_jax/RICE_MRIO_README.md`](rice_jax/RICE_MRIO_README.md).
+
 ---
 
 ## 📦 Installation
@@ -32,7 +65,7 @@ for CUDA support, additionally run `pip install jax[cuda]`.
 
 ## 🚀 Usage
 
-The main entrypoint for an example run + logging is in [`rice_jax/main.py`](rice_jax/main.py).
+The main entrypoint for core RICE training is [`main.py`](main.py).
 
 ### Basic Training
 ```bash
@@ -63,7 +96,9 @@ Configuration is handled through command-line arguments using `tyro`. Key settin
 - `--env_settings.negotiation_on` - Enable negotiation between regions
 
 ### Training Settings  
-- `--trainer_settings.learning_rate` - Learning rate (default: 2.5e-4)
+- `--trainer_settings.learning_rate_start` - Initial learning rate (default: 2.5e-4)
+- `--trainer_settings.learning_rate_end` - Final LR if annealing; omit for constant LR
+- `--trainer_settings.ent_coef_start` / `ent_coef_end` - Entropy bonus schedule (default: 2.0 → 0.05)
 - `--trainer_settings.num_envs` - Number of parallel environments (default: 4)
 - `--trainer_settings.num_steps` - Steps per update (default: 100)
 

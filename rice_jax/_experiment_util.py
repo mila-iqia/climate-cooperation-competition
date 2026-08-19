@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 import cloudpickle
 import jax
 import optax
-from jaxnasium.algorithms import RLAlgorithm
+from jaxnasium.algorithms import RLAgent
 from jaxtyping import Array, PRNGKeyArray
 
 from rice_jax import Rice
@@ -26,8 +26,9 @@ class FixedActionAgent:
     """
 
     def __init__(self, env: Rice):
+        env = unwrap_rice_env(env)
         self.env = env
-        self.state = 0  # Unused, but makes it compatible with RLAlgorithms
+        self.state = 0  # Unused; kept for the FixedActionAgent get_action branch
 
         random_action = env.sample_action(jax.random.PRNGKey(0))
         random_action_one_agent = random_action[i_to_agent_str(0)]
@@ -45,7 +46,7 @@ class FixedActionAgent:
         return self.default_actions
 
 
-def save_agent(agent: RLAlgorithm | FixedActionAgent, config: "Config") -> None:
+def save_agent(agent: RLAgent | FixedActionAgent, config: "Config") -> None:
     SAVE_MODEL_PATH = "saved_models/"
     if not os.path.exists(SAVE_MODEL_PATH):
         os.makedirs(SAVE_MODEL_PATH)
@@ -60,14 +61,14 @@ def save_agent(agent: RLAlgorithm | FixedActionAgent, config: "Config") -> None:
     # agent.save(f"{SAVE_MODEL_PATH}{model_name}.eqx")
 
 
-def load_agent(path: str) -> RLAlgorithm | FixedActionAgent:
+def load_agent(path: str) -> RLAgent | FixedActionAgent:
     logger.info(f"loading model from {path}")
     with open(path, "rb") as f:
         return cloudpickle.load(f)
 
 
 def run_single_episode(
-    key: PRNGKeyArray, env: Rice, agent: RLAlgorithm | FixedActionAgent
+    key: PRNGKeyArray, env: Rice, agent: RLAgent | FixedActionAgent
 ) -> Array:
     """Play an episode in the environment using the agent.
     Returns the info dicts per step as a stacked dictionary.
@@ -85,7 +86,11 @@ def run_single_episode(
     def do_step(carry, _):
         key, obs, state = carry
         keys = jax.random.split(key, 3)
-        action = agent.get_action(keys[0], agent.state, obs)
+        action = (
+            agent.get_action(keys[0], obs)
+            if not isinstance(agent, FixedActionAgent)
+            else agent.get_action(keys[0], agent.state, obs)
+        )
         (obs, reward, _, _, info), state = env.step(keys[1], state, action)
         info = {k: v for k, v in info.items() if k not in log_exclude_keys}
         return (keys[2], obs, state), info
@@ -100,11 +105,60 @@ def run_single_episode(
     return info_stack
 
 
+def unwrap_rice_env(env):
+    """Strip every wrapper and return the underlying Rice / RiceMRIO env."""
+    import jaxnasium as jym
+
+    while isinstance(env, jym.Wrapper):
+        env = env._env
+    return env
+
+
+def wrap_rice_env(env, *, for_training: bool = True):
+    """Apply standard experiment wrappers around a Rice / RiceMRIO env.
+
+    Always stacks homogeneous discrete actions into ``MultiDiscrete`` (faster multi-agent PPO).
+    Optionally adds ``LogWrapper`` for training metrics.
+    Eval envs must use the same stack wrapper so the trained policy's action
+    space still matches.
+    """
+    import jaxnasium as jym
+
+    env = jym.StackActionSpaceWrapper(env)
+    if for_training:
+        env = jym.LogWrapper(env)
+    return env
+
+
+def with_log_info_fn(env, log_info_fn):
+    """Set ``log_info_fn`` on the base Rice env, preserving outer wrappers.
+
+    ``dataclasses.replace(env, log_info_fn=...)`` only works on the base
+    ``RiceMRIO``.  Canonical eval envs are wrapped in
+    ``StackActionSpaceWrapper`` (and training envs also in ``LogWrapper``),
+    so a top-level replace raises
+    ``unexpected keyword argument 'log_info_fn'``.
+    """
+    import equinox as eqx
+    from dataclasses import replace as dc_replace
+
+    names = getattr(env, "__dataclass_fields__", {})
+    if "log_info_fn" in names:
+        return dc_replace(env, log_info_fn=log_info_fn)
+    if "_env" in names:
+        return eqx.tree_at(
+            lambda e: e._env, env, with_log_info_fn(env._env, log_info_fn)
+        )
+    raise TypeError(
+        f"with_log_info_fn: no log_info_fn field under {type(env).__name__}"
+    )
+
+
 # ── Experiment directory helpers ─────────────────────────────────────────────
 #
 # Validation scripts call get_output_dir() / get_log_dir() instead of hard-
 # coding "plots" / "training_logs".  When the CBAM_EXPERIMENT_DIR env-var is
-# set (by run_experiment.py), outputs are redirected into the experiment
+# set (by run_cbam_experiment.py), outputs are redirected into the experiment
 # folder; otherwise the original flat directories are used unchanged so every
 # script still works standalone.
 
@@ -147,4 +201,3 @@ def save_run_config(config: dict) -> None:
     os.makedirs(base, exist_ok=True)
     with open(os.path.join(base, "config.json"), "w") as fh:
         json.dump(config, fh, indent=2, default=str)
-
