@@ -5,7 +5,7 @@ description = "A high-performance implementation of the Rice-N climate-economy m
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "jaxnasium[algs]>=0.1.0",
+    "jaxnasium[algs] @ git+https://github.com/ponseko/jaxnasium.git@v1",
     "jax[cuda13]",
     "matplotlib>=3.7.4",
     "optimistix>=0.1.0",
@@ -18,8 +18,6 @@ dependencies = [
     "distrax>=0.1.8",
 ]
 
-[tool.uv.sources]
-jaxnasium = { git = "https://github.com/ponseko/jaxnasium.git", branch = "v1" } 
 
 [build-system]
 requires = ["hatchling"]
@@ -28,6 +26,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build]
 include = ["rice_jax"]
 include-package-data = true
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["rice_jax"]
