@@ -50,6 +50,7 @@ from .loaders import (
     load_sector_shares,
 )
 
+
 class RiceMRIO(Rice):
     """
     Phase 1B + 2A: Rice with MRIO-based sectoral disaggregation and trade.

@@ -44,7 +44,7 @@ def solve_for_alpha(prev_alpha, a, tau, irf0, irC, irT, pert_carb_stock, tempera
     # solver = optx.Newton(rtol=1e-5, atol=1e-5)
     solver = optx.Bisection(rtol=1e-4, atol=1e-4)
     result = optx.root_find(
-        fn, solver, initial_guess, options=dict(lower=0.01, upper=100)
+        fn, solver, initial_guess, options={"lower": 0.01, "upper": 100}
     )
 
     # Extract and clip alpha to valid range
@@ -65,6 +65,7 @@ def load_region_yamls(num_regions: int, yaml_dir: str | None = None):
     else:
         region_dir = f"{yaml_file_directory}/{num_regions}_regions"
     files = [f for f in os.listdir(region_dir) if f.endswith(".yml")]
+
     def _numeric_key(fname: str):
         name = os.path.splitext(fname)[0]
         try:
@@ -82,14 +83,12 @@ def load_region_yamls(num_regions: int, yaml_dir: str | None = None):
     ximport_ = [region["ximport"] for region in region_yamls]
     # Sort by region id numerically (not lexicographically) to avoid misalignment
     ximport_ = [
-        dict(sorted(x.items(), key=lambda item: int(item[0])))
-        for x in ximport_
+        dict(sorted(x.items(), key=lambda item: int(item[0]))) for x in ximport_
     ]
     ximport_ = [list(x.values()) for x in ximport_]
 
     region_params = {
-        k: np.array([region[k] for region in region_yamls])
-        for k in region_yamls[0].keys()
+        k: np.array([region[k] for region in region_yamls]) for k in region_yamls[0]
     }
     region_params["ximport"] = np.array(ximport_)
 

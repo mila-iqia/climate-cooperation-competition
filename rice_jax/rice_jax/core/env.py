@@ -363,7 +363,7 @@ class Rice(jym.Environment):
                 num_discrete_actions = int(action_space.n)
                 return np.ones((num_discrete_actions,))
             else:
-                raise ValueError(f"Unknown action space: {action_space}")
+                raise TypeError(f"Unknown action space: {action_space}")
 
         # Allow each action as a base
         mask = jax.tree.map(allow_all_actions_in_action_space, self.action_space)
@@ -491,7 +491,6 @@ class Rice(jym.Environment):
         return self.log_info_fn(state, actions, rewards=rewards)
 
     def process_actions(self, actions: dict[str, Any], state: dict[str, chex.Array]):
-        """ """
 
         # First: actions arrive as {agent1: {action1: value, action2: value, ...}, agent2: ...}
         # We tranpose this to {action1: {agent1: value, agent2: value, ...}, action2: ...}
@@ -815,7 +814,7 @@ class Rice(jym.Environment):
         gross_outputs: chex.Array,
         gross_imports: chex.Array,
         net_imports: chex.Array,
-        welfare_loss_per_unit_tariff: float = None,
+        welfare_loss_per_unit_tariff: float | None = None,
         welfare_gain_per_unit_exported=None,
     ) -> chex.Array:
         if not self.apply_welfloss:

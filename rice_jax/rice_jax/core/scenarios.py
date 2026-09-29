@@ -3,15 +3,13 @@
 from typing import Any
 
 import chex
-import equinox as eqx
 import jax
 import jax.numpy as jnp
 import numpy as np
-import optax
 from jaxnasium import Discrete, MultiDiscrete
 
-from .env import Rice
 from ..utils import i_to_agent_str
+from .env import Rice
 
 
 class OptimalMitigation(Rice):
@@ -166,14 +164,16 @@ class MaxExportFixedSavings(MaxExport):
         # and 1. The actions coming in have already been divided by
         # ``num_discrete_action_levels`` so 0.2 is treated as the continuous rate.
         if "savings_rate" in actions:
-            actions["savings_rate"] = jnp.ones_like(actions["savings_rate"]) * self.fixed_savings_rate
+            actions["savings_rate"] = (
+                jnp.ones_like(actions["savings_rate"]) * self.fixed_savings_rate
+            )
         return actions
 
 
 class BasicClubTariffAmbition(Rice):
     @property
     def action_space(self):
-        N_REGIONS = self.num_regions
+        _N_REGIONS = self.num_regions
         N_DISCRETIZATION = self.num_discrete_action_levels
 
         action_space = super().action_space
@@ -187,7 +187,6 @@ class BasicClubTariffAmbition(Rice):
             action_space[agent_key]["proposal"] = Discrete(N_DISCRETIZATION)
 
         return action_space
-
 
     def step_propose(self, state: dict, actions: dict) -> dict:
         if not self.negotiation_on:
@@ -224,7 +223,7 @@ class BasicClubTariffAmbition(Rice):
         state.pop("promised_mitigation_rate")
         state.pop("requested_mitigation_rate")
 
-        state["proposals"] = jnp.zeros((self.num_regions))
+        state["proposals"] = jnp.zeros(self.num_regions)
 
         return state
 
@@ -343,11 +342,12 @@ class BasicClubTariffAmbition(Rice):
             action_mask[agent_str]["import_tariff"] = min_tariff_amount_per_region_mask
 
         return action_mask
-    
+
+
 class BasicClubTariffAmbitionFixedSavings(BasicClubTariffAmbition):
     """
     This scenario is identical to BasicClubTariffAmbition, but the savings
-    rate action is removed from the agent's action space and fixed to a 
+    rate action is removed from the agent's action space and fixed to a
     constant value of 0.2 for all regions.
     """
 
@@ -370,7 +370,9 @@ class BasicClubTariffAmbitionFixedSavings(BasicClubTariffAmbition):
     def process_actions(self, actions: dict, state: dict):
         # To call the overridden parent method, we must be explicit, as super()
         # does not work with a regular method if the class has property overrides.
-        processed_actions = BasicClubTariffAmbition.process_actions(self, actions, state)
+        processed_actions = BasicClubTariffAmbition.process_actions(
+            self, actions, state
+        )
 
         # Manually add the fixed savings rate to the processed actions dictionary.
         # This creates an array of shape (num_regions,) with the fixed value.
@@ -379,7 +381,7 @@ class BasicClubTariffAmbitionFixedSavings(BasicClubTariffAmbition):
         )
 
         return processed_actions
-    
+
     def generate_action_masks_base(self, state: dict[str, Any]) -> dict[str, Any]:
         """Should output the same structure as `self.action_space`
         1: Allowed action, 0: disallowed action
@@ -397,7 +399,7 @@ class BasicClubTariffAmbitionFixedSavings(BasicClubTariffAmbition):
                 num_discrete_actions = int(action_space.n)
                 return np.ones((num_discrete_actions,))
             else:
-                raise ValueError(f"Unknown action space: {action_space}")
+                raise TypeError(f"Unknown action space: {action_space}")
 
         # Allow each action as a base
         mask = jax.tree.map(allow_all_actions_in_action_space, self.action_space)
@@ -464,7 +466,7 @@ class BasicClubTariffAmbitionFixedSavings(BasicClubTariffAmbition):
                 )
 
         return mask
-    
+
     def generate_action_masks(self, state: dict) -> chex.Array:
         action_mask = self.generate_action_masks_base(state)  # get default
 
@@ -499,4 +501,3 @@ class BasicClubTariffAmbitionFixedSavings(BasicClubTariffAmbition):
             action_mask[agent_str]["import_tariff"] = min_tariff_amount_per_region_mask
 
         return action_mask
-

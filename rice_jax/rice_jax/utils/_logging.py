@@ -42,7 +42,7 @@ def actions_rewards_info_log_fn(state: dict, actions: dict, rewards, **kwargs) -
 def full_state_info_log_fn(state: dict, actions: dict, rewards=None, **kwargs) -> dict:
     info = copy(state)
 
-    keys = [key for key in info.keys()]
+    keys = [key for key in info]
     per_region_keys = [key for key in keys if key.endswith("_all_regions")]
     per_region_keys += ["aggregate_consumption"]
     trade_states = [
@@ -106,7 +106,7 @@ def log_episode_to_json(
     agent: Any,
     env: Any,
     episode_id: int = 0,
-    additional_metadata: dict[str, Any] = None,
+    additional_metadata: dict[str, Any] | None = None,
 ) -> str:
     """Logs episode data to a JSON file with agent and environment parameters.
 
@@ -333,7 +333,7 @@ def _create_combined_plot(
     num_cols = 2
 
     # Create figure with subplots
-    fig, axes = plt.subplots(
+    _fig, axes = plt.subplots(
         num_rows, num_cols, figsize=(figsize[0] * 2, figsize[1] * num_rows)
     )
 

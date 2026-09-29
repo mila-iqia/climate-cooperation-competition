@@ -2,15 +2,14 @@
 
 from typing import Any
 
-import chex
 import equinox as eqx
-import jax
 import jax.numpy as jnp
 import numpy as np
 from jaxnasium import Discrete, MultiDiscrete
 
-from .env import RiceMRIO
 from ..utils import i_to_agent_str
+from .env import RiceMRIO
+
 
 class _MRIOClubBase(RiceMRIO):
     """Base class for single-club MRIO negotiation scenarios.
@@ -202,7 +201,6 @@ class MRIOClubCBAM(_MRIOClubBase):
     base RiceMRIO single-EU differential CBAM (canonical null condition).
     """
 
-    pass
 
 
 class MRIOSectoralClub(_MRIOClubBase):

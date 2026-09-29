@@ -103,21 +103,21 @@ CANONICAL_SEEDS: tuple[int, ...] = (0, 1, 2)
 # Defaults for the env. Everything listed here is the canonical paper choice.
 # Anything in SENSITIVITY_PARAMS may be overridden via make_canonical_env(**overrides);
 # anything else is structural and may not be overridden.
-_CANONICAL_ENV_DEFAULTS: dict[str, Any] = dict(
+_CANONICAL_ENV_DEFAULTS: dict[str, Any] = {
     # Structural — paper-frozen
-    num_regions=NUM_REGIONS,
-    eu_region_idx=EU_REGION_IDX,
-    mrio_data_root=CANONICAL_MRIO_ROOT,
-    mrio_trade=True,
-    sector_granularity="emissions-simple",
-    num_discrete_action_levels=10,
-    diff_reward_mode=True,
-    sectoral_welfloss=True,
-    cbam_tariff_mode="differential",
+    "num_regions": NUM_REGIONS,
+    "eu_region_idx": EU_REGION_IDX,
+    "mrio_data_root": CANONICAL_MRIO_ROOT,
+    "mrio_trade": True,
+    "sector_granularity": "emissions-simple",
+    "num_discrete_action_levels": 10,
+    "diff_reward_mode": True,
+    "sectoral_welfloss": True,
+    "cbam_tariff_mode": "differential",
     # EU mitigation schedule: ramps 0.30→1.00 over 8 steps (EU Climate Law / net-zero
     # 2050 pathway). Ensures MAC_EU > 0 from t=0 so the differential tariff is
     # non-trivial. [EU Climate Law (EU) 2021/1119; IPCC AR6 mitigation scenarios]
-    eu_mitigation_schedule=(
+    "eu_mitigation_schedule": (
         0.30,
         0.38,
         0.46,
@@ -140,25 +140,25 @@ _CANONICAL_ENV_DEFAULTS: dict[str, Any] = dict(
         1.00,
     ),
     # Sensitivity-eligible — defaults are paper-primary
-    dest_alloc_persistence=0.55,
-    dest_alloc_baseline_decay=0.0,  # MUST stay 0.0 in headline runs (audit Gate 3)
-    welfare_loss_per_unit_tariff=5.0,
-    delta_max=3.0,
-    cbam_lambda_init=1.0,
+    "dest_alloc_persistence": 0.55,
+    "dest_alloc_baseline_decay": 0.0,  # MUST stay 0.0 in headline runs (audit Gate 3)
+    "welfare_loss_per_unit_tariff": 5.0,
+    "delta_max": 3.0,
+    "cbam_lambda_init": 1.0,
     # Action window: max discrete-level change per timestep for mitigation and
     # savings. 0 = unconstrained (smoothness enforced by transition_cost_coef).
     # Previously AW=2, but TC is strictly superior: economic penalty vs mechanical
     # mask. Validated via C-litmus 3/3 PASS at TC=10, AW=0, free savings (May 19).
-    action_window_size=0,
+    "action_window_size": 0,
     # Grubb et al. (1995) DIAM Eq. 2 transitional abatement cost.
     # Quadratic penalty on rate of mitigation change: TC = c_B × ((μ_t − μ_{t-1})/Δt)².
     # Replaces the mechanical action_window_size mask as the canonical smoothness
     # mechanism. Validated: C-litmus PASS 3/3 at TC=10, AW=0 (May 19 2026).
     # TC sweep (May 19) shows no degradation of conditioning gap at any TC∈[0,10].
-    transition_cost_coef=10.0,
+    "transition_cost_coef": 10.0,
     # RCPO additive reward — required for the canonical claim family
-    reward_mode="additive_cbam",
-)
+    "reward_mode": "additive_cbam",
+}
 
 # Parameters that experiments are allowed to override (for sensitivity studies).
 # Any kwarg passed to make_canonical_env() must be in this set OR be one of the
@@ -200,26 +200,26 @@ _EXPERIMENT_LEVEL_OVERRIDES: frozenset[str] = frozenset(
 
 
 # ── Canonical PPO / training kwargs ────────────────────────────────────────
-CANONICAL_TRAIN_KWARGS: dict[str, Any] = dict(
-    total_timesteps=1_000_000,
-    num_steps=100,
-    num_envs=int(_os.environ.get("CBAM_NUM_ENVS", 8)),
-    learning_rate_start=3e-4,
-    learning_rate_end=0.0,
-    num_minibatches=4,
-    num_epochs=8,
-    ent_coef_start=0.01,
-    ent_coef_end=None,
-    gamma=0.99,
-    gae_lambda=0.95,
-    max_grad_norm=1.0,
-    clip_coef=0.2,
-    clip_coef_vf=0.5,
-    vf_coef=0.5,
-    normalize_observations=True,
-    normalize_rewards=True,
-    log_interval=50,
-)
+CANONICAL_TRAIN_KWARGS: dict[str, Any] = {
+    "total_timesteps": 1_000_000,
+    "num_steps": 100,
+    "num_envs": int(_os.environ.get("CBAM_NUM_ENVS", "8")),
+    "learning_rate_start": 3e-4,
+    "learning_rate_end": 0.0,
+    "num_minibatches": 4,
+    "num_epochs": 8,
+    "ent_coef_start": 0.01,
+    "ent_coef_end": None,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "max_grad_norm": 1.0,
+    "clip_coef": 0.2,
+    "clip_coef_vf": 0.5,
+    "vf_coef": 0.5,
+    "normalize_observations": True,
+    "normalize_rewards": True,
+    "log_interval": 50,
+}
 
 # Evaluation defaults — same across all headline experiments so per-region
 # metrics are comparable.
@@ -287,20 +287,20 @@ def canonical_train_kwargs(**overrides: Any) -> dict[str, Any]:
 
 
 __all__ = [
-    "NUM_REGIONS",
-    "EU_REGION_IDX",
-    "ROW_REGION_IDX",
-    "REGION_NAMES",
-    "NON_EU_IDXS",
-    "NON_EU_EXPORTER_IDXS",
-    "CANONICAL_SEEDS",
-    "CANONICAL_YAML_DIR",
     "CANONICAL_MRIO_ROOT",
+    "CANONICAL_SEEDS",
     "CANONICAL_TRAIN_KWARGS",
-    "NUM_EVAL_EPISODES",
+    "CANONICAL_YAML_DIR",
+    "EU_REGION_IDX",
     "EVAL_LAST_T",
+    "NON_EU_EXPORTER_IDXS",
+    "NON_EU_IDXS",
+    "NUM_EVAL_EPISODES",
+    "NUM_REGIONS",
+    "REGION_NAMES",
+    "ROW_REGION_IDX",
     "SENSITIVITY_PARAMS",
-    "make_canonical_env",
     "canonical_env_kwargs",
     "canonical_train_kwargs",
+    "make_canonical_env",
 ]

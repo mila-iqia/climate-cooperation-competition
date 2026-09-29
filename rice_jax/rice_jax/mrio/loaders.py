@@ -7,6 +7,7 @@ import os
 import numpy as np
 import pandas as pd
 
+
 def load_sector_shares(
     mrio_aggregated_dir: str,
     num_regions: int,
@@ -86,9 +87,7 @@ def load_sector_shares(
 
     for rice_idx, mrio_label in enumerate(rice_to_mrio):
         if mrio_label in shares_df.index:
-            shares_array[rice_idx] = shares_df.loc[mrio_label].values.astype(
-                np.float32
-            )
+            shares_array[rice_idx] = shares_df.loc[mrio_label].values.astype(np.float32)
         else:
             # Fallback: uniform shares (should not normally occur)
             shares_array[rice_idx] = np.full(num_sectors, 1.0 / num_sectors)
@@ -99,6 +98,7 @@ def load_sector_shares(
 # ---------------------------------------------------------------------------
 # Phase 2A helpers: bilateral trade shares and emissions intensity
 # ---------------------------------------------------------------------------
+
 
 def _load_x_series(mrio_aggregated_dir: str) -> pd.Series:
     """Load total output as a (region, sector)-indexed Series."""
@@ -143,12 +143,12 @@ def load_bilateral_trade_shares(
 
     sectors = Z.index.get_level_values("sector").unique().tolist()
     num_sectors = len(sectors)
-    sec_idx = {s: i for i, s in enumerate(sectors)}
+    _sec_idx = {s: i for i, s in enumerate(sectors)}
 
     # Aggregate Z columns over destination sectors → (from_r, from_s) × to_r
     Z_to_r = Z.T.groupby(level="region").sum().T  # (from×sector, to_region)
     # Aggregate Y columns over demand categories → (from_r, from_s) × to_r
-    Y_to_r = Y.T.groupby(level=0).sum().T         # same shape
+    Y_to_r = Y.T.groupby(level=0).sum().T  # same shape
 
     T = Z_to_r.add(Y_to_r, fill_value=0.0)  # total bilateral trade (incl. domestic)
 
@@ -224,7 +224,9 @@ def load_emissions_intensity(
     intensity_series = co2_total / x_safe
 
     # Map to RICE regions
-    mrio_rows_available = set(intensity_series.index.get_level_values("region").unique())
+    mrio_rows_available = set(
+        intensity_series.index.get_level_values("region").unique()
+    )
     intensity = np.zeros((num_rice, num_sectors), dtype=np.float32)
     for r_idx, r_label in enumerate(rice_to_mrio):
         if r_label not in mrio_rows_available:
@@ -238,8 +240,6 @@ def load_emissions_intensity(
                 intensity[r_idx, s_i] = float(row.loc[s_name])
 
     return intensity
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -321,7 +321,7 @@ def _build_sector_groups(
 
 def _aggregate_sector_arrays(
     groups: list[tuple[str, list[int]]],
-    shares: np.ndarray,           # (NR, NS_old)
+    shares: np.ndarray,  # (NR, NS_old)
     total_export_frac: np.ndarray,  # (NR, NS_old)
     dest_alloc_baseline: np.ndarray | None,  # (NR, NS_old, NR) or None
     emissions_intensity: np.ndarray | None,  # (NR, NS_old) or None
@@ -389,18 +389,16 @@ def _aggregate_sector_arrays(
             # dab: (NR, NS_old, NR) → weighted avg over s_idx, result → (:, g_idx, :)
             dab_sub = dest_alloc_baseline[:, s_idx, :]  # (NR, n_s, NR)
             vol_exp = vol[:, :, np.newaxis]  # (NR, n_s, 1)
-            new_dab[:, g_idx, :] = (
-                (vol_exp * dab_sub).sum(axis=1) / safe_vol[:, np.newaxis]
-            )
+            new_dab[:, g_idx, :] = (vol_exp * dab_sub).sum(axis=1) / safe_vol[
+                :, np.newaxis
+            ]
 
         if emissions_intensity is not None:
-            new_int[:, g_idx] = (
-                (vol * emissions_intensity[:, s_idx]).sum(axis=1) / safe_vol
-            )
+            new_int[:, g_idx] = (vol * emissions_intensity[:, s_idx]).sum(
+                axis=1
+            ) / safe_vol
 
     return new_names, new_shares, new_tef, new_dab, new_int
 
 
 # ---------------------------------------------------------------------------
-
-
