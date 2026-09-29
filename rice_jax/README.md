@@ -84,7 +84,7 @@ Configuration is handled through command-line arguments using `tyro`. Key settin
 - **Agent Types**: `ppo` (default) or `fixed_action` for debugging
 
 ### Key Arguments
-- `-t, --total_timesteps` - Number of training timesteps (default: 1M)
+- `-t, --total_timesteps` - Number of training timesteps (default: 2M)
 - `--load_model` - Path to saved model for evaluation
 - `--agent` - Agent type: `ppo` (default) or `fixed_action` 
 - `--scenario` - Environment scenario: `default`, `optimal_mitigation`, or `basic_club`
@@ -98,8 +98,8 @@ Configuration is handled through command-line arguments using `tyro`. Key settin
 ### Training Settings  
 - `--trainer_settings.learning_rate_start` - Initial learning rate (default: 2.5e-4)
 - `--trainer_settings.learning_rate_end` - Final LR if annealing; omit for constant LR
-- `--trainer_settings.ent_coef_start` / `ent_coef_end` - Entropy bonus schedule (default: 2.0 → 0.05)
-- `--trainer_settings.num_envs` - Number of parallel environments (default: 4)
+- `--trainer_settings.ent_coef_start` / `ent_coef_end` - Entropy bonus schedule (default: constant 0.01; omit `ent_coef_end` for constant)
+- `--trainer_settings.num_envs` - Number of parallel environments (default: 16)
 - `--trainer_settings.num_steps` - Steps per update (default: 100)
 
 All settings can be overridden via command-line arguments. See usage the main file for exact parameters or run `python main.py --help` for all options.

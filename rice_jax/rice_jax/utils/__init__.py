@@ -11,4 +11,5 @@ from ._logging import (
     empty_info_log_fn as empty_info_log_fn,
     full_state_info_log_fn as full_state_info_log_fn,
     log_episode_to_json as log_episode_to_json,
+    save_training_metrics as save_training_metrics,
 )

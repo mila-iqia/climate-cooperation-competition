@@ -5,6 +5,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 import cloudpickle
+import equinox as eqx
 import jax
 import optax
 from jaxnasium.algorithms import RLAgent
@@ -67,6 +68,7 @@ def load_agent(path: str) -> RLAgent | FixedActionAgent:
         return cloudpickle.load(f)
 
 
+@eqx.filter_jit
 def run_single_episode(
     key: PRNGKeyArray, env: Rice, agent: RLAgent | FixedActionAgent
 ) -> Array:
@@ -139,8 +141,9 @@ def with_log_info_fn(env, log_info_fn):
     so a top-level replace raises
     ``unexpected keyword argument 'log_info_fn'``.
     """
-    import equinox as eqx
     from dataclasses import replace as dc_replace
+
+    import equinox as eqx
 
     names = getattr(env, "__dataclass_fields__", {})
     if "log_info_fn" in names:

@@ -23,7 +23,7 @@ env_settings:
   init_gamma: 0.99 # default discount factor, variable gamma can be returned from "generate_terminated_truncated_discount" function
 
 trainer_settings:
-  total_timesteps: 1000000
+  total_timesteps: 2000000
   learning_rate_start: 2.5e-4
   learning_rate_end: null
   gamma: 0.99
@@ -32,8 +32,8 @@ trainer_settings:
   clip_coef: 0.2
   clip_coef_vf: 0.5 # Depends on reward scaling. I.e. are rewards normalized?
   vf_coef: 0.5
-  ent_coef_start: 2.0
-  ent_coef_end: 0.05
+  ent_coef_start: 0.01
+  ent_coef_end: null
   num_steps: 100
   num_minibatches: 4
   num_epochs: 2

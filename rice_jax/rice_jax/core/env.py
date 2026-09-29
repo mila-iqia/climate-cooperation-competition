@@ -1253,15 +1253,25 @@ class Rice(jym.Environment):
         return {i_to_agent_str(i): actions for i in range(N_REGIONS)}
 
     @property
-    def observation_space(self) -> jym.Box:
+    def observation_space(self) -> dict[str, jym.AgentObservation]:
+        # We simply sample an obs to infer what it is and set the obs space based on that.
         obs, _ = self.reset(jax.random.PRNGKey(0))
-        single_agent_obs = obs[i_to_agent_str(0)].observation
-        return {
-            i_to_agent_str(i): jym.Box(
-                low=-9999,
-                high=9999,
-                shape=single_agent_obs.shape,
-                dtype=single_agent_obs.dtype,
+
+        def agent_space(agent_obs: jym.AgentObservation) -> jym.AgentObservation:
+            return jym.AgentObservation(
+                observation=jym.Box(
+                    low=-9999,
+                    high=9999,
+                    shape=agent_obs.observation.shape,
+                    dtype=agent_obs.observation.dtype,
+                ),
+                action_mask=jax.tree.map(
+                    lambda m: jym.Box(low=0, high=1, shape=m.shape, dtype=m.dtype),
+                    agent_obs.action_mask,
+                ),
             )
+
+        return {
+            i_to_agent_str(i): agent_space(obs[i_to_agent_str(i)])
             for i in range(self.num_regions)
         }

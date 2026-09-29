@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from typing import Annotated, Literal
 
 import jax
+import jaxnasium as jym
 import numpy as np
 import tyro
 import yaml
@@ -32,6 +33,7 @@ from rice_jax.utils import (  # noqa: F401
     full_state_info_log_fn,
     load_region_yamls,
     log_episode_to_json,
+    save_training_metrics,
 )
 
 logging.basicConfig(
@@ -79,7 +81,7 @@ class MRIOSettings:
 class EnvSettings:
     """The Rice environment settings."""
 
-    num_regions: Literal[3, 7, 20] = 7
+    num_regions: Literal[3, 7, 20] = 3
     diff_reward_mode: bool = True
     relative_reward_mode: bool = False
     num_discrete_action_levels: int = 10
@@ -108,11 +110,11 @@ class TrainerSettings:
 
     total_timesteps: Annotated[
         int, tyro.conf.arg(aliases=("-t", "--total_timesteps"))
-    ] = 1_000_000
+    ] = 2_000_000
     learning_rate_start: float = 2.5e-4
     learning_rate_end: float | None = None  # None = constant LR
-    ent_coef_start: float = 2.0
-    ent_coef_end: float | None = 0.05  # None = constant entropy coef
+    ent_coef_start: float = 0.01
+    ent_coef_end: float | None = None  # None = constant entropy coef
     gamma: float = 0.99
     gae_lambda: float = 0.95
     max_grad_norm: float = 1.0
@@ -122,7 +124,7 @@ class TrainerSettings:
     num_steps: int = 100
     num_minibatches: int = 4
     num_epochs: int = 4
-    num_envs: int = 4
+    num_envs: int = 16
     normalize_observations: bool = True
     normalize_rewards: bool = False
     log_function: str = "tqdm"
@@ -204,7 +206,7 @@ def _load_region_yamls_from_dir(directory: str) -> tuple:
     ]
     region_params = {
         k: np.array([r[k] for r in region_yamls])
-        for k in region_yamls[0].keys()
+        for k in region_yamls[0]
         if k != "ximport"
     }
     region_params["ximport"] = np.array(ximport_)
@@ -284,6 +286,10 @@ if __name__ == "__main__":
     env = build_rice_scenario(args)
     seed = jax.random.PRNGKey(args.seed)
 
+    NUM_EPISODES = 3
+    OUTPUT_DIR = "episode_logs"
+    PLOT_DIR = "plots"
+
     # Load or train an agent
     if args.load_model:
         agent = load_agent(args.load_model)
@@ -295,22 +301,24 @@ if __name__ == "__main__":
     elif args.agent == "ppo":
         logger.info("Using PPO agent...")
         agent = PPO(**trainer_settings_to_ppo_kwargs(args.trainer_settings))
-        agent, _metrics = agent.train(seed, env)
+        train_fn = jym.precompile(agent.train, seed, env)
+        agent, metrics = train_fn()
+        save_training_metrics(metrics, agent.trainer.batch_size, OUTPUT_DIR, PLOT_DIR)
 
         logger.info("Evaluating agent (only rewards)... ")
-        avg_reward = agent.evaluate(seed, env, num_eval_episodes=10)
+        eval_rewards = agent.evaluate(seed, env, num_eval_episodes=10)
+        avg_reward = {k: float(np.mean(v)) for k, v in eval_rewards.items()}
         logger.info(f"Average reward over 10 episodes: {avg_reward}")
 
-    NUM_EPISODES = 3
-    OUTPUT_DIR = "episode_logs"
     env = with_log_info_fn(env, full_state_info_log_fn)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     logger.info(
         f"Running {NUM_EPISODES} episodes to collect state logs per step. Logging to {OUTPUT_DIR}"
     )
 
-    for episode_id in range(NUM_EPISODES):
-        episode_logs = run_single_episode(seed, env, agent)
+    episode_keys = jax.random.split(jax.random.fold_in(seed, 1), NUM_EPISODES)
+    for episode_id, episode_key in enumerate(episode_keys):
+        episode_logs = run_single_episode(episode_key, env, agent)
 
         # Log episode to JSON file
         log_filepath = log_episode_to_json(
@@ -319,7 +327,8 @@ if __name__ == "__main__":
             agent=agent,
             env=env,
             episode_id=episode_id,
-            additional_metadata={"seed": int(seed[0])},  # Add seed for reproducibility
+            # Episode i uses key i of split(fold_in(PRNGKey(seed), 1), num_episodes)
+            additional_metadata={"seed": args.seed, "num_episodes": NUM_EPISODES},
         )
 
         logger.info(f"Episode {episode_id} logs saved to: {log_filepath}")
@@ -328,7 +337,7 @@ if __name__ == "__main__":
         # # Create plots with default parameters (now creates a single combined plot)
         plot_files = create_plots(
             json_log_path=log_filepath,
-            output_dir="plots",
+            output_dir=PLOT_DIR,
             parameter_keys=[
                 "global_temperature",  # Combined temperature plot
                 "production_all_regions",

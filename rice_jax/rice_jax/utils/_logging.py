@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import time
 from copy import copy
@@ -7,7 +8,10 @@ from typing import Any
 import equinox as eqx
 import jax
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib import gridspec
+
+logger = logging.getLogger(__name__)
 
 
 def empty_info_log_fn(*args, **kwargs) -> dict:
@@ -138,15 +142,19 @@ def log_episode_to_json(
     # Extract agent parameters
     agent_params = {}
     if hasattr(agent, "__dict__"):
-        # For PPO agents, extract relevant parameters
+        trainer = getattr(agent, "trainer", None) or agent
         agent_params = {
-            "agent_type": type(agent).__name__,
-            "learning_rate_start": getattr(agent, "learning_rate_start", None),
-            "ent_coef_start": getattr(agent, "ent_coef_start", None),
-            "batch_size": getattr(agent, "batch_size", None),
-            "num_epochs": getattr(agent, "num_epochs", None),
-            "clip_coef": getattr(agent, "clip_coef", None),
-            "vf_coef": getattr(agent, "vf_coef", None),
+            "agent_type": type(trainer).__name__,
+            "total_timesteps": getattr(trainer, "total_timesteps", None),
+            "num_envs": getattr(trainer, "num_envs", None),
+            "num_steps": getattr(trainer, "num_steps", None),
+            "learning_rate_start": getattr(trainer, "learning_rate_start", None),
+            "ent_coef_start": getattr(trainer, "ent_coef_start", None),
+            "ent_coef_end": getattr(trainer, "ent_coef_end", None),
+            "batch_size": getattr(trainer, "batch_size", None),
+            "num_epochs": getattr(trainer, "num_epochs", None),
+            "clip_coef": getattr(trainer, "clip_coef", None),
+            "vf_coef": getattr(trainer, "vf_coef", None),
         }
         # Remove None values
         agent_params = {k: v for k, v in agent_params.items() if v is not None}
@@ -485,9 +493,6 @@ def _create_combined_plot(
     return filepath
 
 
-import numpy as np
-
-
 def compute_consumption_breakdown(
     json_log_path: str,
     output_dir: str = "plots",
@@ -686,3 +691,59 @@ def compute_consumption_breakdown(
     plt.close()
 
     return filepath
+
+
+def save_training_metrics(
+    metrics: dict, batch_size: int, output_dir: str, plot_dir: str
+) -> str:
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    returns = {k: np.asarray(v, dtype=float) for k, v in metrics.items()}
+    num_iterations = len(next(iter(returns.values())))
+    env_steps = (np.arange(1, num_iterations + 1) * batch_size).tolist()
+
+    os.makedirs(output_dir, exist_ok=True)
+    json_path = os.path.join(output_dir, f"training_metrics_{timestamp}.json")
+    with open(json_path, "w") as f:
+        json.dump(
+            {
+                "env_steps": env_steps,
+                "mean_episode_return": {
+                    k: [None if np.isnan(x) else float(x) for x in v]
+                    for k, v in returns.items()
+                },
+            },
+            f,
+        )
+
+    # One small panel per region: return scales differ a lot between regions
+    ncols = min(len(returns), 4)
+    nrows = -(-len(returns) // ncols)
+    fig, axes = plt.subplots(
+        nrows, ncols, figsize=(4 * ncols, 3 * nrows), squeeze=False, sharex=True
+    )
+    window = max(1, num_iterations // 50)
+    steps_m = np.asarray(env_steps) / 1e6
+    for ax, (region, y) in zip(axes.flat, returns.items()):
+        ax.plot(steps_m, y, color="#2a78d6", lw=0.8, alpha=0.25)
+        if num_iterations >= window:
+            filled = np.nan_to_num(y, nan=np.nanmean(y))
+            smooth = np.convolve(filled, np.ones(window) / window, "valid")
+            ax.plot(steps_m[window - 1 :], smooth, color="#2a78d6", lw=2)
+        ax.set_title(region, fontsize=10)
+        ax.grid(axis="y", color="#e4e3dd")
+        ax.spines[["top", "right"]].set_visible(False)
+    for ax in axes.flat[len(returns) :]:
+        ax.set_visible(False)
+    for ax in axes[-1]:
+        ax.set_xlabel("env steps (M)")
+    for ax in axes[:, 0]:
+        ax.set_ylabel("mean episode return")
+    fig.suptitle(f"Training curves (moving average over {window} iterations)")
+    fig.tight_layout()
+    os.makedirs(plot_dir, exist_ok=True)
+    plot_path = os.path.join(plot_dir, f"training_curves_{timestamp}.png")
+    fig.savefig(plot_path, dpi=150)
+    plt.close(fig)
+
+    logger.info(f"Training metrics saved to: {json_path} (plot: {plot_path})")
+    return json_path
