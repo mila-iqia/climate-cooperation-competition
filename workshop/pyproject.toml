@@ -1,0 +1,24 @@
+[project]
+name = "workshop"
+version = "0.1.0"
+description = "Get started with extending RICE-JAX"
+readme = "README.md"
+authors = [
+    { name = "Koen Ponse", email = "k.ponse@liacs.leidenuniv.nl" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "rice-jax",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# Flat layout: the package lives in ./workshop instead of ./src/workshop
+module-root = ""
+
+[tool.uv.sources]
+# Locally installed
+rice-jax = { path = "../rice_jax", editable = true }
