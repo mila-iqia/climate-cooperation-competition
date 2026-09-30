@@ -240,6 +240,7 @@ def make_csv_log_fn(csv_path: str) -> Callable:
 def make_print_log_fn(
     action_labels: list[str] | None = None,
     num_iterations: int | None = None,
+    description: str = "Training",
 ) -> Callable:
     """Return a log-function that prints a compact summary to stdout."""
     tqdm_bar: list = []
@@ -283,7 +284,7 @@ def make_print_log_fn(
                 if not tqdm_bar:
                     tqdm_bar.append(
                         _tqdm_mod.tqdm(
-                            total=num_iterations, desc="Training", unit=" iters"
+                            total=num_iterations, desc=description, unit=" iters"
                         )
                     )
                 tqdm_bar[0].set_postfix_str(line)

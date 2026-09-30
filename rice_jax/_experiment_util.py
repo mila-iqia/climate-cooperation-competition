@@ -1,6 +1,24 @@
+import os
+
+
+def _load_cbam_dotenv() -> None:
+    """Populate os.environ from cbam/.env, without overriding already-set vars."""
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cbam", ".env")
+    if not os.path.isfile(env_path):
+        return
+    with open(env_path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+_load_cbam_dotenv()
+
 import json
 import logging
-import os
 import time
 from typing import TYPE_CHECKING, Any
 
