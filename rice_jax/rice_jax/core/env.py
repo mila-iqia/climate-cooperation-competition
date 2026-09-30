@@ -193,7 +193,7 @@ class Rice(jym.Environment):
             "export_limit_all_regions": self.region_params.xexport,
             "savings_all_regions": self.region_params.xsaving_0,
             # Negotiation states
-            "negotiation_stage": 0,
+            "negotiation_stage": 1 if self.negotiation_on else 0,  # next stage; 1 = propose
             "minimum_mitigation_rate_all_regions": jnp.zeros(self.num_regions),
             "promised_mitigation_rate": jnp.zeros((self.num_regions, self.num_regions)),
             "requested_mitigation_rate": jnp.zeros((self.num_regions, self.num_regions)),
@@ -223,6 +223,8 @@ class Rice(jym.Environment):
                     lambda: self.step_evaluate_proposals(state, actions),
                 ],
             )
+            # Observed by the agents: the stage they act in next
+            state["negotiation_stage"] = (state["current_timestep"] + 1) % 3
 
         obs_dict = self.generate_observation_and_action_mask(state)
         reward = self.generate_rewards(state, prev_state)  # proposal step rewards = 0
@@ -403,7 +405,7 @@ class Rice(jym.Environment):
                 agent_str = i_to_agent_str(agent_id)
                 # discrete action values equidistant between 0 and 1
                 levels = jnp.arange(self.num_discrete_action_levels) / (
-                    self.num_discrete_action_levels - 1
+                    self.num_discrete_action_levels
                 )
                 mask[agent_str]["export_limit"] = levels <= feasible_ratio[agent_id]
 
@@ -508,13 +510,13 @@ class Rice(jym.Environment):
             actions["import_tariff"] = optax.tree.zeros_like(actions["import_tariff"])
 
         # Div each action by the number of discrete action levels
-        # actions["proposal_decision"] is just 0 / 1, so gets special treatment here
-        if "proposal_decision" in actions:
-            _proposal_decisions = actions["proposal_decision"].copy()
+        # actions["proposal_decisions"] is just 0 / 1, so gets special treatment here
+        if "proposal_decisions" in actions:
+            _proposal_decisions = actions["proposal_decisions"].copy()
             actions = jax.tree.map(
                 lambda x: x / self.num_discrete_action_levels, actions
             )
-            actions["proposal_decision"] = _proposal_decisions
+            actions["proposal_decisions"] = _proposal_decisions
         else:
             actions = jax.tree.map(
                 lambda x: x / self.num_discrete_action_levels, actions
@@ -549,7 +551,7 @@ class Rice(jym.Environment):
             state, gross_imports, actions
         )
         welfloss_multipliers = self.calc_welfloss_multiplier(
-            state, gross_outputs, gross_imports, net_imports
+            state, gross_outputs, gross_imports, net_imports, actions["import_tariff"]
         )
         consumptions = self.calc_consumptions(
             gross_outputs, investments, gross_imports, net_imports
@@ -786,13 +788,17 @@ class Rice(jym.Environment):
 
         # NOTE: original contains some writeable bugfix and empties the bid to itself
         ## We instead deal with this in the action masking / process actions  function
-        total_import_bids = jnp.sum(import_bids_all_regions, axis=1) + 1e-8
-        potential_import_bids = jnp.where(
-            total_import_bids * gross_outputs > gross_outputs,
-            import_bids_all_regions / total_import_bids * gross_outputs,
-            import_bids_all_regions * gross_outputs,
+        total_import_bids = (
+            jnp.sum(import_bids_all_regions, axis=1, keepdims=True) + 1e-8
         )
-        potential_import_bids *= 1 + debt_ratios
+        importer_outputs = gross_outputs[:, None]
+        potential_import_bids = jnp.where(
+            total_import_bids * importer_outputs > importer_outputs,
+            import_bids_all_regions / total_import_bids * importer_outputs,
+            import_bids_all_regions * importer_outputs,
+        )
+        # Debt limits the indebted region's own imports (rows = importer)
+        potential_import_bids *= (1 + debt_ratios)[:, None]
 
         normalized_import_bids_all_regions = calc_normalized_import_bids(
             potential_import_bids
@@ -814,6 +820,7 @@ class Rice(jym.Environment):
         gross_outputs: chex.Array,
         gross_imports: chex.Array,
         net_imports: chex.Array,
+        import_tariffs: chex.Array,
         welfare_loss_per_unit_tariff: float | None = None,
         welfare_gain_per_unit_exported=None,
     ) -> chex.Array:
@@ -826,10 +833,8 @@ class Rice(jym.Environment):
             welfare_gain_per_unit_exported = 0.4
 
         welfloss = jnp.ones(self.num_regions) - (
-            (gross_imports.sum(axis=0) / gross_outputs)
-            * state["import_tariffs"].sum(
-                axis=0
-            )  # TODO: again, original used prev_state, here state is used
+            (gross_imports * import_tariffs).sum(axis=0)
+            / gross_outputs
             * welfare_loss_per_unit_tariff
         )
         if self.apply_welfgain:
@@ -862,10 +867,9 @@ class Rice(jym.Environment):
         )
 
         c_for_pref = jnp.sum(
-            preference_for_imported
-            * jnp.pow(
-                net_imports.sum(axis=1) + 1e-8, self.consumption_substitution_rate
-            )
+            preference_for_imported[None, :]
+            * jnp.pow(net_imports + 1e-8, self.consumption_substitution_rate),
+            axis=1,
         )
 
         consumptions = (c_dom_pref + c_for_pref) ** (
@@ -966,6 +970,7 @@ class Rice(jym.Environment):
 
         if self.carbon_model == "base":
             global_land_emissions = calc_land_emissions()
+            carbon_updates["global_land_emissions"] = global_land_emissions
             # (original) TODO: fix aux_m treatment
             aux_m_all_regions = (
                 state["intensity_all_regions"] * (1 - mitigation_rates) * productions
