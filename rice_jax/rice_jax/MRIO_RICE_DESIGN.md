@@ -1,15 +1,19 @@
-# Design: `_rice_mrio.py` — Phase 1B MRIO Integration
+# Design: `RiceMRIO` (`mrio/env.py`) — Phase 1B MRIO Integration
 
 ## Overview
 
-This document describes the approach for `_rice_mrio.py`, a subclass of the JAX
-`Rice` environment that introduces **disaggregated sector-level production** based
+This document describes the approach for `RiceMRIO`
+([`mrio/env.py`](mrio/env.py), formerly `_rice_mrio.py`), a subclass of the JAX
+`Rice` environment ([`core/env.py`](core/env.py), formerly `_rice.py`) that introduces **disaggregated sector-level production** based
 on EORA26 MRIO data, while **reaggregating back to a scalar per region** before
 any downstream economic calculations. The goal is to build and validate the MRIO
 scaffolding with zero behavioral change, so the full suite of RICE tests and rollouts
 remain identical to the baseline.
 
-This corresponds to **Phase 1B** in `DISAGGREGATED_RICE_DESIGN.md`.
+This corresponds to **Phase 1B** in
+[`DISAGGREGATED_RICE_DESIGN.md`](../../DISAGGREGATED_RICE_DESIGN.md) (repo root).
+For the as-built Phase 2A/2B environment (CBAM, trade, transfers) and how to run
+experiments, see [`RICE_MRIO_README.md`](RICE_MRIO_README.md).
 
 ---
 
@@ -35,7 +39,7 @@ transparent:
 $$y_{r,s} = \sigma_{r,s} \cdot Y_r, \quad \sigma_{r,s} = \frac{x_{r,s}^{\text{MRIO}}}{\sum_{s'} x_{r,s'}^{\text{MRIO}}}$$
 
    where $x_{r,s}^{\text{MRIO}}$ is the total sectoral output from the 2016 EORA26 table
-   (the latest downloaded year), aggregated to the matching region grouping (3/7/20).
+   (the latest downloaded year), aggregated to the matching region grouping (3/7/9/20).
 
 3. **Reaggregate** by summing sectors back to scalar:
 
@@ -53,18 +57,27 @@ stored in state but not read by any downstream method in Phase 1B.
 
 ### Source
 - EORA26, 2016 (latest year downloaded), basic prices
-- Aggregated using `csv_asset/aggregate_local_mrio.py` to match 3/7/20 region groupings
-- Output: `csv_asset/mrio/aggregated/eora_agg_{N}/Z.parquet`, `x.txt`, `Q_S.parquet`
+- Aggregated using [`csv_asset/aggregate_local_mrio.py`](../../csv_asset/aggregate_local_mrio.py)
+  (repo root) to match the 3/7/9/20 region groupings
+- Output: `csv_asset/mrio/aggregated/eora_agg_{N}/Z.parquet`, `Y.parquet`, `x.txt`, `Q_S.parquet`
+  (repo root; `csv_asset/mrio/` is gitignored)
+- The canonical 9-region tables (`eora_agg_9/` + `CountryClass_9.csv`) can be restored
+  from `csv_asset/rice_mrio_9region_bundle.zip` with
+  [`../cbam/scripts/restore_mrio_bundle.py`](../cbam/scripts/restore_mrio_bundle.py)
 
-### Files used by `_rice_mrio.py`
+### Files used by `RiceMRIO`
+Loaded in `RiceMRIO.__post_init__` via the helpers in [`mrio/loaders.py`](mrio/loaders.py),
+from `<mrio_data_root>/mrio/aggregated/eora_agg_{N}/`:
+
 | File | Content | Used for |
 |------|---------|----------|
 | `x.txt` | Total output per (region, sector) | Sector output shares $\sigma_{r,s}$ |
-| `Q_S.parquet` | Emissions satellite accounts per sector | Sector CO₂ intensities (stored, not yet used) |
-| `VA_S.parquet` | Value added per sector | Future TFP anchoring |
+| `Z.parquet`, `Y.parquet` | Intermediate / final-demand flows | Bilateral trade shares (Phase 2A) |
+| `Q_S.parquet` | Emissions satellite accounts per sector | Sector CO₂ intensities (Phase 2A CBAM) |
+| `VA_S.parquet` | Value added per sector | Future TFP anchoring (not loaded yet) |
 
 ### Region matching
-EORA regions in the aggregated tables use the `RI` labels from `CountryClass_N.csv`
+EORA regions in the aggregated tables use the `RI` labels from `csv_asset/CountryClass_N.csv`
 (e.g. `"Europe & Central Asia"` for the 7-region case). The mapping between RICE's
 integer region indices (0..N-1) and MRIO region labels is built at environment
 initialization from the same CSV, keyed on `RIG` (the integer group index).
@@ -72,6 +85,12 @@ initialization from the same CSV, keyed on `RIG` (the integer group index).
 ---
 
 ## Class Design
+
+> **Note:** the sketches below are the original Phase 1B design. The as-built
+> class in [`mrio/env.py`](mrio/env.py) is a frozen `eqx.Module` whose config is
+> passed as fields (`mrio_data_root`, `sector_granularity`, …) and loaded in
+> `__post_init__` rather than a custom `__init__`. See
+> [`RICE_MRIO_README.md`](RICE_MRIO_README.md) §4 for the current arguments.
 
 ```python
 class RiceMRIO(Rice):
@@ -228,22 +247,31 @@ To confirm Phase 1B introduces **zero numerical change**:
 
 4. **Downstream parity**: assert `gross_output`, `consumption`, `utility`, `global_temperature` are identical between `Rice` and `RiceMRIO`.
 
-These assertions go in a dedicated `test_rice_mrio.py` unit test file.
+These assertions live in [`../tests/test_rice_mrio.py`](../tests/test_rice_mrio.py)
+(`TestPhase1B`, alongside the Phase 2A tests).
 
 ---
 
 ## File Layout
 
 ```
-rice_jax/rice_jax/
-├── _rice.py              (unchanged)
-├── _rice_mrio.py         (new: Phase 1B)
-└── MRIO_RICE_DESIGN.md   (this file)
+rice_jax/                        (uv project root; run commands from here)
+├── rice_jax/                    (library package)
+│   ├── core/env.py              Rice (base env, formerly _rice.py)
+│   ├── mrio/env.py              RiceMRIO (formerly _rice_mrio.py)
+│   ├── mrio/loaders.py          MRIO table loaders
+│   ├── MRIO_RICE_DESIGN.md      (this file)
+│   └── RICE_MRIO_README.md      user guide for RiceMRIO / CBAM
+└── tests/test_rice_mrio.py      Phase 1B / 2A tests
 
-csv_asset/mrio/aggregated/
-├── eora_agg_3/
-├── eora_agg_7/
-└── eora_agg_20/
+csv_asset/                       (repo root)
+├── CountryClass_{N}.csv
+├── aggregate_local_mrio.py
+└── mrio/aggregated/             (gitignored)
+    ├── eora_agg_3/
+    ├── eora_agg_7/
+    ├── eora_agg_9/              canonical CBAM setup
+    └── eora_agg_20/
 ```
 
 ---

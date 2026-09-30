@@ -1,25 +1,39 @@
 import importlib.resources
 import logging
 import os
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Annotated, Literal
 
-import numpy as np
-import yaml
-
 import jax
 import jaxnasium as jym
+import numpy as np
 import tyro
+import yaml
 from jaxnasium.algorithms import PPO
 
-from _experiment_util import FixedActionAgent, load_agent, run_single_episode
-from rice_jax import BasicClub, OptimalMitigation, Rice, RiceMRIO, BasicClubTariffAmbition, BasicClubTariffAmbitionFixedSavings
+from _experiment_util import (
+    FixedActionAgent,
+    load_agent,
+    run_single_episode,
+    unwrap_rice_env,
+    with_log_info_fn,
+    wrap_rice_env,
+)
+from rice_jax import (
+    BasicClub,
+    BasicClubTariffAmbition,
+    BasicClubTariffAmbitionFixedSavings,
+    OptimalMitigation,
+    Rice,
+    RiceMRIO,
+)
 from rice_jax.utils import (  # noqa: F401
     create_plots,
     full_state_info_log_fn,
     load_region_yamls,
     log_episode_to_json,
+    save_training_metrics,
 )
 
 logging.basicConfig(
@@ -67,7 +81,7 @@ class MRIOSettings:
 class EnvSettings:
     """The Rice environment settings."""
 
-    num_regions: Literal[3, 7, 20] = 7
+    num_regions: Literal[3, 7, 20] = 3
     diff_reward_mode: bool = True
     relative_reward_mode: bool = False
     num_discrete_action_levels: int = 10
@@ -92,15 +106,15 @@ class EnvSettings:
 
 @dataclass
 class TrainerSettings:
-    """The settings for the PPO trainer to be used."""
+    """PPO trainer settings (jaxnasium 0.1 schedule API)."""
 
     total_timesteps: Annotated[
         int, tyro.conf.arg(aliases=("-t", "--total_timesteps"))
-    ] = 1000000
-    learning_rate: float = 2.5e-4
-    anneal_learning_rate: bool | float = False
-    ent_coef: float = 2.0
-    anneal_ent_coef: bool | float = 0.05  # anneal to 0.05 over traing
+    ] = 2_000_000
+    learning_rate_start: float = 2.5e-4
+    learning_rate_end: float | None = None  # None = constant LR
+    ent_coef_start: float = 0.01
+    ent_coef_end: float | None = None  # None = constant entropy coef
     gamma: float = 0.99
     gae_lambda: float = 0.95
     max_grad_norm: float = 1.0
@@ -110,10 +124,34 @@ class TrainerSettings:
     num_steps: int = 100
     num_minibatches: int = 4
     num_epochs: int = 4
-    num_envs: int = 4
+    num_envs: int = 16
     normalize_observations: bool = True
     normalize_rewards: bool = False
     log_function: str = "tqdm"
+
+
+def trainer_settings_to_ppo_kwargs(settings: TrainerSettings) -> dict:
+    """Map CLI trainer settings to jaxnasium 0.1 PPO constructor kwargs."""
+    return {
+        "total_timesteps": settings.total_timesteps,
+        "learning_rate_start": settings.learning_rate_start,
+        "learning_rate_end": settings.learning_rate_end,
+        "ent_coef_start": settings.ent_coef_start,
+        "ent_coef_end": settings.ent_coef_end,
+        "gamma": settings.gamma,
+        "gae_lambda": settings.gae_lambda,
+        "max_grad_norm": settings.max_grad_norm,
+        "clip_coef": settings.clip_coef,
+        "clip_coef_vf": settings.clip_coef_vf,
+        "vf_coef": settings.vf_coef,
+        "num_steps": settings.num_steps,
+        "num_minibatches": settings.num_minibatches,
+        "num_epochs": settings.num_epochs,
+        "num_envs": settings.num_envs,
+        "normalize_observations": settings.normalize_observations,
+        "normalize_rewards": settings.normalize_rewards,
+        "log_function": settings.log_function,
+    }
 
 
 @dataclass
@@ -168,13 +206,15 @@ def _load_region_yamls_from_dir(directory: str) -> tuple:
     ]
     region_params = {
         k: np.array([r[k] for r in region_yamls])
-        for k in region_yamls[0].keys()
+        for k in region_yamls[0]
         if k != "ximport"
     }
     region_params["ximport"] = np.array(ximport_)
 
     # Merge with default params (dice + rice constants) from the package default.yml
-    yaml_file_directory = importlib.resources.files("rice_jax").joinpath("./region_yamls/")
+    yaml_file_directory = importlib.resources.files("rice_jax").joinpath(
+        "./region_yamls/"
+    )
     with open(f"{yaml_file_directory}/default.yml") as f:
         default_doc = yaml.safe_load(f)
     dice_params = default_doc["_DICE_CONSTANT"]
@@ -190,7 +230,9 @@ def _load_region_yamls_from_dir(directory: str) -> tuple:
 
 def build_rice_scenario(config: Config) -> Rice:
     if config.region_yamls_dir is not None:
-        region_params, num_regions = _load_region_yamls_from_dir(config.region_yamls_dir)
+        region_params, num_regions = _load_region_yamls_from_dir(
+            config.region_yamls_dir
+        )
     elif config.scenario == "rice_mrio":
         num_regions = config.mrio_settings.num_regions
         region_params = load_region_yamls(num_regions)
@@ -214,11 +256,11 @@ def build_rice_scenario(config: Config) -> Rice:
     elif config.scenario == "basic_club_tariff_ambition_fixed_savings":
         env = BasicClubTariffAmbitionFixedSavings(**env_settings)
     elif config.scenario == "max_export":
-        from rice_jax._scenarios import MaxExport
+        from rice_jax.core.scenarios import MaxExport
 
         env = MaxExport(**env_settings)
     elif config.scenario == "max_export_fixed_savings":
-        from rice_jax._scenarios import MaxExportFixedSavings
+        from rice_jax.core.scenarios import MaxExportFixedSavings
 
         env = MaxExportFixedSavings(**env_settings)
     elif config.scenario == "rice_mrio":
@@ -234,7 +276,7 @@ def build_rice_scenario(config: Config) -> Rice:
     else:
         raise ValueError(f"Scenario {config.scenario} not recognized")
 
-    return jym.LogWrapper(env)
+    return wrap_rice_env(env, for_training=True)
 
 
 if __name__ == "__main__":
@@ -244,32 +286,39 @@ if __name__ == "__main__":
     env = build_rice_scenario(args)
     seed = jax.random.PRNGKey(args.seed)
 
+    NUM_EPISODES = 3
+    OUTPUT_DIR = "episode_logs"
+    PLOT_DIR = "plots"
+
     # Load or train an agent
     if args.load_model:
         agent = load_agent(args.load_model)
 
     elif args.agent == "fixed_action":
         logger.info("Using fixed action agent...")
+        env = unwrap_rice_env(env)
         agent = FixedActionAgent(env)
     elif args.agent == "ppo":
         logger.info("Using PPO agent...")
-        agent = PPO(**args.trainer_settings.__dict__)
-        agent = agent.train(seed, env)
+        agent = PPO(**trainer_settings_to_ppo_kwargs(args.trainer_settings))
+        train_fn = jym.precompile(agent.train, seed, env)
+        agent, metrics = train_fn()
+        save_training_metrics(metrics, agent.trainer.batch_size, OUTPUT_DIR, PLOT_DIR)
 
         logger.info("Evaluating agent (only rewards)... ")
-        avg_reward = agent.evaluate(seed, env, num_eval_episodes=10)
+        eval_rewards = agent.evaluate(seed, env, num_eval_episodes=10)
+        avg_reward = {k: float(np.mean(v)) for k, v in eval_rewards.items()}
         logger.info(f"Average reward over 10 episodes: {avg_reward}")
 
-    NUM_EPISODES = 3
-    OUTPUT_DIR = "episode_logs"
-    env = replace(env._env, log_info_fn=full_state_info_log_fn)
+    env = with_log_info_fn(env, full_state_info_log_fn)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     logger.info(
         f"Running {NUM_EPISODES} episodes to collect state logs per step. Logging to {OUTPUT_DIR}"
     )
 
-    for episode_id in range(NUM_EPISODES):
-        episode_logs = run_single_episode(seed, env, agent)
+    episode_keys = jax.random.split(jax.random.fold_in(seed, 1), NUM_EPISODES)
+    for episode_id, episode_key in enumerate(episode_keys):
+        episode_logs = run_single_episode(episode_key, env, agent)
 
         # Log episode to JSON file
         log_filepath = log_episode_to_json(
@@ -278,7 +327,8 @@ if __name__ == "__main__":
             agent=agent,
             env=env,
             episode_id=episode_id,
-            additional_metadata={"seed": int(seed[0])},  # Add seed for reproducibility
+            # Episode i uses key i of split(fold_in(PRNGKey(seed), 1), num_episodes)
+            additional_metadata={"seed": args.seed, "num_episodes": NUM_EPISODES},
         )
 
         logger.info(f"Episode {episode_id} logs saved to: {log_filepath}")
@@ -287,7 +337,7 @@ if __name__ == "__main__":
         # # Create plots with default parameters (now creates a single combined plot)
         plot_files = create_plots(
             json_log_path=log_filepath,
-            output_dir="plots",
+            output_dir=PLOT_DIR,
             parameter_keys=[
                 "global_temperature",  # Combined temperature plot
                 "production_all_regions",

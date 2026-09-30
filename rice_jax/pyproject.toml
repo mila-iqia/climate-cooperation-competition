@@ -1,18 +1,24 @@
 [project]
 name = "Rice_JAX"
-version = "0.1.1"
+version = "0.1.2"
 description = "A high-performance implementation of the Rice-N climate-economy model in JAX"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "jaxnasium[algs]>=0.0.23",
+    "jaxnasium[algs]>=0.1.0",
+    "jax[cuda13]; sys_platform == 'linux'",
+    "jax; sys_platform != 'linux'",
     "matplotlib>=3.7.4",
-    "optimistix>=0.0.10",
+    "optimistix>=0.1.0",
     "pyyaml>=6.0.2",
     "tqdm>=4.67.1",
     "wandb>=0.19.10",
-    "tyro"
+    "tyro",
+    "pandas>=3.0.5",
+    "pyarrow>=18.0.0",
+    "distrax>=0.1.8",
 ]
+
 
 [build-system]
 requires = ["hatchling"]
@@ -22,12 +28,22 @@ build-backend = "hatchling.build"
 include = ["rice_jax"]
 include-package-data = true
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["rice_jax"]
 package-data = {"rice_jax" = ["config_yamls/*.yaml", "config_yamls/*.yml", "region_yamls/**/*.yml", "region_yamls/**/*.yaml"]}
 
 [tool.ruff.lint]
 extend-select = ["I"]
+ignore = ["F722", "E731", "B008", "BLE001", "S110", "RUF009", "S112", "PERF102", "SIM115"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.15.22",
+]

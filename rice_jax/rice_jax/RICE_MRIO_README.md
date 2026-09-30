@@ -2,8 +2,8 @@
 
 A reference guide for researchers working on the AAAI CBAM submission.
 
-`RiceMRIO` ([`_rice_mrio.py`](_rice_mrio.py)) is a JAX/Equinox subclass of the base
-`Rice` environment ([`_rice.py`](_rice.py)) that adds **EORA26 multi-region
+`RiceMRIO` ([`mrio/env.py`](mrio/env.py)) is a JAX/Equinox subclass of the base
+`Rice` environment ([`core/env.py`](core/env.py)) that adds **EORA26 multi-region
 input–output (MRIO) trade structure** and a **Carbon Border Adjustment Mechanism
 (CBAM)** on top of the standard RICE climate–economy model. It is the
 single environment behind every CBAM experiment in this repo.
@@ -15,16 +15,18 @@ exporters, rather than diverting dirty exports away from the EU?
 > **Read these alongside this file**
 > - [`MRIO_RICE_DESIGN.md`](MRIO_RICE_DESIGN.md) — conceptual model, MRIO data, research motivation
 > - [`EXTENDING.md`](EXTENDING.md) — how the action/observation/state machinery works in this JymKit fork
-> - [`../notes/CBAM_ROADMAP.md`](../notes/CBAM_ROADMAP.md) — phase sequence, entry states, exit criteria
-> - `.github/instructions/rice-mrio-implementation.instructions.md` — patterns for adding new mechanisms
-> - `.github/instructions/cbam-experiment-workflow.instructions.md` — patterns for running experiments
+> - [`../README.md`](../README.md) — `rice_jax/` layout and entrypoints
+> - [`../../cbam_yamls/CBAM_DATA_PIPELINE.md`](../../cbam_yamls/CBAM_DATA_PIPELINE.md) — how the CBAM region yamls / CountryClass files are built
+>
+> All paths in this guide are relative to the `rice_jax/` project directory
+> (the one with `pyproject.toml`) unless stated otherwise; `../` is the repo root.
 
 ---
 
 ## Contents
 
 1. [Quick start](#1-quick-start)
-2. [Conda environment](#2-conda-environment)
+2. [Python environment](#2-python-environment)
 3. [Two phases: 1B vs 2A](#3-two-phases-1b-vs-2a)
 4. [All constructor arguments](#4-all-constructor-arguments)
 5. [String-valued options enumerated](#5-string-valued-options-enumerated)
@@ -51,7 +53,7 @@ it freezes the paper setup and refuses to let you silently change structural
 parameters (see [§11](#11-the-canonical-config-use-this)):
 
 ```python
-from validation.canonical_config import make_canonical_env
+from cbam.config.canonical_config import make_canonical_env
 
 env = make_canonical_env(for_training=False)          # paper-frozen 9-region setup
 env = make_canonical_env(for_training=False, revenue_share=1.0)   # one knob varied
@@ -63,8 +65,8 @@ For a **raw** construction (e.g. quick tests, non-canonical region counts):
 from rice_jax import RiceMRIO
 from rice_jax.utils import load_region_yamls
 
-YAML_DIR  = "../cbam_yamls/setup_vuln_9"     # relative to rice_jax/
-MRIO_ROOT = "../csv_asset"
+YAML_DIR  = "../cbam_yamls/setup_vuln_9"     # repo-root cbam_yamls/, relative to rice_jax/
+MRIO_ROOT = "../csv_asset"                   # repo-root csv_asset/, relative to rice_jax/
 
 rp = load_region_yamls(9, yaml_dir=YAML_DIR)  # -> SimpleNamespace of region params
 
@@ -93,21 +95,34 @@ env_rs1 = replace(env, revenue_share=1.0)
 
 ---
 
-## 2. Conda environment
+## 2. Python environment
 
-| Env | Python | Use for |
-|-----|--------|---------|
-| `rice-jax` | 3.11 | **all** JAX / jaxnasium / rice_jax work |
-| `gaia` | 3.14 | no JAX — do **not** use for training |
+The project is managed with [uv](https://docs.astral.sh/uv/) (`rice_jax/pyproject.toml`,
+`rice_jax/uv.lock`, Python ≥ 3.11):
 
 ```bash
 cd rice_jax
-conda activate rice-jax
-pip install -e .          # editable install (first time only)
+uv sync                   # creates .venv with an editable install (first time only)
+uv run python cbam/drivers/run_canonical_train.py --timesteps 50000   # smoke test
 ```
 
-Always run experiment scripts from the `rice_jax/` directory so the relative
-`../csv_asset` and `../cbam_yamls` paths resolve.
+Alternatively, `pip install -e .` into any Python ≥ 3.11 env (e.g. conda
+`rice-jax`). Do **not** use a non-JAX env (e.g. `gaia`) for training.
+
+The editable install puts `rice_jax/` on `sys.path`, which is what makes the
+top-level `cbam.*` and `_experiment_util` modules importable from the scripts.
+Run experiment scripts from the `rice_jax/` directory so relative paths like
+`../csv_asset`, `plots/` and `training_logs/` resolve. The canonical config
+builds absolute paths itself (`CANONICAL_YAML_DIR = <repo>/cbam_yamls/setup_vuln_9`,
+`CANONICAL_MRIO_ROOT = <repo>/csv_asset`, overridable via `CBAM_MRIO_ROOT`).
+
+**MRIO data.** `csv_asset/mrio/` is gitignored. Restore the canonical 9-region
+tables from the bundle before the first run:
+
+```bash
+uv run python cbam/scripts/restore_mrio_bundle.py \
+    --bundle ../csv_asset/rice_mrio_9region_bundle.zip --target-csv-asset ../csv_asset
+```
 
 ---
 
@@ -161,7 +176,7 @@ backward-compatible (mostly inert).
 
 | Arg | Type / default | Meaning |
 |-----|----------------|---------|
-| `mrio_data_root` | `str = "csv_asset"` | Path to the `csv_asset` dir holding `mrio/aggregated/eora_agg_{N}/` and `CountryClass_{N}.csv`. |
+| `mrio_data_root` | `str = "csv_asset"` | Path to the repo-root `csv_asset/` dir holding `mrio/aggregated/eora_agg_{N}/` and `CountryClass_{N}.csv`. The default is CWD-relative — from `rice_jax/` pass `"../csv_asset"` (the canonical config uses an absolute path). |
 | `sector_granularity` | `str = "full"` | How 26 EORA sectors are collapsed before building trade arrays. See [§5](#5-string-valued-options-enumerated). |
 
 > If the MRIO data directory is missing, `__post_init__` returns early so the env
@@ -286,11 +301,14 @@ All rules zero out the EU region after normalisation; EU never self-transfers.
 `eu_region_idx` defaults to `0`, which is **wrong** for every multi-region setup.
 Always pass it explicitly.
 
-| Setup | `num_regions` | `eu_region_idx` | yaml dir |
+| Setup | `num_regions` | `eu_region_idx` | yaml dir (repo root) |
 |-------|---------------|-----------------|----------|
-| 3-region | 3 | **1** | `cbam_yamls/setup_3` |
-| 7-region | 7 | **5** | `cbam_yamls/setup_7` |
-| **9-region (vulnerability, canonical)** | **9** | **3** | `cbam_yamls/setup_vuln_9` |
+| 3-region | 3 | **1** | `../cbam_yamls/setup_3` |
+| 7-region | 7 | **5** | `../cbam_yamls/setup_7` |
+| **9-region (vulnerability, canonical)** | **9** | **3** | `../cbam_yamls/setup_vuln_9` |
+
+Use the repo-root `cbam_yamls/`. The older copy under `rice_jax/rice_jax/cbam_yamls/`
+has no `setup_vuln_9`.
 
 ### 9-region "vulnerability" ordering
 
@@ -407,18 +425,18 @@ at the correct stage:
 
 ## 11. The canonical config (use this)
 
-[`validation/canonical_config.py`](../validation/canonical_config.py) is the
+[`cbam/config/canonical_config.py`](../cbam/config/canonical_config.py) is the
 **single source of truth** for the paper-primary setup. Headline experiments must
 import from it rather than redefining kwargs inline.
 
 ```python
-from validation.canonical_config import (
+from cbam.config.canonical_config import (
     make_canonical_env, CANONICAL_SEEDS, CANONICAL_TRAIN_KWARGS,
     EU_REGION_IDX, NON_EU_EXPORTER_IDXS, REGION_NAMES,
 )
 
-env = make_canonical_env()                              # training (LogWrapper-wrapped)
-env = make_canonical_env(for_training=False)            # raw env for eval
+env = make_canonical_env()                              # training (StackActionSpace + LogWrapper)
+env = make_canonical_env(for_training=False)            # eval (StackActionSpaceWrapper only)
 env = make_canonical_env(dest_alloc_persistence=0.30)   # sensitivity arm
 env = make_canonical_env(num_regions=7)                 # RAISES — structural param
 ```
@@ -450,33 +468,35 @@ seed set is not headline-comparable.
 
 ## 12. Training
 
-Use the monitored PPO subclasses in
-[`training_monitor.py`](../training_monitor.py):
+Use jaxnasium ``PPO`` with the log helpers in
+[`rice_jax/training/`](training/), or ``RCPOMonitoredPPO`` when
+training under the CBAM cost constraint:
 
-- **`MonitoredPPO`** — logs `action_mean`, `action_var`, `reward_mean`,
-  `reward_var`, `reward_sum`, plus the `ep_return_*` keys from `LogWrapper`.
-- **`RCPOMonitoredPPO`** — adds the RCPO λ update (Tessler et al. 2019) for the
-  CBAM cost constraint. Additionally logs `cbam_lambda`, `mean_cbam_cost`.
-  Requires `reward_mode="additive_cbam"` and `log_info_fn=rcpo_cbam_log_info_fn`
-  on the env. Hyperparams: `rcpo_eta_lambda` (default `5e-7`), `rcpo_alpha_target`
-  (default `0.01`).
+- **`PPO`** (jaxnasium) — stock trainer; per-step ``actions`` / ``rewards`` come
+  from ``log_info_fn``, and ``make_csv_log_fn`` / ``make_print_log_fn`` average
+  them. Episode returns come from ``LogWrapper``.
+- **`RCPOMonitoredPPO`** — PPO subclass with the RCPO λ update (Tessler et al.
+  2019) for the CBAM cost constraint. Additionally logs `cbam_lambda`,
+  `mean_cbam_cost`. Requires `reward_mode="additive_cbam"` and
+  `log_info_fn=rcpo_cbam_log_info_fn` on the env. Hyperparams:
+  `rcpo_eta_lambda` (default `5e-7`), `rcpo_alpha_target` (default `0.01`).
 
 ```python
 import jax
-from training_monitor import (
+from rice_jax.training import (
     RCPOMonitoredPPO, make_combined_log_fn, make_csv_log_fn,
     make_print_log_fn, rcpo_cbam_log_info_fn,
 )
-from validation.canonical_config import make_canonical_env, CANONICAL_TRAIN_KWARGS
+from cbam.config.canonical_config import make_canonical_env, CANONICAL_TRAIN_KWARGS
 
 env = make_canonical_env()   # already has log_info_fn=rcpo_cbam_log_info_fn
 
 ppo = RCPOMonitoredPPO(
     **CANONICAL_TRAIN_KWARGS,
-    log_fn=make_combined_log_fn([make_print_log_fn(),
-                                 make_csv_log_fn("training_logs/run.csv")]),
+    log_function=make_combined_log_fn(make_print_log_fn(),
+                                      make_csv_log_fn("training_logs/run.csv")),
 )
-ppo = ppo.train(jax.random.PRNGKey(0), env)   # CRITICAL: reassign — train() returns a NEW object
+agent, metrics = ppo.train(jax.random.PRNGKey(0), env)   # returns (PPOAgent, metrics)
 ```
 
 > `train()` returns a new PPO object. **Do not discard the return value** —
@@ -494,7 +514,8 @@ After training, roll out evaluation episodes and read `state["trade_flows"]`.
 
 ```python
 from _experiment_util import run_single_episode   # rice_jax/_experiment_util.py
-info = run_single_episode(key, env, agent)         # stacked per-step info dict
+eval_env = make_canonical_env(for_training=False)
+info = run_single_episode(key, eval_env, agent)    # stacked per-step info dict
 ```
 
 The **primary exit-criterion metric is EU dirty export share**:
@@ -507,7 +528,7 @@ eu_dirty_share = dirty_to_eu / (total_dirty + 1e-8)
 ```
 
 Frozen metric functions live in
-[`validation/metrics.py`](../validation/metrics.py) — experiment scripts must call
+[`cbam/config/metrics.py`](../cbam/config/metrics.py) — experiment scripts must call
 these rather than computing inline:
 
 | Function | Returns |
@@ -542,36 +563,36 @@ Run the script yourself from `rice_jax/`. Outputs land in the flat `plots/` and
 `training_logs/` directories.
 
 ```bash
-conda activate rice-jax
 cd rice_jax
-python validation/cbam_experiment_A_crowdout.py --timesteps 2000000 --seeds 0,1,2
+uv run python cbam/drivers/cbam_litmus_mechanism.py --timesteps 2000000 --seed 0
 ```
 
-### Option B — managed (`run_experiment.py`, self-contained folder) ← recommended
+### Option B — managed (`run_cbam_experiment.py`, self-contained folder) ← recommended
 
-[`run_experiment.py`](../run_experiment.py) wraps a script in a timestamped,
+[`run_cbam_experiment.py`](../run_cbam_experiment.py) wraps a script in a timestamped,
 self-contained experiment folder and can chain the matching post-hoc analysis.
 
 ```bash
 # train only:
-python run_experiment.py validation/cbam_experiment_A_crowdout.py \
+uv run python run_cbam_experiment.py cbam/drivers/cbam_litmus_mechanism.py \
     --depth train --timesteps 2000000
 
 # train + post-hoc scorecard:
-python run_experiment.py validation/cbam_experiment_A_crowdout.py \
+uv run python run_cbam_experiment.py cbam/drivers/cbam_litmus_mechanism.py \
     --depth full --timesteps 2000000 --save-agents
 
 # re-run only the post-hoc on an existing folder:
-python run_experiment.py --posthoc-only experiments/cbam_experiment_A_crowdout_20260515_120000
+uv run python run_cbam_experiment.py --posthoc-only cbam/experiment_results/cbam_litmus_mechanism_20260515_120000
 
 # resume after Ctrl-C (picks up the latest *_ckpt_*.pkl):
-python run_experiment.py --resume experiments/cbam_experiment_A_crowdout_20260515_120000
+uv run python run_cbam_experiment.py --resume cbam/experiment_results/cbam_litmus_mechanism_20260515_120000
 ```
 
-**Folder layout** created under `experiments/<script_stem>_<YYYYMMDD_HHMMSS>/`:
+**Folder layout** created under `rice_jax/cbam/experiment_results/<script_stem>_<YYYYMMDD_HHMMSS>/`
+(gitignored; override with `--experiments-dir`):
 
 ```
-experiments/cbam_experiment_A_crowdout_20260515_120000/
+cbam/experiment_results/cbam_litmus_mechanism_20260515_120000/
 ├── config.json      frozen args + metadata (script, seeds, timesteps, num_envs)
 ├── plots/           summary PNGs + results/checkpoint PKLs
 ├── logs/            training CSVs (one per condition/seed)
@@ -594,7 +615,7 @@ experiment script** (e.g. `--timesteps`, `--seeds`, experiment-specific knobs);
 use `--` to separate runner flags from script flags if they collide.
 
 **How redirection works:** the runner sets two environment variables the script
-reads via [`_experiment_util.py`](../_experiment_util.py):
+reads via [`_experiment_util.py`](../_experiment_util.py) (`rice_jax/_experiment_util.py`):
 - `CBAM_EXPERIMENT_DIR` → `get_output_dir()` returns `<run_dir>/plots`, `get_log_dir()` returns `<run_dir>/logs`.
 - `CBAM_NUM_ENVS` → number of parallel envs.
 
@@ -602,19 +623,23 @@ When unset (direct runs), those helpers fall back to flat `plots/` and `training
 
 ### Anatomy of an experiment script
 
-Every headline script follows the same skeleton so `run_experiment.py`, the
-registry, and the post-hocs can all consume it. **Copy an existing script** (e.g.
-`cbam_experiment_A_crowdout.py`) rather than starting from scratch.
+Every headline script follows the same skeleton so `run_cbam_experiment.py`, the
+registry, and the post-hocs can all consume it. **Copy an existing script** in
+`cbam/drivers/` (e.g. `cbam_litmus_mechanism.py`) rather than starting from scratch.
 
 ```python
+# cbam/drivers/<my_experiment>.py
 import matplotlib; matplotlib.use("Agg")           # 1. BEFORE any JAX import
-import os as _os, sys as _sys, pickle
-_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+import pickle, sys
+from pathlib import Path
+_RICE_JAX_ROOT = Path(__file__).resolve().parents[2]   # rice_jax/
+if str(_RICE_JAX_ROOT) not in sys.path:
+    sys.path.insert(0, str(_RICE_JAX_ROOT))
 
-from validation.canonical_config import make_canonical_env, CANONICAL_SEEDS, CANONICAL_TRAIN_KWARGS
-from validation.metrics import crowd_out_attenuation, seed_summary
+from cbam.config.canonical_config import make_canonical_env, CANONICAL_SEEDS, CANONICAL_TRAIN_KWARGS
+from cbam.config.metrics import crowd_out_attenuation, seed_summary
 from _experiment_util import get_output_dir, get_log_dir, run_single_episode
-from training_monitor import RCPOMonitoredPPO, make_csv_log_fn
+from rice_jax.training import RCPOMonitoredPPO, make_csv_log_fn
 
 OUTPUT_DIR = get_output_dir("plots")               # 2. honours CBAM_EXPERIMENT_DIR
 LOG_DIR    = get_log_dir("training_logs")
@@ -622,10 +647,10 @@ LOG_DIR    = get_log_dir("training_logs")
 def train_and_eval(cfg, seed):                     # 3. one cell = (condition, seed)
     env = make_canonical_env(**cfg)                #    vary ONLY whitelisted knobs
     ppo = RCPOMonitoredPPO(**CANONICAL_TRAIN_KWARGS,
-                           log_fn=make_csv_log_fn(f"{LOG_DIR}/..._{seed}.csv"))
-    ppo = ppo.train(key, env)                      #    reassign the return value!
-    raw = make_canonical_env(**cfg, for_training=False)
-    info = run_single_episode(eval_key, raw, ppo)  #    trained ppo is the agent
+                           log_function=make_csv_log_fn(f"{LOG_DIR}/..._{seed}.csv"))
+    agent, metrics = ppo.train(key, env)           #    returns (PPOAgent, metrics)
+    eval_env = make_canonical_env(**cfg, for_training=False)
+    info = run_single_episode(eval_key, eval_env, agent)
     return {...per-region arrays for ALL regions...}
 
 def main():
@@ -654,8 +679,7 @@ def main():
 - Store **all `num_regions` values** per metric in the bundle (not pre-excluded),
   so plots can be regenerated with different RoW/EU exclusions without retraining.
 - Write periodic `*_ckpt_*.pkl` checkpoints so long runs are `--resume`-able.
-- Add an `ExperimentEntry` to [`validation/registry.py`](../validation/registry.py)
-  and update [`../notes/CBAM_ROADMAP.md`](../notes/CBAM_ROADMAP.md).
+- Add an `ExperimentEntry` to [`cbam/config/registry.py`](../cbam/config/registry.py).
 
 ### Results (the PKL bundle)
 
@@ -670,7 +694,7 @@ The results PKL is the experiment's durable artifact. Convention:
 
 ### Post-hoc analysis
 
-Post-hoc scripts (`cbam_posthoc_*.py`) **read a results PKL and never retrain**.
+Post-hoc scripts (`cbam/posthoc/cbam_posthoc_*.py`) **read a results PKL and never retrain**.
 They emit a report-ready `scorecard.md` plus diagnostic PNGs into `posthoc/`.
 
 - **Layer 1** (no JAX, any 3.11+ env): pass/fail table, per-region decomposition,
@@ -679,86 +703,87 @@ They emit a report-ready `scorecard.md` plus diagnostic PNGs into `posthoc/`.
   first-layer weight norms, and counterfactual obs-perturbation (zero the CBAM
   obs dims and compare actions).
 
-`run_experiment.py --depth full` auto-routes each experiment to its post-hoc:
+`run_cbam_experiment.py --depth full` auto-routes each experiment (by script
+stem) to its post-hoc in `cbam/posthoc/`. Drivers marked † are **not in this
+branch** — only their post-hoc scripts and runner routing were ported:
 
 | Experiment script | Post-hoc script | Focus |
 |-------------------|-----------------|-------|
 | `cbam_litmus_mechanism`, `cbam_litmus_conditioning` | `cbam_posthoc_litmus.py` | Litmus scorecard + introspection |
-| `cbam_experiment_2b_tier1`, `cbam_experiment_2b_alloc` | `cbam_posthoc_2b.py` | Phase 2B scorecard + ranking |
-| `cbam_experiment_A_crowdout` | `cbam_posthoc_A_crowdout.py` | Crowd-out failure-mode diagnosis (H1–H5) |
+| `cbam_experiment_2b_tier1` †, `cbam_experiment_2b_alloc` † | `cbam_posthoc_2b.py` | Phase 2B scorecard + ranking |
+| `cbam_experiment_A_crowdout` † | `cbam_posthoc_A_crowdout.py` | Crowd-out failure-mode diagnosis (H1–H5) |
 | `cbam_experiment_C_litmus` | `cbam_posthoc_C_litmus.py` | Multi-seed pass-margin + regional Jacobian |
-| `cbam_experiment_C_amplifier` | `cbam_posthoc_C_amplifier.py` | Amplifier failure modes (FD1–FD8) |
+| `cbam_experiment_C_amplifier` † | `cbam_posthoc_C_amplifier.py` | Amplifier failure modes (FD1–FD8) |
 
 Run a post-hoc standalone (PKL-flag names vary: `--pkl` for A/C/amplifier;
 `--tier1-pkl`/`--alloc-pkl` for 2B; `--mech-pkl`/`--cond-pkl` for litmus):
 
 ```bash
-python validation/cbam_posthoc_A_crowdout.py \
-    --pkl experiments/cbam_experiment_A_crowdout_*/plots/cbam_A_crowdout_*.pkl \
-    --out-dir experiments/cbam_experiment_A_crowdout_*/posthoc
+uv run python cbam/posthoc/cbam_posthoc_C_litmus.py \
+    --pkl cbam/experiment_results/cbam_experiment_C_litmus_<ts>/plots/cbam_C_litmus_*.pkl \
+    --out-dir cbam/experiment_results/cbam_experiment_C_litmus_<ts>/posthoc
 ```
+
+Multi-seed sweeps run as independent single-seed jobs (e.g. on a cluster) are
+merged with `cbam/posthoc/cbam_merge_C_litmus.py --runs-root <sweep_root> [--posthoc]`,
+which writes a PKL with the same schema as a single multi-seed run.
 
 ---
 
 ## 15. Key validation & experiment scripts
 
-Run from `rice_jax/` in the `rice-jax` env. Outputs land in `plots/` and
+Run from `rice_jax/` (`uv run python …`). Outputs land in `plots/` and
 `training_logs/` (or under `CBAM_EXPERIMENT_DIR` if set).
 
-### Null tests & feature validators (`validate_*.py`)
-Each validates one mechanism, ideally with a `jnp.allclose` null condition.
-
-| Script | Validates |
-|--------|-----------|
-| `validate_emissions_simple.py` | CBAM vs no-CBAM under `emissions-simple` granularity |
-| `validate_sectoral_welfloss.py` | Selective dirty-sector diversion from `sectoral_welfloss` |
-| `validate_persistence.py` | AR(1) `dest_alloc_persistence` dynamics (perturb-then-relax, no training) |
-| `validate_trade_momentum.py` | CBAM × ρ grid effect on EU export share |
-| `validate_mitigation_incentive.py` | CBAM→mitigation channel (free vs costly abatement) |
-| `validate_rcpo_additive.py` | welfloss vs additive RCPO reward modes |
-| `validate_regional_damages.py` | Per-region damage coefficients (B≡A null, C differs) |
-| `validate_cbam_gradient.py` | CBAM gradient/incentive signals (V1–V6) |
-| `validate_training_conditions.py` | PPO config sweep for mid-episode share artefacts |
-| `validate_mrio_clubs.py` | Club scenarios end-to-end + null conditions |
-
-### Litmus & experiment drivers
+### Drivers (`cbam/drivers/`) — train and write results PKLs
 | Script | Purpose |
 |--------|---------|
-| `litmus_test.py` | Minimal single-channel litmus (3-region) |
-| `cbam_experiment_litmus_diff.py` | 9-region litmus with differential CBAM (L1–L4) |
-| `cbam_experiment_9.py` | Full 9-region CBAM experiment (E1–E4) |
-| `cbam_experiment_tau_modes.py` | Flat-τ sweep vs differential mode |
-| `cbam_experiment_2b_tier1.py` | Phase 2B fixed-fraction `revenue_share` ablation |
-| `cbam_experiment_2b_alloc.py` | Phase 2B allocation-rule comparison |
-| `cbam_experiment_A_crowdout.py` | Experiment A — crowd-out attenuation (pinned vs open) |
-| `cbam_experiment_C_litmus.py` | Multi-seed litmus freeze (M1–M4, C1–C3) |
-| `cbam_experiment_C_amplifier.py` | Transfer-pool amplifier sweep |
+| `run_canonical_train.py` | Minimal canonical 9-region RCPO training (`--timesteps`, `--seed`). Fastest smoke test. |
+| `cbam_litmus_mechanism.py` | Litmus Part I (M1–M4): mechanism identification — do diversion / mitigation channels exist? |
+| `cbam_litmus_conditioning.py` | Litmus Part II (C1–C3): does one policy condition on the CBAM signal in its obs? |
+| `cbam_experiment_C_litmus.py` | Multi-seed litmus freeze (M1–M4, C1–C3); reuses the two litmus drivers |
 | `cbam_experiment_2e_clubs.py` | Endogenous CBAM-club design comparison (B1–B3) |
-| `cbam_convergence_multiseed.py` | Multi-seed convergence (ctrl vs differential CBAM) |
-| `convergence_study.py` | 7-region convergence with `--cbam-rate`, `--plot-only <csv>` |
-| `smoke_test_9region.py` | Fast 9-region construction/shape smoke test |
+
+### Post-hoc & analysis (`cbam/posthoc/`)
+| Script | Purpose |
+|--------|---------|
+| `cbam_posthoc_litmus.py`, `cbam_posthoc_2b.py`, `cbam_posthoc_A_crowdout.py`, `cbam_posthoc_C_litmus.py`, `cbam_posthoc_C_amplifier.py` | Scorecards (see the routing table in [§14](#14-running-experiments-end-to-end)) |
+| `cbam_merge_C_litmus.py` | Merge per-seed Experiment C PKLs into one multi-seed bundle |
+| `convergence_study.py` | 9-region convergence study (`--cbam-mode none\|flat\|differential`, `--cbam-rate`, `--seeds`, `--plot-only <csv>`). Trains, despite living in `posthoc/`. |
+
+### Data prep (`cbam/scripts/`)
+| Script | Purpose |
+|--------|---------|
+| `restore_mrio_bundle.py` | Extract the 9-region MRIO bundle into `csv_asset/` (see [§2](#2-python-environment)) |
 
 ### Tests (`rice_jax/tests/`)
-`test_rice_mrio.py` (Phase 1B parity + Phase 2A), `test_mrio_clubs.py` (club scenarios).
-Run with `pytest` from `rice_jax/`.
+`test_rice_mrio.py` (Phase 1B parity, Phase 2A/2A+, regional damages) and
+`test_rice_base.py` (base `Rice` smoke tests). Run with `uv run pytest tests/`
+from `rice_jax/`. The MRIO tests need the restored 9-region data.
+
+> **Not on this branch:** the older `validate_*.py` null-test scripts,
+> `litmus_test.py`, `smoke_test_9region.py`, `cbam_convergence_multiseed.py`, and the
+> drivers `cbam_experiment_9`, `_tau_modes`, `_2b_tier1`, `_2b_alloc`, `_A_crowdout`,
+> `_C_amplifier` were not ported in the `cbam/` reorganisation.
 
 ---
 
 ## 16. Headline experiment registry
 
-[`validation/registry.py`](../validation/registry.py) is the paper's table of
+[`cbam/config/registry.py`](../cbam/config/registry.py) is the paper's table of
 contents — every headline experiment has an `ExperimentEntry` (question, claim
 bucket, primary metric, pass criterion, script, seeds, interpretation limits).
 Adding a headline experiment without a registry entry is a process violation.
 
-| ID | Claim bucket | Question (abridged) |
-|----|--------------|---------------------|
-| `A_crowd_out_redist` | policy-design | Does redistribution reduce mitigation lost to diversion? |
-| `B_tariff_ladder` | robustness | Does crowd-out survive across flat τ ∈ {0.05, 0.15, 0.30}? |
-| `C_litmus_multiseed` | mechanism | Which litmus conclusions (L1–L4) are seed-robust? |
-| `D_allocation_split` | policy-design | Which allocation rule wins on which objective? |
-| `E_amplifier` | policy-design | At what transfer multiplier does redistribution suppress diversion? |
-| `F_sensitivity_tier1/2` | robustness | Which params matter most; does the claim survive retraining? |
+Currently registered on this branch:
+
+| ID | Claim bucket | Script |
+|----|--------------|--------|
+| `C_litmus_multiseed` | mechanism | `cbam/drivers/cbam_experiment_C_litmus.py` |
+
+Planned (not yet registered/ported): `A_crowd_out_redist` (policy-design),
+`B_tariff_ladder` (robustness), `D_allocation_split` (policy-design),
+`E_amplifier` (policy-design), `F_sensitivity_tier1/2` (robustness).
 
 Claim buckets: `mechanism`, `conditioning`, `policy-design`, `robustness`.
 
@@ -766,7 +791,9 @@ Claim buckets: `mechanism`, `conditioning`, `policy-design`, `robustness`.
 
 ## 17. Data files
 
-Loaded at `__post_init__` from `mrio_data_root` (`csv_asset/`):
+Loaded at `__post_init__` (via [`mrio/loaders.py`](mrio/loaders.py)) from
+`mrio_data_root` (the repo-root `csv_asset/`; `csv_asset/mrio/` is gitignored, see
+[§2](#2-python-environment) for restoring it):
 
 | File | Used for |
 |------|----------|
@@ -776,11 +803,11 @@ Loaded at `__post_init__` from `mrio_data_root` (`csv_asset/`):
 | `CountryClass_{N}.csv` | RICE-index ↔ MRIO-region label mapping |
 
 Region economic yamls (loaded separately via `load_region_yamls`):
-`rice_jax/rice_jax/region_yamls/` (native 3/7/20) or `cbam_yamls/setup_*` (CBAM
-setups including the 9-region `setup_vuln_9`).
+[`region_yamls/`](region_yamls/) (packaged, native 3/7/20; used when `yaml_dir=None`) or
+the repo-root `cbam_yamls/setup_*` (CBAM setups including the 9-region `setup_vuln_9`).
 
 Source: EORA26, 2016, basic prices (Lenzen et al. 2013, *J. Industrial Ecology*).
-Aggregated with `csv_asset/aggregate_local_mrio.py`. See
+Aggregated with [`csv_asset/aggregate_local_mrio.py`](../../csv_asset/aggregate_local_mrio.py). See
 [`../../cbam_yamls/CBAM_DATA_PIPELINE.md`](../../cbam_yamls/CBAM_DATA_PIPELINE.md).
 
 ---
@@ -791,7 +818,7 @@ Aggregated with `csv_asset/aggregate_local_mrio.py`. See
    7-region→5, 9-region→3. ([§6](#6-region-indexing-the-1-footgun))
 2. **`dest_alloc_baseline_decay` must be `0.0` in headline runs.** Non-zero makes
    the 2016 anchor decay to nothing by mid-episode and fakes diversion.
-3. **`ppo = ppo.train(...)`** — `train()` returns a new object; reassign it.
+3. **`agent, metrics = ppo.train(...)`** — `train()` returns ``(PPOAgent, metrics)``; keep the agent for eval. Default metrics are per-iteration mean episode returns (learning curve).
 4. **`fixed_savings_rate=False` for headline runs** — fixing savings kills the C2
    conditioning result regardless of transition cost.
 5. **`replace`, never mutate.** `RiceMRIO` is a frozen pytree; use

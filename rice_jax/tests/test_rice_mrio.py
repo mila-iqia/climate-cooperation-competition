@@ -28,6 +28,12 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
+from cbam.config.canonical_config import (
+    CANONICAL_MRIO_ROOT,
+    CANONICAL_YAML_DIR,
+    EU_REGION_IDX,
+    NUM_REGIONS,
+)
 from rice_jax import Rice, RiceMRIO
 from rice_jax.utils import load_region_yamls
 
@@ -35,17 +41,12 @@ from rice_jax.utils import load_region_yamls
 # Shared fixtures
 # ---------------------------------------------------------------------------
 
-NUM_REGIONS = 7
-EU_REGION_IDX = 5   # Europe & Central Asia — NEVER 0 for 7-region
 SEED = 42
 
 # A minimal but representative experiment config used by all tests.
 _BASE_KWARGS = dict(
     num_regions=NUM_REGIONS,
-    mrio_data_root=os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "csv_asset",
-    ),
+    mrio_data_root=CANONICAL_MRIO_ROOT,
     mrio_trade=False,
     cbam_tariff_rate=0.0,
     cbam_randomize=False,
@@ -66,7 +67,7 @@ _MRIO_KWARGS = dict(_BASE_KWARGS, mrio_trade=True)
 
 @pytest.fixture(scope="module")
 def region_params():
-    return load_region_yamls(NUM_REGIONS)
+    return load_region_yamls(NUM_REGIONS, yaml_dir=CANONICAL_YAML_DIR)
 
 
 @pytest.fixture(scope="module")
