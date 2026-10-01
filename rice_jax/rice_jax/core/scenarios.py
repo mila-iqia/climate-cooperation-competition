@@ -3,6 +3,7 @@
 from typing import Any
 
 import chex
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -501,3 +502,167 @@ class BasicClubTariffAmbitionFixedSavings(BasicClubTariffAmbition):
             action_mask[agent_str]["import_tariff"] = min_tariff_amount_per_region_mask
 
         return action_mask
+
+
+# ─────────────────────────────── Themis mechanism ───────────────────────────
+# Rasmussen (2025) "The Themis Mechanism" concept note (Cambridge, 29 Jul 2025),
+# §1: members pay p × (per-capita emissions − member-average per-capita) ×
+# population; cost-neutral redistribution among members.
+# Deliberate simplifications vs the concept note: no 2-year reporting lag, no
+# retroactive back-payments on late accession, and the price follows an
+# exogenous schedule instead of a population-weighted median vote.
+
+
+def compute_themis_payments(
+    price: chex.Array,
+    emissions: chex.Array,
+    labor: chex.Array,
+    membership: chex.Array,
+) -> chex.Array:
+    """Per-region Themis payment in $T/step (positive = net recipient).
+
+    ``price`` $/tCO2e, ``emissions`` GtCO2e/step, ``labor`` millions (the
+    per-capita unit constant cancels, so labor serves directly as the
+    population weight). Payments sum to 0 over members by construction;
+    non-members pay/receive nothing.
+    """
+    member_pop = (membership * labor).sum()
+    avg_per_capita = (membership * emissions).sum() / jnp.maximum(member_pop, 1e-8)
+    excess = (emissions - avg_per_capita * labor) * membership  # GtCO2e
+    return -price * excess / 1000.0  # Gt × $/t = $bn → $T
+
+
+def resolve_themis_membership(env, actions: dict[str, Any]) -> chex.Array:
+    """Membership mask (NR,) per the env's themis_membership_mode."""
+    if env.themis_membership_mode == "all":
+        return jnp.ones(env.num_regions)
+    if env.themis_membership_mode == "fixed":
+        return jnp.asarray(env.themis_fixed_membership, dtype=jnp.float32)
+    # "action": per-step opt-in; process_actions scaled Discrete(2) by 1/L
+    return (actions["themis_join"] > 0).astype(jnp.float32)
+
+
+def apply_themis_settlement(
+    env,
+    pre_state: dict[str, Any],
+    new_state: dict[str, Any],
+    membership: chex.Array,
+    utility_state: dict[str, Any],
+) -> dict[str, Any]:
+    """Overlay Themis payments on a completed climate/economy step.
+
+    ``utility_state`` must carry the same labor the parent's own utility
+    computation used (pre-step state for Rice, post-step for RiceMRIO).
+    """
+    # Reconstruct this step's per-region production emissions — mirrors the
+    # aux_m term in Rice.calc_global_carbon_mass, which only stores the sum.
+    land_emissions = (
+        env.region_params.xE_L0
+        * jnp.power(
+            1 - env.region_params.xdelta_EL, new_state["activity_timestep"] - 1
+        )
+        / env.num_regions
+    )
+    emissions = (
+        pre_state["intensity_all_regions"]
+        * (1 - new_state["mitigation_rates_all_regions"])
+        * new_state["production_all_regions"]
+        + land_emissions
+    )
+
+    schedule = jnp.asarray(env.themis_price_schedule, dtype=jnp.float32)
+    price = schedule[
+        jnp.clip(new_state["activity_timestep"] - 1, 0, schedule.shape[0] - 1)
+    ]
+
+    labor = utility_state["labor_all_regions"]
+    payments = compute_themis_payments(price, emissions, labor, membership)
+
+    consumptions = jnp.maximum(new_state["aggregate_consumption"] + payments, 1e-8)
+    utilities = env.calc_utilities(utility_state, consumptions)
+
+    # Recover whatever multiplicative penalty the parent applied to utility
+    # (welfloss; identity under additive reward modes), guarding 0/0.
+    old_u = new_state["utility_all_regions"]
+    old_utw = new_state["utility_times_welfloss_all_regions"]
+    nonzero = jnp.abs(old_u) > 1e-12
+    welf_mult = jnp.where(nonzero, old_utw / jnp.where(nonzero, old_u, 1.0), 1.0)
+
+    new_state = new_state.copy()
+    new_state.update(
+        {
+            "aggregate_consumption": consumptions,
+            "utility_all_regions": utilities,
+            "utility_times_welfloss_all_regions": utilities * welf_mult,
+            "themis_membership_all_regions": membership,
+            "themis_payments_all_regions": payments,
+            "themis_emissions_all_regions": emissions,
+            "themis_price": price,
+        }
+    )
+    return new_state
+
+
+class ThemisRice(Rice):
+    """Rice with the Themis carbon-payment overlay (Rasmussen 2025).
+
+    Membership modes:
+      - "action" (default): per-step opt-in via a ``themis_join`` Discrete(2)
+        action; joining at step t settles at step t (emissions of all regions
+        are public information in the concept note).
+      - "fixed": static ``themis_fixed_membership`` mask.
+      - "all": universal membership.
+
+    ``themis_price_schedule`` is indexed by activity timestep ($/tCO2e);
+    the last value is held for the remainder of the episode. A schedule of
+    ``(0.0,)`` is the canonical null (payments identically zero).
+    """
+
+    themis_price_schedule: tuple = eqx.field(static=True, default=(0.0,))
+    themis_membership_mode: str = eqx.field(static=True, default="action")
+    themis_fixed_membership: tuple | None = eqx.field(static=True, default=None)
+
+    @property
+    def action_space(self) -> dict:
+        spaces = super().action_space
+        return {
+            agent: {**acts, "themis_join": Discrete(2)}
+            for agent, acts in spaces.items()
+        }
+
+    def _get_initial_state(self, key):
+        state = super()._get_initial_state(key)
+        state["themis_membership_all_regions"] = jnp.zeros(self.num_regions)
+        state["themis_payments_all_regions"] = jnp.zeros(self.num_regions)
+        state["themis_emissions_all_regions"] = jnp.zeros(self.num_regions)
+        state["themis_price"] = jnp.float32(self.themis_price_schedule[0])
+        return state
+
+    def step_climate_and_economy(self, state: dict[str, Any], actions: dict[str, Any]):
+        membership = resolve_themis_membership(self, actions)
+        new_state = super().step_climate_and_economy(state, actions)
+        # Parent's calc_utilities used pre-step labor → pass `state`.
+        return apply_themis_settlement(
+            self, state, new_state, membership, utility_state=state
+        )
+
+    def generate_observation(self, state: dict[str, Any]) -> dict[str, Any]:
+        obs = super().generate_observation(state)
+        for agent_id in range(self.num_regions):
+            agent = obs[i_to_agent_str(agent_id)]
+            agent["themis_membership"] = state["themis_membership_all_regions"]
+            agent["themis_price"] = state["themis_price"]
+            agent["own_themis_payment"] = state["themis_payments_all_regions"][
+                agent_id
+            ]
+        return obs
+
+    def generate_action_masks(self, state: dict[str, Any]) -> dict[str, Any]:
+        mask = super().generate_action_masks(state)
+        if self.themis_membership_mode != "action":
+            # join action is ignored in fixed/all modes; pin to level 0
+            for agent_id in range(self.num_regions):
+                mask[i_to_agent_str(agent_id)]["themis_join"] = np.array(
+                    [1.0, 0.0], dtype=np.float32
+                )
+        return mask

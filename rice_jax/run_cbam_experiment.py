@@ -97,6 +97,14 @@ _POSTHOC_E_AMPLIFIER = os.path.join(
     _SCRIPT_DIR, "cbam", "posthoc", "cbam_posthoc_C_amplifier.py"
 )
 
+# Scripts that emit a Themis-sweep pkl understood by cbam_posthoc_themis.py.
+_POSTHOC_THEMIS_SCRIPTS = {
+    "cbam_experiment_themis_sweep": "pkl",
+}
+_POSTHOC_THEMIS = os.path.join(
+    _SCRIPT_DIR, "cbam", "posthoc", "cbam_posthoc_themis.py"
+)
+
 # Union of all scripts that have posthoc support
 _POSTHOC_SCRIPTS = {
     **_POSTHOC_LITMUS_SCRIPTS,
@@ -104,6 +112,7 @@ _POSTHOC_SCRIPTS = {
     **_POSTHOC_A_SCRIPTS,
     **_POSTHOC_C_SCRIPTS,
     **_POSTHOC_E_AMPLIFIER_SCRIPTS,
+    **_POSTHOC_THEMIS_SCRIPTS,
 }
 
 
@@ -205,6 +214,12 @@ def _run_posthoc(dirs: dict, stem: str, save_agents: bool) -> int:
     elif stem in _POSTHOC_E_AMPLIFIER_SCRIPTS:
         cmd = [
             sys.executable, _POSTHOC_E_AMPLIFIER,
+            "--pkl", pkl_path,
+            "--out-dir", dirs["posthoc"],
+        ]
+    elif stem in _POSTHOC_THEMIS_SCRIPTS:
+        cmd = [
+            sys.executable, _POSTHOC_THEMIS,
             "--pkl", pkl_path,
             "--out-dir", dirs["posthoc"],
         ]

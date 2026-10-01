@@ -20,6 +20,27 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _load_cbam_dotenv() -> None:
+    """Load rice_jax/cbam/.env into os.environ (setdefault — shell wins).
+
+    Notably JAXNASIUM_MULTI_AGENT_BATCH_SIZE: the pinned jaxnasium v1 git ref
+    ZeroDivisionErrors in its multi-agent lax.map dispatch when unset.
+    """
+    dotenv = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cbam", ".env")
+    if not os.path.isfile(dotenv):
+        return
+    with open(dotenv) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip())
+
+
+_load_cbam_dotenv()
+
+
 class FixedActionAgent:
     """
     A debug agent that takes a fixed action for all regions.

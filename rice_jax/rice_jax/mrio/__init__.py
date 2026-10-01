@@ -3,4 +3,5 @@ from .scenarios import (
     MRIOClubCBAM as MRIOClubCBAM,
     MRIOMultiClub as MRIOMultiClub,
     MRIOSectoralClub as MRIOSectoralClub,
+    ThemisRiceMRIO as ThemisRiceMRIO,
 )

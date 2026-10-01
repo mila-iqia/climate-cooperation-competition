@@ -27,4 +27,15 @@ REGISTRY: dict[str, ExperimentEntry] = {
         script="cbam/drivers/cbam_experiment_C_litmus.py",
         seeds=(0, 1, 2),
     ),
+    "themis_price_sweep": ExperimentEntry(
+        experiment_id="themis_price_sweep",
+        question="Does a Themis carbon-payment price ladder raise mitigation "
+        "and who joins/pays at each price? (Rasmussen 2025 concept note)",
+        claim_bucket="mechanism",
+        primary_metric="mean non-EU mitigation rate vs price; membership rate",
+        pass_criterion="mean mu monotone non-decreasing in p; cost-neutrality "
+        "residual |sum payments| < 1e-4 $T at every price",
+        script="cbam/drivers/cbam_experiment_themis_sweep.py",
+        seeds=(42,),
+    ),
 }

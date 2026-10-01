@@ -6,4 +6,5 @@ from .scenarios import (
     MaxExport as MaxExport,
     MaxExportFixedSavings as MaxExportFixedSavings,
     OptimalMitigation as OptimalMitigation,
+    ThemisRice as ThemisRice,
 )

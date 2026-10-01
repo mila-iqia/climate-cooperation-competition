@@ -7,6 +7,10 @@ import jax.numpy as jnp
 import numpy as np
 from jaxnasium import Discrete, MultiDiscrete
 
+from ..core.scenarios import (
+    apply_themis_settlement,
+    resolve_themis_membership,
+)
 from ..utils import i_to_agent_str
 from .env import RiceMRIO
 
@@ -350,4 +354,67 @@ class MRIOMultiClub(_MRIOClubBase):
             astr = i_to_agent_str(agent_id)
             obs[astr]["club_id"] = state["club_id"].astype(jnp.float32)
         return obs
+
+
+class ThemisRiceMRIO(RiceMRIO):
+    """RiceMRIO with the Themis carbon-payment overlay (Rasmussen 2025).
+
+    Same mechanism as :class:`~rice_jax.core.scenarios.ThemisRice` (see there
+    for membership modes and units). Composable with CBAM channels; for a
+    pure Themis study run with ``cbam_tariff_rate=0`` / ``revenue_share=0``.
+    """
+
+    themis_price_schedule: tuple = eqx.field(static=True, default=(0.0,))
+    themis_membership_mode: str = eqx.field(static=True, default="action")
+    themis_fixed_membership: tuple | None = eqx.field(static=True, default=None)
+
+    @property
+    def action_space(self) -> dict:
+        spaces = super().action_space
+        return {
+            agent: {**acts, "themis_join": Discrete(2)}
+            for agent, acts in spaces.items()
+        }
+
+    def _get_initial_state(self, key):
+        state = super()._get_initial_state(key)
+        state["themis_membership_all_regions"] = jnp.zeros(self.num_regions)
+        state["themis_payments_all_regions"] = jnp.zeros(self.num_regions)
+        state["themis_emissions_all_regions"] = jnp.zeros(self.num_regions)
+        state["themis_price"] = jnp.float32(self.themis_price_schedule[0])
+        return state
+
+    def step_climate_and_economy(
+        self, state: dict[str, Any], actions: dict[str, Any]
+    ) -> dict[str, Any]:
+        membership = resolve_themis_membership(self, actions)
+        new_state = super().step_climate_and_economy(state, actions)
+        # RiceMRIO's own utility recompute used post-step labor → pass new_state.
+        return apply_themis_settlement(
+            self, state, new_state, membership, utility_state=new_state
+        )
+
+    def generate_observation(self, state: dict[str, Any]) -> dict[str, Any]:
+        obs = super().generate_observation(state)
+        for agent_id in range(self.num_regions):
+            agent = obs[i_to_agent_str(agent_id)]
+            agent["themis_membership"] = state["themis_membership_all_regions"]
+            agent["themis_price"] = state["themis_price"]
+            agent["own_themis_payment"] = state["themis_payments_all_regions"][
+                agent_id
+            ]
+        return obs
+
+    def generate_action_masks(self, state: dict[str, Any]) -> dict[str, Any]:
+        # The MRIO mask dict is built explicitly (not from action_space), so
+        # the themis_join entry must be added here for structural consistency.
+        mask = super().generate_action_masks(state)
+        join_mask = (
+            np.ones(2, dtype=np.float32)
+            if self.themis_membership_mode == "action"
+            else np.array([1.0, 0.0], dtype=np.float32)  # ignored → pin to 0
+        )
+        for agent_id in range(self.num_regions):
+            mask[i_to_agent_str(agent_id)]["themis_join"] = join_mask
+        return mask
     
